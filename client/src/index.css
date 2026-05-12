@@ -1,0 +1,191 @@
+@import "tailwindcss";
+
+/* ===== DESIGN SYSTEM: Light & Minimal (Inspired by Screenshot) ===== */
+@theme {
+  --color-dark-bg: #F8F8F8;
+  --color-dark-surface: #FFFFFF;
+  --color-dark-border: #EAEAEA;
+  --color-dark-border-hover: #D1D1D1;
+  --color-dark-border-focus: #111111;
+  --color-dark-hover: #F0F0F0;
+  --color-dark-elevated: #FFFFFF;
+  
+  --color-crimson: #111111; /* Replaced with black for minimal aesthetic */
+  --color-crimson-hover: #333333;
+  --color-crimson-glow: rgba(0, 0, 0, 0.1);
+  --color-crimson-muted: rgba(0, 0, 0, 0.05);
+  
+  --color-text-primary: #111111;
+  --color-text-muted: #666666;
+  --color-text-disabled: #A1A1AA;
+  
+  --color-success: #15803D;
+  --color-warning: #B45309;
+  --color-info: #1D4ED8;
+  --color-danger: #B91C1C;
+}
+
+/* ===== GLOBAL STYLES ===== */
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background-color: #F8F8F8;
+    color: #111111;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, .serif-heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 600;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #F8F8F8;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #D1D1D1;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #A1A1AA;
+  }
+
+  /* Selection */
+  ::selection {
+    background: rgba(0, 0, 0, 0.1);
+    color: #111111;
+  }
+}
+
+/* ===== COMPONENT UTILITIES ===== */
+@layer components {
+  .card {
+    background: #FFFFFF;
+    border-radius: 16px;
+    padding: 1.75rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    border: 1px solid #F0F0F0;
+  }
+
+  .card-stat {
+    background: #FFFFFF;
+    border-radius: 16px;
+    padding: 1.75rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    border: 1px solid #F0F0F0;
+  }
+
+  .input-field {
+    width: 100%;
+    background: #FFFFFF;
+    border: 1px solid #EAEAEA;
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    color: #111111;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+    outline: none;
+  }
+  .input-field:focus {
+    border-color: #111111;
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
+  }
+  .input-field::placeholder {
+    color: #888888;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: #111111;
+    color: #FFFFFF;
+    font-weight: 500;
+    border-radius: 24px;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.875rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary:hover {
+    background: #333333;
+    transform: scale(1.02);
+  }
+  .btn-primary:active {
+    transform: scale(0.97);
+  }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: transparent;
+    color: #111111;
+    font-weight: 500;
+    border: 1px solid #D1D1D1;
+    border-radius: 24px;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-ghost:hover {
+    border-color: #111111;
+    background: #FAFAFA;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .badge-success { background: rgba(21,128,61,0.1); color: #15803D; }
+  .badge-warning { background: rgba(180,83,9,0.1); color: #B45309; }
+  .badge-danger { background: rgba(185,28,28,0.1); color: #B91C1C; }
+  .badge-info { background: rgba(29,78,216,0.1); color: #1D4ED8; }
+
+  .table-row:hover {
+    background: #FAFAFA;
+  }
+
+  /* Skeleton shimmer */
+  .skeleton {
+    background: linear-gradient(90deg, #F0F0F0 25%, #FAFAFA 50%, #F0F0F0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: 6px;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+}
+
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');

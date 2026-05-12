@@ -1,0 +1,92 @@
+const mongoose = require('mongoose');
+
+const orderSchema = new mongoose.Schema({
+  orderNumber: {
+    type: String,
+    unique: true,
+  },
+  tableId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Table',
+  },
+  customerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  items: [{
+    menuItemId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'MenuItem',
+    },
+    name: String,
+    size: String,
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+    price: Number,
+    kitchenNote: String,
+  }],
+  subtotal: {
+    type: Number,
+    required: true,
+  },
+  gstAmount: {
+    type: Number,
+    default: 0,
+  },
+  totalAmount: {
+    type: Number,
+    required: true,
+  },
+  status: {
+    type: String,
+    enum: ['new', 'preparing', 'ready', 'delivered', 'cancelled'],
+    default: 'new',
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'paid', 'refunded'],
+    default: 'pending',
+  },
+  paymentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Payment',
+  },
+  cancelledBy: {
+    type: String,
+    enum: ['admin', 'manager'],
+  },
+  cancellationReason: String,
+  isRefunded: {
+    type: Boolean,
+    default: false,
+  },
+  refundedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  kotPrinted: {
+    type: Boolean,
+    default: false,
+  },
+}, {
+  timestamps: true,
+});
+
+// Auto-generate order number
+orderSchema.pre('save', async function (next) {
+  if (!this.orderNumber) {
+    const count = await mongoose.model('Order').countDocuments();
+    this.orderNumber = `ORD-${String(count + 1).padStart(4, '0')}`;
+  }
+  next();
+});
+
+orderSchema.index({ status: 1 });
+orderSchema.index({ tableId: 1 });
+orderSchema.index({ customerId: 1 });
+orderSchema.index({ createdAt: -1 });
+
+module.exports = mongoose.model('Order', orderSchema);
