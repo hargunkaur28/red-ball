@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_URL || '/api',
   withCredentials: true,
 });
 
@@ -23,7 +23,10 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && error.response?.data?.expired && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        const { data } = await axios.post('/api/auth/refresh', {}, { withCredentials: true });
+        const refreshURL = import.meta.env.VITE_API_URL 
+          ? `${import.meta.env.VITE_API_URL}/auth/refresh` 
+          : '/api/auth/refresh';
+        const { data } = await axios.post(refreshURL, {}, { withCredentials: true });
         localStorage.setItem('accessToken', data.accessToken);
         originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
         return api(originalRequest);
