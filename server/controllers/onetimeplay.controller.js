@@ -12,7 +12,7 @@ exports.getAll = async (req, res) => {
       start.setHours(0, 0, 0, 0);
       const end = new Date(date);
       end.setHours(23, 59, 59, 999);
-      filter.date = { $gte: start, $lte: end };
+      filter.createdAt = { $gte: start, $lte: end };
     }
 
     // Fetch the plays (recent 50 entries if no date filter is passed)
@@ -22,11 +22,10 @@ exports.getAll = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(50);
 
-    // Calculate today's total dynamically
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+    // Calculate today's total dynamically using UTC to avoid timezone issues
+    const now = new Date();
+    const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    const todayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
 
     const todayTotal = plays
       .filter(p => {
