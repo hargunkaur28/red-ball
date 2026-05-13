@@ -113,7 +113,7 @@ export default function FacilityRentals() {
                 <motion.div
                   key={facility.name}
                   variants={cardVariants}
-                  className="facility-card group relative h-[200px] rounded-xl overflow-hidden border border-white/[0.08] cursor-pointer"
+                  className="facility-card group relative h-[220px] rounded-xl overflow-hidden border border-white/[0.08] cursor-pointer bg-gradient-to-br from-[#1A1A1A] via-[#222222] to-[#2D1215]"
                   style={{ transition: 'transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease' }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'translateY(-8px)';
@@ -126,26 +126,30 @@ export default function FacilityRentals() {
                     e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
                   }}
                 >
+                  {/* Fallback pattern */}
+                  <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:20px_20px] pointer-events-none" />
+
                   {/* BG Image */}
                   <img
                     src={facility.image}
                     alt={facility.name}
                     loading="lazy"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
                     className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
                   />
                   {/* Dark overlay */}
-                  <div className="absolute inset-0 bg-black/40" />
+                  <div className="absolute inset-0 bg-black/60 sm:bg-black/40" />
 
                   {/* Icon top-left */}
                   <span className="absolute top-3 left-3 text-2xl z-10">{facility.icon}</span>
 
                   {/* Bottom content */}
-                  <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between z-10">
-                    <span className="text-white text-[22px]" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                  <div className="absolute bottom-3 left-3 right-3 flex flex-col sm:flex-row items-start sm:items-end justify-between gap-1.5 z-10">
+                    <span className="text-white text-lg sm:text-[22px] font-heading font-bold leading-tight">
                       {facility.name}
                     </span>
                     <span
-                      className="px-3 py-1 rounded-full bg-[#F5A623] text-[#0D0D0D] text-xs font-bold"
+                      className="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-[#F5A623] text-[#0D0D0D] text-[11px] sm:text-xs font-bold whitespace-nowrap shadow-sm self-start sm:self-auto"
                       style={{ fontFamily: "'DM Sans', sans-serif" }}
                     >
                       {facility.rate}

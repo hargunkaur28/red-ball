@@ -83,9 +83,9 @@ export default function MembershipPlans() {
             <motion.div
               key={plan.name}
               variants={cardVariants}
-              className={`rounded-2xl p-8 relative transition-all duration-300 ${
+              className={`rounded-2xl p-6 sm:p-8 relative transition-all duration-300 ${
                 plan.highlighted
-                  ? 'bg-gradient-to-br from-[#C8102E] to-[#8B0B1E] text-white scale-[1.05] shadow-2xl z-10'
+                  ? 'bg-gradient-to-br from-[#C8102E] to-[#8B0B1E] text-white md:scale-[1.05] shadow-2xl z-10'
                   : 'bg-white text-[#0D0D0D] border border-gray-200 hover:-translate-y-2 hover:shadow-[0_20px_50px_rgba(0,0,0,0.15)]'
               }`}
             >
@@ -98,21 +98,20 @@ export default function MembershipPlans() {
               )}
 
               {/* Plan name */}
-              <h3 className="text-[36px] mb-2" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+              <h3 className="text-2xl sm:text-3xl font-heading mb-2">
                 {plan.name}
               </h3>
 
               {/* Price */}
-              <div className="mb-1">
-                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '56px', lineHeight: 1 }}
-                      className={plan.highlighted ? 'text-white' : 'text-[#C8102E]'}>
+              <div className="mb-2 flex items-baseline flex-wrap gap-1">
+                <span className={`text-4xl sm:text-5xl md:text-6xl font-heading font-extrabold tracking-tight ${plan.highlighted ? 'text-white' : 'text-[#C8102E]'}`}>
                   ₹{plan.price}
                 </span>
-                <span className={`text-base ml-1 ${plan.highlighted ? 'text-white/70' : 'text-[#9CA3AF]'}`} style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                <span className={`text-sm sm:text-base font-medium ${plan.highlighted ? 'text-white/70' : 'text-[#9CA3AF]'}`} style={{ fontFamily: "'DM Sans', sans-serif" }}>
                   /month
                 </span>
               </div>
-              <p className={`text-sm mb-6 ${plan.highlighted ? 'text-white/60' : 'text-[#9CA3AF]'}`} style={{ fontFamily: "'DM Sans', sans-serif" }}>
+              <p className={`text-xs sm:text-sm mb-6 ${plan.highlighted ? 'text-white/60' : 'text-[#9CA3AF]'}`} style={{ fontFamily: "'DM Sans', sans-serif" }}>
                 {plan.billing}
               </p>
 
@@ -153,15 +152,15 @@ export default function MembershipPlans() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-6"
+          className="grid grid-cols-4 gap-2 md:gap-6"
         >
           {perks.map((perk) => (
-            <div key={perk.title} className="text-center p-6 rounded-xl bg-white border border-gray-100 shadow-sm">
-              <div className="text-[#C8102E] mb-3 flex justify-center">{perk.icon}</div>
-              <h4 className="font-bold text-[#0D0D0D] text-sm mb-1" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+            <div key={perk.title} className="text-center p-2.5 sm:p-4 md:p-6 rounded-xl bg-white border border-gray-100 shadow-sm flex flex-col items-center justify-start min-w-0">
+              <div className="text-[#C8102E] mb-1 md:mb-3 flex justify-center scale-90 sm:scale-100 shrink-0">{perk.icon}</div>
+              <h4 className="font-bold text-[#0D0D0D] text-[10px] sm:text-xs md:text-sm mb-1 line-clamp-2 md:line-clamp-1 leading-tight w-full" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                 {perk.title}
               </h4>
-              <p className="text-xs text-[#9CA3AF]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+              <p className="text-[9px] sm:text-xs text-[#9CA3AF] line-clamp-3 leading-tight w-full" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                 {perk.desc}
               </p>
             </div>

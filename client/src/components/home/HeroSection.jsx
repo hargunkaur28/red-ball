@@ -67,7 +67,7 @@ export default function HeroSection() {
       />
 
       {/* Hero Content */}
-      <div className="relative z-20 h-full flex items-center">
+      <div className="relative z-20 h-full flex items-center pt-24 md:pt-0">
         <div className="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 w-full">
           <div className="max-w-[700px]">
 

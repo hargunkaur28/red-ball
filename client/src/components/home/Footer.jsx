@@ -75,19 +75,19 @@ export default function Footer() {
             <p className="text-white text-sm md:text-base text-center md:text-left" style={{ fontFamily: "'DM Sans', sans-serif" }}>
               Subscribe for exclusive offers, membership perks & academy news!
             </p>
-            <form onSubmit={handleSubscribe} className="flex gap-2 w-full md:w-auto">
+            <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2.5 w-full md:w-auto">
               <input
                 type="email"
                 placeholder="Your email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="px-5 py-2.5 rounded-full bg-[#0D0D0D] border border-white/10 text-white text-sm placeholder-white/30 focus:border-[#F5A623] focus:outline-none flex-1 md:w-[260px]"
+                className="px-5 py-2.5 rounded-full bg-[#0D0D0D] border border-white/10 text-white text-sm placeholder-white/30 focus:border-[#F5A623] focus:outline-none w-full sm:w-auto sm:flex-1 md:w-[260px]"
                 style={{ fontFamily: "'DM Sans', sans-serif" }}
               />
               <button
                 type="submit"
                 disabled={subLoading}
-                className="px-6 py-2.5 rounded-full bg-[#F5A623] text-[#0D0D0D] font-bold text-sm transition-all duration-200 hover:bg-[#E09410] hover:scale-[1.03] disabled:opacity-50 whitespace-nowrap"
+                className="px-6 py-2.5 rounded-full bg-[#F5A623] text-[#0D0D0D] font-bold text-sm transition-all duration-200 hover:bg-[#E09410] hover:scale-[1.03] disabled:opacity-50 whitespace-nowrap w-full sm:w-auto shadow-md"
                 style={{ fontFamily: "'DM Sans', sans-serif" }}
               >
                 {subLoading ? '...' : 'Subscribe'}

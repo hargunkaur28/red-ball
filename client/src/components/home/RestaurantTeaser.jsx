@@ -314,13 +314,13 @@ export default function RestaurantTeaser() {
             )}
           </div>
 
-          {/* Premium Café Grid Layout */}
+          {/* Premium Café Grid Layout (Desktop & Tablet) */}
           <motion.div
             variants={containerVariants}
             initial="hidden"
             whileInView="show"
             viewport={{ once: true }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8"
+            className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8"
           >
             {featuredItems.map((item) => (
               <motion.div
@@ -329,10 +329,11 @@ export default function RestaurantTeaser() {
                 className="bg-[#161616] rounded-2xl overflow-hidden border border-white/5 hover:border-white/15 transition-all duration-300 shadow-xl hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] group flex flex-col justify-between"
               >
                 {/* Image layout container */}
-                <div className="relative h-56 overflow-hidden bg-black/40">
+                <div className="relative h-56 overflow-hidden bg-gradient-to-br from-[#161616] via-[#222222] to-[#2D1215]">
                   <img
                     src={item.image}
                     alt={item.name}
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                   />
 
@@ -398,6 +399,69 @@ export default function RestaurantTeaser() {
               </motion.div>
             ))}
           </motion.div>
+
+          {/* Continuous Infinite Marquee Ticker (Mobile Only) */}
+          <div className="md:hidden overflow-hidden w-full relative py-2">
+            <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[#0D0D0D] to-transparent z-10 pointer-events-none" />
+            <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#0D0D0D] to-transparent z-10 pointer-events-none" />
+            
+            <motion.div 
+              animate={{ x: [0, -1032] }}
+              transition={{ ease: "linear", duration: 30, repeat: Infinity }}
+              className="flex gap-6 w-max"
+            >
+              {[...featuredItems, ...featuredItems].map((item, index) => (
+                <div
+                  key={`${item.name}-${index}`}
+                  className="w-[300px] bg-[#161616] rounded-2xl overflow-hidden border border-white/5 shadow-xl shrink-0 flex flex-col justify-between"
+                >
+                  <div className="relative h-48 overflow-hidden bg-gradient-to-br from-[#161616] via-[#222222] to-[#2D1215]">
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#161616] via-transparent to-black/30" />
+                    <div className="absolute top-3 inset-x-3 flex items-start justify-between pointer-events-none">
+                      <span className="px-2.5 py-1 rounded-md bg-black/60 backdrop-blur-md text-white/90 font-body text-[10px] font-bold tracking-wide uppercase border border-white/10">
+                        {item.category}
+                      </span>
+                      {item.chefRecommended && (
+                        <span className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#F5A623] text-black font-body text-[10px] font-extrabold uppercase shadow-md">
+                          <Sparkles size={11} className="fill-black" /> Choice
+                        </span>
+                      )}
+                    </div>
+                    <div className="absolute bottom-3 right-3 px-3 py-1 bg-[#C8102E] text-white rounded-lg font-heading text-base font-bold shadow-lg">
+                      {item.price}
+                    </div>
+                  </div>
+
+                  <div className="p-5 flex flex-col justify-between grow">
+                    <div>
+                      <div className="text-[#F5A623] font-body text-[11px] font-bold mb-1 tracking-wide">
+                        ⚡ {item.tags}
+                      </div>
+                      <h4 className="text-lg font-heading text-white tracking-wide mb-2 line-clamp-1">
+                        {item.name}
+                      </h4>
+                      <p className="text-white/60 font-body text-xs line-clamp-2 leading-relaxed mb-4">
+                        {item.desc}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleQuickOrder(item.name)}
+                      className="w-full py-2 px-4 rounded-xl bg-white/5 text-white font-body text-[11px] font-bold uppercase tracking-wider border border-white/10 flex items-center justify-center gap-2"
+                    >
+                      <ShoppingBag size={13} />
+                      <span>Quick Try</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </motion.div>
+          </div>
         </div>
 
         {/* Global navigation CTA link */}

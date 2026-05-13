@@ -67,8 +67,9 @@ export default function ValuesMarquee() {
 
       {/* Part B — Community Pillars */}
       <div className="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 py-20 md:py-28">
+        {/* Community Pillars Grid (Desktop & Tablet) */}
         <motion.div
-          className="grid grid-cols-1 md:grid-cols-3 gap-8"
+          className="hidden md:grid md:grid-cols-3 gap-8"
           variants={containerVariants}
           initial="hidden"
           whileInView="show"
@@ -81,11 +82,12 @@ export default function ValuesMarquee() {
               className="pillar group"
             >
               {/* Image */}
-              <div className="pillar-image-wrapper overflow-hidden rounded-xl mb-6 h-[260px]">
+              <div className="pillar-image-wrapper overflow-hidden rounded-xl mb-6 h-[260px] bg-gradient-to-br from-[#1A1A1A] to-[#2D1215]">
                 <img
                   src={pillar.image}
                   alt={pillar.heading}
                   loading="lazy"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
                   className="w-full h-full object-cover transition-transform duration-[550ms] ease-out group-hover:scale-[1.07]"
                 />
               </div>
@@ -106,6 +108,49 @@ export default function ValuesMarquee() {
             </motion.div>
           ))}
         </motion.div>
+
+        {/* Continuous Infinite Marquee Ticker (Mobile Only) */}
+        <div className="md:hidden overflow-hidden w-full relative py-2">
+          <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[#0D0D0D] to-transparent z-10 pointer-events-none" />
+          <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#0D0D0D] to-transparent z-10 pointer-events-none" />
+          
+          <motion.div 
+            animate={{ x: [0, -1032] }}
+            transition={{ ease: "linear", duration: 25, repeat: Infinity }}
+            className="flex gap-6 w-max"
+          >
+            {[...pillars, ...pillars, ...pillars].map((pillar, index) => (
+              <div
+                key={`${pillar.heading}-${index}`}
+                className="w-[280px] bg-[#161616] p-4 rounded-2xl border border-white/5 shadow-xl shrink-0 flex flex-col justify-between"
+              >
+                <div className="overflow-hidden rounded-xl mb-4 h-[180px] bg-gradient-to-br from-[#1A1A1A] to-[#2D1215]">
+                  <img
+                    src={pillar.image}
+                    alt={pillar.heading}
+                    loading="lazy"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+
+                <h3
+                  className="text-white text-3xl leading-[1] mb-2"
+                  style={{ fontFamily: "'Bebas Neue', sans-serif" }}
+                >
+                  {pillar.heading}
+                </h3>
+
+                <p
+                  className="text-[#9CA3AF] text-xs leading-relaxed line-clamp-3"
+                  style={{ fontFamily: "'DM Sans', sans-serif" }}
+                >
+                  {pillar.text}
+                </p>
+              </div>
+            ))}
+          </motion.div>
+        </div>
       </div>
     </section>
   );
