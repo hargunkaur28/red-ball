@@ -5,12 +5,15 @@ import { LayoutDashboard, GraduationCap, CreditCard, Activity, IndianRupee, Uten
 import useAuthStore from '../../store/authStore';
 import useUIStore from '../../store/uiStore';
 import { getInitials } from '../../lib/utils';
+import { useQueryClient } from '@tanstack/react-query';
+import socket from '../../lib/socket';
 import ErrorBoundary from '../shared/ErrorBoundary';
 
 const menuItems = [
   { path: '/admin', label: 'Dashboard', icon: <LayoutDashboard size={18} />, end: true },
   { path: '/admin/admissions', label: 'Admissions', icon: <GraduationCap size={18} /> },
-  { path: '/admin/memberships', label: 'Memberships', icon: <CreditCard size={18} /> },
+  { path: '/admin/memberships', label: 'Student Memberships', icon: <CreditCard size={18} /> },
+  { path: '/admin/plans', label: 'Membership Plans', icon: <Activity size={18} /> },
   { path: '/admin/one-time-play', label: 'One-Time Play', icon: <Activity size={18} /> },
   { path: '/admin/payments', label: 'Payments & GST', icon: <IndianRupee size={18} /> },
   { path: '/admin/restaurant', label: 'Restaurant', icon: <Utensils size={18} /> },
@@ -37,6 +40,25 @@ export default function AdminLayout() {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  const qc = useQueryClient();
+  useEffect(() => {
+    const onRefresh = () => {
+      console.log('🔄 Socket: Refreshing dashboard queries');
+      qc.invalidateQueries({ queryKey: ['admissions'] });
+      qc.invalidateQueries({ queryKey: ['analytics'] });
+      qc.invalidateQueries({ queryKey: ['payments'] });
+    };
+    socket.on('dashboard:refresh', onRefresh);
+    socket.on('payment:success', onRefresh);
+    socket.on('admission:new', onRefresh);
+    
+    return () => {
+      socket.off('dashboard:refresh', onRefresh);
+      socket.off('payment:success', onRefresh);
+      socket.off('admission:new', onRefresh);
+    };
+  }, [qc]);
 
   const handleLogout = async () => {
     await logout();

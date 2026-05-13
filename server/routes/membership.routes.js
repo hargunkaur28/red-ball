@@ -11,9 +11,10 @@ router.put('/plans/:id', auth, authorize('superadmin', 'admin'), mc.updatePlan);
 router.delete('/plans/:id', auth, authorize('superadmin', 'admin'), mc.deletePlan);
 
 // Memberships
+router.get('/memberships/all', auth, authorize('superadmin', 'admin', 'receptionist'), mc.getAllMemberships);
 router.get('/memberships/:studentId', auth, mc.getStudentMembership);
-router.post('/memberships/assign', auth, authorize('superadmin', 'admin'), mc.assignMembership);
-router.put('/memberships/:id/renew', auth, authorize('superadmin', 'admin'), mc.renewMembership);
+router.post('/memberships/assign', auth, authorize('superadmin', 'admin', 'receptionist'), mc.assignMembership);
+router.put('/memberships/:id/renew', auth, authorize('superadmin', 'admin', 'receptionist'), mc.renewMembership);
 router.put('/memberships/:id/freeze', auth, authorize('superadmin', 'admin'), mc.freezeMembership);
 router.put('/memberships/:id/unfreeze', auth, authorize('superadmin', 'admin'), mc.unfreezeMembership);
 

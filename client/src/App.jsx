@@ -22,6 +22,7 @@ import Home from './pages/Home';
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const Admissions = lazy(() => import('./pages/admin/Admissions'));
 const MembershipPlans = lazy(() => import('./pages/admin/MembershipPlans'));
+const StudentMemberships = lazy(() => import('./pages/admin/StudentMemberships'));
 const OneTimePlay = lazy(() => import('./pages/admin/OneTimePlay'));
 const Payments = lazy(() => import('./pages/admin/Payments'));
 const Analytics = lazy(() => import('./pages/admin/Analytics'));
@@ -85,7 +86,8 @@ export default function App() {
               }>
                 <Route index element={<AdminDashboard />} />
                 <Route path="admissions" element={<Admissions />} />
-                <Route path="memberships" element={<MembershipPlans />} />
+                <Route path="memberships" element={<StudentMemberships />} />
+                <Route path="plans" element={<MembershipPlans />} />
                 <Route path="one-time-play" element={<OneTimePlay />} />
                 <Route path="payments" element={<Payments />} />
                 <Route path="restaurant" element={<RestaurantOrders />} />
@@ -123,7 +125,7 @@ export default function App() {
               }>
                 <Route index element={<ReceptionDashboard />} />
                 <Route path="admissions" element={<Admissions />} />
-                <Route path="memberships" element={<MembershipPlans />} />
+                <Route path="memberships" element={<StudentMemberships />} />
                 <Route path="one-time-play" element={<OneTimePlay />} />
                 <Route path="payments" element={<Payments />} />
               </Route>

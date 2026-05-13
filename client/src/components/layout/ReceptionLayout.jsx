@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, GraduationCap, CreditCard, Activity, Receipt, Menu, X, LogOut } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { getInitials } from '../../lib/utils';
+import { useQueryClient } from '@tanstack/react-query';
+import socket from '../../lib/socket';
 import ErrorBoundary from '../shared/ErrorBoundary';
 
 const menuItems = [
@@ -26,6 +28,25 @@ export default function ReceptionLayout() {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  const qc = useQueryClient();
+  useEffect(() => {
+    const onRefresh = () => {
+      console.log('🔄 Socket: Refreshing dashboard queries');
+      qc.invalidateQueries({ queryKey: ['admissions'] });
+      qc.invalidateQueries({ queryKey: ['analytics'] });
+      qc.invalidateQueries({ queryKey: ['payments'] });
+    };
+    socket.on('dashboard:refresh', onRefresh);
+    socket.on('payment:success', onRefresh);
+    socket.on('admission:new', onRefresh);
+    
+    return () => {
+      socket.off('dashboard:refresh', onRefresh);
+      socket.off('payment:success', onRefresh);
+      socket.off('admission:new', onRefresh);
+    };
+  }, [qc]);
 
   const handleLogout = async () => { await logout(); navigate('/login'); };
 

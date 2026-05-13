@@ -18,6 +18,16 @@ const admissionSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  gender: {
+    type: String,
+    enum: ['male', 'female', 'other', ''],
+    default: '',
+  },
+  address: {
+    type: String,
+    trim: true,
+    default: '',
+  },
   emergencyContact: {
     type: String,
     trim: true,
@@ -32,12 +42,18 @@ const admissionSchema = new mongoose.Schema({
   },
   sportsIncluded: [{
     type: String,
-    enum: ['cricket', 'swimming', 'gym', 'turf', 'badminton'],
+    enum: ['cricket', 'swimming', 'gym', 'turf', 'badminton', 'football', 'yoga'],
   }],
   status: {
     type: String,
     enum: ['active', 'inactive', 'expired'],
     default: 'active',
+  },
+  // CRITICAL: tracks whether fees are paid or pending
+  paymentStatus: {
+    type: String,
+    enum: ['paid', 'pending', 'partial'],
+    default: 'pending',
   },
   joinDate: {
     type: Date,
@@ -59,9 +75,5 @@ admissionSchema.pre('save', async function (next) {
   }
   next();
 });
-
-admissionSchema.index({ studentId: 1 });
-admissionSchema.index({ status: 1 });
-admissionSchema.index({ admissionNumber: 1 });
 
 module.exports = mongoose.model('Admission', admissionSchema);

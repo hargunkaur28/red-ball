@@ -7,13 +7,22 @@ const membershipPlanSchema = new mongoose.Schema({
     trim: true,
   },
   duration: {
-    type: String,
-    enum: ['monthly', 'quarterly', 'half-yearly'],
+    type: String, // e.g., "5 Minutes", "1 Month"
     required: true,
   },
-  durationDays: {
+  durationValue: {
     type: Number,
     required: true,
+    default: 30,
+  },
+  durationUnit: {
+    type: String,
+    enum: ['minutes', 'hours', 'days', 'months', 'years'],
+    default: 'days',
+  },
+  // Keep for backwards compatibility
+  durationDays: {
+    type: Number,
   },
   sportsIncluded: [{
     type: String,

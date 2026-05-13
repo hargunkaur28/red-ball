@@ -10,7 +10,7 @@ const sportRates = { cricket: 500, swimming: 400, gym: 300, turf: 800, badminton
 
 export default function OneTimePlay() {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({ name: '', phone: '', sport: 'cricket', hours: 1, ratePerHour: 500 });
+  const [form, setForm] = useState({ name: '', phone: '', sport: 'cricket', hours: 1, ratePerHour: 500, amountPaid: '', paymentMode: 'cash' });
   const gst = calcGST(form.hours * form.ratePerHour);
 
   const { data: entries } = useQuery({ queryKey: ['onetimeplay'], queryFn: () => api.get('/onetimeplay').then(r => r.data) });
@@ -19,8 +19,10 @@ export default function OneTimePlay() {
     mutationFn: (d) => api.post('/onetimeplay', d),
     onSuccess: () => { 
       queryClient.invalidateQueries({ queryKey: ['onetimeplay'] });
-      setForm({ name: '', phone: '', sport: 'cricket', hours: 1, ratePerHour: 500 }); 
-      toast.success('Entry recorded!'); 
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      setForm({ name: '', phone: '', sport: 'cricket', hours: 1, ratePerHour: 500, amountPaid: '', paymentMode: 'cash' }); 
+      toast.success('Entry recorded! Payment & receipt generated.'); 
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Error'),
   });
@@ -60,25 +62,50 @@ export default function OneTimePlay() {
               <div className="flex justify-between text-sm"><span className="text-[#666666]">GST (18%)</span><span className="text-[#111111]">{formatCurrency(gst.gstAmount)}</span></div>
               <div className="flex justify-between text-base font-bold border-t border-[#EAEAEA] pt-2"><span className="text-[#111111]">Total</span><span className="text-black">{formatCurrency(gst.totalAmount)}</span></div>
             </div>
-            <button type="submit" className="btn-primary w-full py-3" disabled={mutation.isPending}>Generate Receipt</button>
+
+            {/* POS Payment Collection */}
+            <div className="pt-4 border-t border-[#EAEAEA]">
+              <h4 className="text-sm font-semibold text-[#111] mb-3">Collect Payment</h4>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-xs text-[#666] mb-1">Amount Paid Now (₹)</label>
+                  <input type="number" className="input-field" placeholder={`Full: ${gst.totalAmount}`} value={form.amountPaid} onChange={e => setForm({...form, amountPaid: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-xs text-[#666] mb-1">Payment Mode</label>
+                  <select className="input-field bg-white" value={form.paymentMode} onChange={e => setForm({...form, paymentMode: e.target.value})}>
+                    <option value="cash">Cash</option>
+                    <option value="upi">UPI</option>
+                    <option value="card">Card</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" className="btn-primary w-full py-3" disabled={mutation.isPending}>Record Entry</button>
           </form>
         </motion.div>
 
         {/* Today's entries */}
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="card">
-          <h3 className="text-sm font-medium text-[#666666] mb-4">Recent Entries</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-medium text-[#666666]">Recent Entries</h3>
+            {entries?.todayTotal > 0 && (
+              <span className="text-xs font-bold text-green-700 bg-green-50 px-2.5 py-1 rounded-full">Today: {formatCurrency(entries.todayTotal)}</span>
+            )}
+          </div>
           <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
-            {!entries?.entries?.length ? (
+            {!entries?.plays?.length ? (
               <div className="text-center py-8 text-[#888888] text-sm">No entries yet. Start by adding one!</div>
             ) : (
-              entries.entries.map((entry) => (
+              entries.plays.map((entry) => (
                 <div key={entry._id} className="p-3 rounded-xl border border-[#EAEAEA] bg-[#F7F7F7] flex justify-between items-center">
                   <div>
                     <p className="text-sm font-semibold text-[#111111]">{entry.name}</p>
                     <p className="text-xs text-[#666666]">{entry.sport} • {entry.hours} hr(s)</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold text-[#111111]">{formatCurrency(entry.amount)}</p>
+                    <p className="text-sm font-bold text-[#111111]">{formatCurrency(entry.totalAmount)}</p>
                     <p className="text-[10px] text-[#888888]">{new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                   </div>
                 </div>

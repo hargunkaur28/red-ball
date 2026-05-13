@@ -1,4 +1,5 @@
 const OneTimePlay = require('../models/OneTimePlay');
+const Payment = require('../models/Payment');
 const { calculateGST } = require('../utils/gstCalculator');
 
 // GET /api/onetimeplay
@@ -23,6 +24,7 @@ exports.getAll = async (req, res) => {
 
     const plays = await OneTimePlay.find(filter)
       .populate('createdBy', 'name')
+      .populate('paymentId')
       .sort({ createdAt: -1 });
 
     const todayTotal = plays.reduce((sum, p) => sum + p.totalAmount, 0);
@@ -36,7 +38,7 @@ exports.getAll = async (req, res) => {
 // POST /api/onetimeplay
 exports.create = async (req, res) => {
   try {
-    const { name, phone, sport, hours, ratePerHour } = req.body;
+    const { name, phone, sport, hours, ratePerHour, amountPaid, paymentMode } = req.body;
     const amount = hours * ratePerHour;
     const gst = calculateGST(amount);
 
@@ -48,9 +50,33 @@ exports.create = async (req, res) => {
       createdBy: req.user.userId,
     });
 
-    res.status(201).json({ play });
+    const parsedAmountPaid = amountPaid !== undefined ? parseFloat(amountPaid) : 0;
+    const remainingAmount = Math.max(0, gst.totalAmount - parsedAmountPaid);
+    let status = 'pending';
+    if (remainingAmount === 0) status = 'paid';
+    else if (parsedAmountPaid > 0) status = 'partial';
+
+    // Auto-create Payment record so it appears on the Payments page
+    const payment = await Payment.create({
+      type: 'one-time-play',
+      referenceId: play._id,
+      amount: gst.amount,
+      gstAmount: gst.gstAmount,
+      gstPercent: gst.gstPercent,
+      totalAmount: gst.totalAmount,
+      amountPaid: Math.min(parsedAmountPaid, gst.totalAmount),
+      remainingAmount,
+      status,
+      paymentMode: paymentMode || 'cash',
+    });
+
+    // Link payment back to the play
+    play.paymentId = payment._id;
+    await play.save();
+
+    res.status(201).json({ play, payment });
   } catch (error) {
-    res.status(500).json({ message: 'Server error.' });
+    res.status(500).json({ message: 'Server error.', error: error.message });
   }
 };
 

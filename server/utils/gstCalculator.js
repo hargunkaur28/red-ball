@@ -5,8 +5,8 @@
  * @returns {{ amount, gstAmount, gstPercent, totalAmount }}
  */
 const calculateGST = (amount, gstPercent = 18) => {
-  const gstAmount = Math.round((amount * gstPercent) / 100 * 100) / 100;
-  const totalAmount = Math.round((amount + gstAmount) * 100) / 100;
+  const gstAmount = Math.round((amount * gstPercent) / 100);
+  const totalAmount = amount + gstAmount;
   return {
     amount,
     gstAmount,

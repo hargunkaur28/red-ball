@@ -33,9 +33,16 @@ const paymentSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  amountPaid: {
+    type: Number,
+    default: 0,
+  },
+  remainingAmount: {
+    type: Number,
+  },
   status: {
     type: String,
-    enum: ['pending', 'paid', 'refunded', 'failed'],
+    enum: ['pending', 'partial', 'paid', 'refunded', 'failed'],
     default: 'pending',
   },
   paymentMode: {
@@ -63,6 +70,9 @@ paymentSchema.pre('save', async function (next) {
     const year = new Date().getFullYear();
     const count = await mongoose.model('Payment').countDocuments();
     this.invoiceNumber = `INV-${year}-${String(count + 1).padStart(5, '0')}`;
+  }
+  if (this.remainingAmount === undefined) {
+    this.remainingAmount = this.totalAmount - (this.amountPaid || 0);
   }
   next();
 });

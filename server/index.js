@@ -25,6 +25,7 @@ const analyticsRoutes = require('./routes/analytics.routes');
 // Import cron jobs
 const startExpiryReminder = require('./jobs/expiryReminder.job');
 const startLowStockAlert = require('./jobs/lowStockAlert.job');
+const startTestExpiryChecker = require('./jobs/testExpiryChecker.job');
 
 const app = express();
 const server = http.createServer(app);
@@ -32,8 +33,12 @@ const server = http.createServer(app);
 // Socket.io setup
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
-    methods: ['GET', 'POST'],
+    origin: [
+      'http://localhost:5173',
+      'https://red-ball-delta.vercel.app',
+      process.env.CLIENT_URL,
+    ].filter(Boolean),
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
   },
 });
@@ -76,7 +81,11 @@ io.on('connection', (socket) => {
 // Middleware
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: [
+    'http://localhost:5173',
+    'https://red-ball-delta.vercel.app',
+    process.env.CLIENT_URL,
+  ].filter(Boolean),
   credentials: true,
 }));
 app.use(compression());
@@ -158,9 +167,14 @@ const startServer = async () => {
     console.log('💁 Default receptionist created: reception@redball.com / Reception@123');
   }
 
+  // Seed test plans
+  const seedTestPlans = require('./jobs/seedTestPlans');
+  await seedTestPlans(existingAdmin?._id);
+
   // Start cron jobs
   startExpiryReminder();
   startLowStockAlert();
+  startTestExpiryChecker(io);
 
   server.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);

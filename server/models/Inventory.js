@@ -9,37 +9,47 @@ const inventorySchema = new mongoose.Schema({
   unit: {
     type: String,
     required: true,
-    enum: ['kg', 'litre', 'pieces', 'grams', 'ml'],
+    enum: ['kg', 'litre', 'pieces', 'packs', 'grams', 'ml'],
   },
-  currentStock: {
+  quantity: {
     type: Number,
     required: true,
     default: 0,
   },
-  minimumStock: {
+  threshold: {
     type: Number,
-    required: true,
     default: 10,
   },
-  linkedMenuItems: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'MenuItem',
-  }],
-  lastRestockedAt: Date,
-  lastRestockedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+  costPerUnit: {
+    type: Number,
+    default: 0,
   },
-  history: [{
-    date: { type: Date, default: Date.now },
-    quantity: Number,
-    type: { type: String, enum: ['restock', 'consumption', 'adjustment'] },
-    note: String,
+  category: {
+    type: String,
+    default: 'General',
+  },
+  // Link to menu items that consume this ingredient
+  linkedMenuItems: [{
+    menuItemId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'MenuItem',
+    },
+    quantityUsed: {
+      type: Number,
+      default: 1,
+    },
   }],
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
+  lastRestocked: {
+    type: Date,
+  },
 }, {
   timestamps: true,
 });
 
-inventorySchema.index({ currentStock: 1, minimumStock: 1 });
+inventorySchema.index({ name: 1 });
 
 module.exports = mongoose.model('Inventory', inventorySchema);

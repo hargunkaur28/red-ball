@@ -2,77 +2,231 @@ const Payment = require('../models/Payment');
 const Admission = require('../models/Admission');
 const Membership = require('../models/Membership');
 const Order = require('../models/Order');
+const User = require('../models/User');
 const OneTimePlay = require('../models/OneTimePlay');
 
-exports.overview = async (req, res) => {
+// GET /api/analytics/overview — Dashboard summary cards
+exports.getOverview = async (req, res) => {
   try {
-    const today = new Date(); today.setHours(0,0,0,0);
-    const endOfDay = new Date(); endOfDay.setHours(23,59,59,999);
-    const sevenDays = new Date(Date.now() + 7*24*60*60*1000);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+    const sevenDays = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    const [totalMembers, activeMemberships, expiringSoon, todayPayments, pendingFees, pendingOrders] = await Promise.all([
-      Admission.countDocuments(),
+    const [
+      totalMembers,
+      activeMemberships,
+      expiringSoon,
+      pendingFees,
+      todayRevenue,
+      pendingOrders,
+      totalAdmissions,
+      todayAdmissions,
+    ] = await Promise.all([
+      User.countDocuments({ role: 'student', isActive: true }),
       Membership.countDocuments({ status: 'active' }),
-      Membership.countDocuments({ status: 'active', endDate: { $lte: sevenDays } }),
-      Payment.aggregate([{ $match: { status: 'paid', createdAt: { $gte: today, $lte: endOfDay } } }, { $group: { _id: null, total: { $sum: '$totalAmount' } } }]),
-      Payment.countDocuments({ status: 'pending' }),
+      Membership.countDocuments({ status: 'active', endDate: { $lte: sevenDays, $gte: new Date() } }),
+      Payment.countDocuments({ status: { $in: ['pending', 'partial'] } }),
+      Payment.aggregate([
+        { $match: { status: 'paid', createdAt: { $gte: today, $lte: endOfDay } } },
+        { $group: { _id: null, total: { $sum: '$totalAmount' } } },
+      ]),
       Order.countDocuments({ status: { $in: ['new', 'preparing'] } }),
+      Admission.countDocuments(),
+      Admission.countDocuments({ createdAt: { $gte: today } }),
+    ]);
+
+    // Pending fees total amount (sum remaining amounts of pending and partial payments)
+    const pendingFeesAmount = await Payment.aggregate([
+      { $match: { status: { $in: ['pending', 'partial'] } } },
+      { 
+        $group: { 
+          _id: null, 
+          total: { 
+            $sum: { 
+              $cond: [
+                { $ne: ['$remainingAmount', undefined] }, 
+                '$remainingAmount', 
+                '$totalAmount'
+              ] 
+            } 
+          } 
+        } 
+      },
     ]);
 
     res.json({
-      totalMembers, activeMemberships, expiringSoon,
-      todayRevenue: todayPayments[0]?.total || 0,
-      pendingFees, pendingOrders,
+      totalMembers,
+      activeMemberships,
+      expiringSoon,
+      pendingFees,
+      pendingFeesAmount: pendingFeesAmount[0]?.total || 0,
+      todayRevenue: todayRevenue[0]?.total || 0,
+      pendingOrders,
+      totalAdmissions,
+      todayAdmissions,
     });
-  } catch (error) { res.status(500).json({ message: 'Server error.' }); }
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.', error: error.message });
+  }
 };
 
-exports.revenue = async (req, res) => {
+// GET /api/analytics/revenue — Revenue over time
+exports.getRevenue = async (req, res) => {
   try {
-    const range = parseInt(req.query.range) || 30;
-    const startDate = new Date(Date.now() - range * 24*60*60*1000);
-    const payments = await Payment.aggregate([
+    const { range = 30 } = req.query;
+    const startDate = new Date(Date.now() - parseInt(range) * 24 * 60 * 60 * 1000);
+
+    const revenue = await Payment.aggregate([
       { $match: { status: 'paid', createdAt: { $gte: startDate } } },
-      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, total: { $sum: '$totalAmount' }, academy: { $sum: { $cond: [{ $in: ['$type', ['membership','one-time-play']] }, '$totalAmount', 0] } }, restaurant: { $sum: { $cond: [{ $eq: ['$type', 'restaurant'] }, '$totalAmount', 0] } } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          total: { $sum: '$totalAmount' },
+          count: { $sum: 1 },
+        },
+      },
       { $sort: { _id: 1 } },
     ]);
-    res.json({ revenue: payments });
-  } catch (error) { res.status(500).json({ message: 'Server error.' }); }
+
+    // Revenue by type
+    const revenueByType = await Payment.aggregate([
+      { $match: { status: 'paid', createdAt: { $gte: startDate } } },
+      {
+        $group: {
+          _id: '$type',
+          total: { $sum: '$totalAmount' },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    res.json({ revenue, revenueByType });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.' });
+  }
 };
 
-exports.memberships = async (req, res) => {
+// GET /api/analytics/memberships — Membership trends
+exports.getMemberships = async (req, res) => {
   try {
-    const range = parseInt(req.query.range) || 90;
-    const startDate = new Date(Date.now() - range*24*60*60*1000);
-    const data = await Membership.aggregate([
+    const { range = 90 } = req.query;
+    const startDate = new Date(Date.now() - parseInt(range) * 24 * 60 * 60 * 1000);
+
+    const active = await Membership.countDocuments({ status: 'active' });
+    const pending = await Membership.countDocuments({ status: 'pending' });
+    const expired = await Membership.countDocuments({ status: 'expired' });
+    const frozen = await Membership.countDocuments({ status: 'frozen' });
+
+    const trend = await Membership.aggregate([
       { $match: { createdAt: { $gte: startDate } } },
-      { $group: { _id: { month: { $month: '$createdAt' }, year: { $year: '$createdAt' } }, count: { $sum: 1 } } },
-      { $sort: { '_id.year': 1, '_id.month': 1 } },
-    ]);
-    res.json({ memberships: data });
-  } catch (error) { res.status(500).json({ message: 'Server error.' }); }
-};
-
-exports.restaurant = async (req, res) => {
-  try {
-    const range = parseInt(req.query.range) || 30;
-    const startDate = new Date(Date.now() - range*24*60*60*1000);
-    const data = await Order.aggregate([
-      { $match: { createdAt: { $gte: startDate }, status: { $ne: 'cancelled' } } },
-      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, orders: { $sum: 1 }, revenue: { $sum: '$totalAmount' } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          count: { $sum: 1 },
+        },
+      },
       { $sort: { _id: 1 } },
     ]);
-    res.json({ restaurant: data });
-  } catch (error) { res.status(500).json({ message: 'Server error.' }); }
+
+    res.json({ active, pending, expired, frozen, trend });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.' });
+  }
 };
 
-exports.sportsPopularity = async (req, res) => {
+// GET /api/analytics/sports-popularity
+exports.getSportsPopularity = async (req, res) => {
   try {
-    const data = await Admission.aggregate([
+    const sports = await Admission.aggregate([
       { $unwind: '$sportsIncluded' },
       { $group: { _id: '$sportsIncluded', count: { $sum: 1 } } },
       { $sort: { count: -1 } },
     ]);
-    res.json({ sports: data });
-  } catch (error) { res.status(500).json({ message: 'Server error.' }); }
+
+    // One-time play popularity
+    const otpSports = await OneTimePlay.aggregate([
+      { $group: { _id: '$sport', count: { $sum: 1 }, revenue: { $sum: '$totalAmount' } } },
+      { $sort: { count: -1 } },
+    ]);
+
+    res.json({ membershipSports: sports, oneTimePlaySports: otpSports });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.' });
+  }
+};
+
+// GET /api/analytics/restaurant — Restaurant analytics
+exports.getRestaurantAnalytics = async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todayOrders = await Order.countDocuments({ createdAt: { $gte: today } });
+    const todaySales = await Order.aggregate([
+      { $match: { status: 'delivered', createdAt: { $gte: today } } },
+      { $group: { _id: null, total: { $sum: '$totalAmount' } } },
+    ]);
+
+    const ordersByStatus = await Order.aggregate([
+      { $match: { createdAt: { $gte: today } } },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]);
+
+    // Top selling items (last 30 days)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const topItems = await Order.aggregate([
+      { $match: { status: 'delivered', createdAt: { $gte: thirtyDaysAgo } } },
+      { $unwind: '$items' },
+      { $group: { _id: '$items.name', totalQty: { $sum: '$items.quantity' }, totalRevenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } } } },
+      { $sort: { totalQty: -1 } },
+      { $limit: 10 },
+    ]);
+
+    res.json({
+      todayOrders,
+      todaySales: todaySales[0]?.total || 0,
+      ordersByStatus,
+      topItems,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.' });
+  }
+};
+
+// GET /api/analytics/recent-activity — Recent activity feed
+exports.getRecentActivity = async (req, res) => {
+  try {
+    const [recentAdmissions, recentPayments, recentOrders] = await Promise.all([
+      Admission.find().populate('studentId', 'name').sort({ createdAt: -1 }).limit(5),
+      Payment.find({ status: 'paid' }).populate('studentId', 'name').sort({ createdAt: -1 }).limit(5),
+      Order.find().populate('customerId', 'name').populate('tableId', 'label').sort({ createdAt: -1 }).limit(5),
+    ]);
+
+    const activity = [
+      ...recentAdmissions.map(a => ({
+        type: 'admission',
+        text: `${a.studentId?.name || 'Unknown'} admitted`,
+        time: a.createdAt,
+        status: a.paymentStatus,
+      })),
+      ...recentPayments.map(p => ({
+        type: 'payment',
+        text: `₹${p.totalAmount} ${p.type} payment`,
+        time: p.createdAt,
+        status: p.status,
+      })),
+      ...recentOrders.map(o => ({
+        type: 'order',
+        text: `Order #${o.orderNumber} — ${o.customerId?.name || 'Guest'}`,
+        time: o.createdAt,
+        status: o.status,
+      })),
+    ].sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 15);
+
+    res.json({ activity });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.' });
+  }
 };

@@ -1,7 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
 @import "tailwindcss";
 
-/* ===== DESIGN SYSTEM: Light & Minimal (Inspired by Screenshot) ===== */
+/* ===== DESIGN SYSTEM: Red Ball Cricket Academy ===== */
 @theme {
+  /* Primary palette */
+  --color-primary: #C8102E;
+  --color-primary-dark: #8B0B1E;
+  --color-gold: #F5A623;
+  --color-dark: #0D0D0D;
+  --color-dark-card: #1A1A1A;
+  --color-light: #F9F6F1;
+  --color-white: #FFFFFF;
+  --color-text-muted: #9CA3AF;
+
+  /* Legacy admin tokens (keep for dashboard compat) */
   --color-dark-bg: #F8F8F8;
   --color-dark-surface: #FFFFFF;
   --color-dark-border: #EAEAEA;
@@ -9,16 +21,12 @@
   --color-dark-border-focus: #111111;
   --color-dark-hover: #F0F0F0;
   --color-dark-elevated: #FFFFFF;
-  
-  --color-crimson: #111111; /* Replaced with black for minimal aesthetic */
+  --color-crimson: #111111;
   --color-crimson-hover: #333333;
   --color-crimson-glow: rgba(0, 0, 0, 0.1);
   --color-crimson-muted: rgba(0, 0, 0, 0.05);
-  
   --color-text-primary: #111111;
-  --color-text-muted: #666666;
   --color-text-disabled: #A1A1AA;
-  
   --color-success: #15803D;
   --color-warning: #B45309;
   --color-info: #1D4ED8;
@@ -40,41 +48,158 @@
   }
 
   body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background-color: #F8F8F8;
-    color: #111111;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background-color: #FFFFFF;
+    color: #0D0D0D;
     line-height: 1.6;
     overflow-x: hidden;
   }
 
+  /* Heading hierarchy */
+  .font-heading {
+    font-family: 'Bebas Neue', 'Impact', sans-serif;
+  }
+  .font-body {
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  /* Responsive section heading sizes */
+  .section-heading {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    line-height: 1.05;
+  }
+  .hero-heading {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2.75rem, 8vw, 6rem);
+    line-height: 1;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #0D0D0D; }
+  ::-webkit-scrollbar-thumb { background: #C8102E; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #F5A623; }
+
+  ::selection { background: rgba(200,16,46,0.25); color: #FFFFFF; }
+
+  /* Focus ring for accessibility */
+  *:focus-visible {
+    outline: 2px solid #C8102E;
+    outline-offset: 2px;
+  }
+
+  /* Admin pages: preserve existing serif */
   h1, h2, h3, h4, .serif-heading {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: 'Cormorant Garamond', 'Bebas Neue', serif;
     font-weight: 600;
-  }
-
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: #F8F8F8;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: #D1D1D1;
-    border-radius: 3px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: #A1A1AA;
-  }
-
-  /* Selection */
-  ::selection {
-    background: rgba(0, 0, 0, 0.1);
-    color: #111111;
   }
 }
 
-/* ===== COMPONENT UTILITIES ===== */
+/* ===== NAV LINK UNDERLINE ===== */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: '';
+  display: block;
+  height: 2px;
+  background: #C8102E;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s ease;
+}
+.nav-link:hover::after {
+  transform: scaleX(1);
+}
+
+/* ===== KEYFRAME ANIMATIONS ===== */
+@keyframes bounce-chevron {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(10px); }
+}
+
+@keyframes floatAnim {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  33% { transform: translateY(-20px) rotate(4deg); }
+  66% { transform: translateY(-10px) rotate(-3deg); }
+}
+
+@keyframes steamAnim {
+  0% { transform: translateY(0) scaleX(1); opacity: 0; }
+  30% { opacity: 0.6; }
+  100% { transform: translateY(-25px) scaleX(1.4); opacity: 0; }
+}
+
+@keyframes tickerScroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes word-enter {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes word-exit {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-20px); }
+}
+
+.animate-bounce-chevron {
+  animation: bounce-chevron 1.6s ease-in-out infinite;
+}
+.animate-float {
+  animation: floatAnim 7s ease-in-out infinite;
+}
+.animate-float-delayed {
+  animation: floatAnim 6s ease-in-out infinite 3s;
+}
+.animate-steam {
+  animation: steamAnim 3s ease-out infinite;
+}
+
+.ticker-track {
+  display: flex;
+  width: max-content;
+  animation: tickerScroll 20s linear infinite;
+}
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
+.word-enter {
+  animation: word-enter 300ms ease forwards;
+}
+.word-exit {
+  animation: word-exit 300ms ease forwards;
+}
+
+/* Hamburger animation */
+.hamburger-line {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+.hamburger-open .hamburger-line:nth-child(1) {
+  transform: translateY(8px) rotate(45deg);
+}
+.hamburger-open .hamburger-line:nth-child(2) {
+  opacity: 0;
+}
+.hamburger-open .hamburger-line:nth-child(3) {
+  transform: translateY(-8px) rotate(-45deg);
+}
+
+/* ===== REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track,
+  .animate-float,
+  .animate-float-delayed,
+  .animate-steam,
+  .animate-bounce-chevron {
+    animation: none !important;
+  }
+}
+
+/* ===== ADMIN PANEL COMPONENT UTILITIES (LEGACY) ===== */
 @layer components {
   .card {
     background: #FFFFFF;
@@ -83,7 +208,6 @@
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
     border: 1px solid #F0F0F0;
   }
-
   .card-stat {
     background: #FFFFFF;
     border-radius: 16px;
@@ -91,7 +215,6 @@
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
     border: 1px solid #F0F0F0;
   }
-
   .input-field {
     width: 100%;
     background: #FFFFFF;
@@ -107,10 +230,7 @@
     border-color: #111111;
     box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
   }
-  .input-field::placeholder {
-    color: #888888;
-  }
-
+  .input-field::placeholder { color: #888888; }
   .btn-primary {
     display: inline-flex;
     align-items: center;
@@ -126,14 +246,8 @@
     cursor: pointer;
     transition: all 0.2s;
   }
-  .btn-primary:hover {
-    background: #333333;
-    transform: scale(1.02);
-  }
-  .btn-primary:active {
-    transform: scale(0.97);
-  }
-
+  .btn-primary:hover { background: #333333; transform: scale(1.02); }
+  .btn-primary:active { transform: scale(0.97); }
   .btn-ghost {
     display: inline-flex;
     align-items: center;
@@ -149,11 +263,7 @@
     cursor: pointer;
     transition: all 0.2s;
   }
-  .btn-ghost:hover {
-    border-color: #111111;
-    background: #FAFAFA;
-  }
-
+  .btn-ghost:hover { border-color: #111111; background: #FAFAFA; }
   .badge {
     display: inline-flex;
     align-items: center;
@@ -168,24 +278,29 @@
   .badge-warning { background: rgba(180,83,9,0.1); color: #B45309; }
   .badge-danger { background: rgba(185,28,28,0.1); color: #B91C1C; }
   .badge-info { background: rgba(29,78,216,0.1); color: #1D4ED8; }
-
-  .table-row:hover {
-    background: #FAFAFA;
-  }
-
-  /* Skeleton shimmer */
+  .table-row:hover { background: #FAFAFA; }
   .skeleton {
     background: linear-gradient(90deg, #F0F0F0 25%, #FAFAFA 50%, #F0F0F0 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s ease-in-out infinite;
     border-radius: 6px;
   }
-
   @keyframes shimmer {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
   }
 }
 
-/* Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+/* Swiper custom dots */
+.swiper-pagination-bullet {
+  background: rgba(255,255,255,0.4) !important;
+  width: 10px !important;
+  height: 10px !important;
+  transition: all 0.3s ease !important;
+}
+.swiper-pagination-bullet-active {
+  background: #F5A623 !important;
+  width: 28px !important;
+  border-radius: 5px !important;
+}
+

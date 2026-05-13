@@ -29,6 +29,16 @@ const userSchema = new mongoose.Schema({
     enum: ['superadmin', 'admin', 'manager', 'receptionist', 'student', 'customer'],
     default: 'customer',
   },
+  gender: {
+    type: String,
+    enum: ['male', 'female', 'other', ''],
+    default: '',
+  },
+  address: {
+    type: String,
+    trim: true,
+    default: '',
+  },
   photo: {
     type: String,
     default: '',
@@ -52,10 +62,6 @@ const userSchema = new mongoose.Schema({
 }, {
   timestamps: true,
 });
-
-// Index for faster queries
-userSchema.index({ role: 1 });
-userSchema.index({ email: 1 });
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {

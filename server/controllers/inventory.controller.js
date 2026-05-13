@@ -2,7 +2,9 @@ const Inventory = require('../models/Inventory');
 
 exports.getAll = async (req, res) => {
   try {
-    const items = await Inventory.find().populate('linkedMenuItems', 'name').sort({ name: 1 });
+    const items = await Inventory.find({ isActive: true })
+      .populate('linkedMenuItems.menuItemId', 'name')
+      .sort({ name: 1 });
     res.json({ items });
   } catch (error) { res.status(500).json({ message: 'Server error.' }); }
 };
@@ -24,13 +26,11 @@ exports.update = async (req, res) => {
 
 exports.restock = async (req, res) => {
   try {
-    const { quantity, note } = req.body;
+    const { addQuantity } = req.body;
     const item = await Inventory.findById(req.params.id);
     if (!item) return res.status(404).json({ message: 'Item not found.' });
-    item.currentStock += quantity;
-    item.lastRestockedAt = new Date();
-    item.lastRestockedBy = req.user.userId;
-    item.history.push({ quantity, type: 'restock', note });
+    item.quantity += addQuantity;
+    item.lastRestocked = new Date();
     await item.save();
     res.json({ item });
   } catch (error) { res.status(500).json({ message: 'Server error.' }); }
@@ -38,7 +38,17 @@ exports.restock = async (req, res) => {
 
 exports.getLowStock = async (req, res) => {
   try {
-    const items = await Inventory.find({ $expr: { $lte: ['$currentStock', '$minimumStock'] } });
+    const items = await Inventory.find({
+      isActive: true,
+      $expr: { $lte: ['$quantity', '$threshold'] },
+    });
     res.json({ items, count: items.length });
+  } catch (error) { res.status(500).json({ message: 'Server error.' }); }
+};
+
+exports.remove = async (req, res) => {
+  try {
+    await Inventory.findByIdAndUpdate(req.params.id, { isActive: false });
+    res.json({ message: 'Item archived.' });
   } catch (error) { res.status(500).json({ message: 'Server error.' }); }
 };

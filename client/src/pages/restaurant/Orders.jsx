@@ -1,154 +1,167 @@
-import { useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import api from '../../lib/axios';
-import socket, { connectSocket } from '../../lib/socket';
 import PageHeader from '../../components/shared/PageHeader';
 import { formatCurrency } from '../../lib/utils';
 import { toast } from 'sonner';
-import { Circle, Flame, CheckCircle, Truck } from 'lucide-react';
+import { io } from 'socket.io-client';
+import { Clock, ChefHat, CheckCircle, Truck, X } from 'lucide-react';
 
-const statusCols = [
-  { key: 'new', label: 'New', icon: <Circle size={14} className="text-red-500" />, color: 'border-red-500' },
-  { key: 'preparing', label: 'Preparing', icon: <Flame size={14} className="text-amber-500" />, color: 'border-amber-500' },
-  { key: 'ready', label: 'Ready', icon: <CheckCircle size={14} className="text-green-500" />, color: 'border-green-500' },
-  { key: 'delivered', label: 'Delivered', icon: <Truck size={14} className="text-[#888888]" />, color: 'border-[#888888]' },
-];
+const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-export default function Orders() {
+const statusConfig = {
+  new: { label: 'New Orders', color: 'border-blue-400 bg-blue-50', icon: <Clock size={16} />, badge: 'bg-blue-100 text-blue-700' },
+  preparing: { label: 'Preparing', color: 'border-amber-400 bg-amber-50', icon: <ChefHat size={16} />, badge: 'bg-amber-100 text-amber-700' },
+  ready: { label: 'Ready', color: 'border-green-400 bg-green-50', icon: <CheckCircle size={16} />, badge: 'bg-green-100 text-green-700' },
+  delivered: { label: 'Delivered', color: 'border-gray-300 bg-gray-50', icon: <Truck size={16} />, badge: 'bg-gray-100 text-gray-600' },
+};
+
+export default function RestaurantOrders() {
   const qc = useQueryClient();
+  const [viewMode, setViewMode] = useState('kanban');
 
-  // Initial data fetch (no polling — socket handles updates)
   const { data } = useQuery({
-    queryKey: ['orders'],
+    queryKey: ['restaurant-orders'],
     queryFn: () => api.get('/orders').then(r => r.data),
+    refetchInterval: 10000,
   });
 
-  // Socket.io real-time listeners
-  const invalidateOrders = useCallback(() => {
-    qc.invalidateQueries({ queryKey: ['orders'] });
-  }, [qc]);
-
+  // Socket.io for realtime order updates
   useEffect(() => {
-    connectSocket();
+    const socket = io(SOCKET_URL);
     socket.emit('join-managers');
 
-    const onNewOrder = ({ order }) => {
-      invalidateOrders();
-      toast.success(`New order from ${order?.tableId?.label || 'a table'}!`, {
-        description: `${order?.items?.length || 0} item(s) • ${formatCurrency(order?.totalAmount || 0)}`,
-      });
-    };
+    socket.on('order:new', () => {
+      qc.invalidateQueries({ queryKey: ['restaurant-orders'] });
+      toast.success('🔔 New order received!');
+    });
 
-    const onOrderUpdated = () => {
-      invalidateOrders();
-    };
+    socket.on('order:updated', () => {
+      qc.invalidateQueries({ queryKey: ['restaurant-orders'] });
+    });
 
-    const onOrderCancelled = ({ orderId }) => {
-      invalidateOrders();
-      toast.error(`Order cancelled`, { description: orderId });
-    };
+    socket.on('order:cancelled', () => {
+      qc.invalidateQueries({ queryKey: ['restaurant-orders'] });
+    });
 
-    socket.on('order:new', onNewOrder);
-    socket.on('order:updated', onOrderUpdated);
-    socket.on('order:cancelled', onOrderCancelled);
+    return () => socket.disconnect();
+  }, [qc]);
 
-    return () => {
-      socket.off('order:new', onNewOrder);
-      socket.off('order:updated', onOrderUpdated);
-      socket.off('order:cancelled', onOrderCancelled);
-    };
-  }, [invalidateOrders]);
-
-  // Status mutation
   const updateMutation = useMutation({
     mutationFn: ({ id, status }) => api.put(`/orders/${id}/status`, { status }),
     onSuccess: () => {
-      invalidateOrders();
-      toast.success('Order updated');
+      qc.invalidateQueries({ queryKey: ['restaurant-orders'] });
+      toast.success('Order updated!');
     },
   });
 
-  const getNextStatus = (s) => ({ new: 'preparing', preparing: 'ready', ready: 'delivered' }[s]);
-  const getNextLabel = (s) => ({ new: 'Accept', preparing: 'Mark Ready', ready: 'Mark Delivered' }[s]);
-  const getNextStyle = (s) => ({
-    new: 'bg-amber-500 hover:bg-amber-600 text-white',
-    preparing: 'bg-green-600 hover:bg-green-700 text-white',
-    ready: 'bg-[#111111] hover:bg-[#333333] text-white',
-  }[s] || 'btn-primary');
+  const cancelMutation = useMutation({
+    mutationFn: ({ id, reason }) => api.put(`/orders/${id}/cancel`, { reason, refund: false }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['restaurant-orders'] });
+      toast.success('Order cancelled');
+    },
+  });
 
   const orders = data?.orders || [];
+  const kanbanColumns = ['new', 'preparing', 'ready', 'delivered'];
+  const nextStatus = { new: 'preparing', preparing: 'ready', ready: 'delivered' };
 
   return (
     <div>
       <PageHeader
         title="Kitchen Orders"
-        subtitle="Live updates via WebSocket"
-        action={
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${socket.connected ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
-            <span className="text-xs text-[#888888]">{socket.connected ? 'Live' : 'Reconnecting...'}</span>
-          </div>
-        }
+        subtitle={`${orders.filter(o => o.status === 'new').length} new • ${orders.filter(o => o.status === 'preparing').length} preparing • ${orders.filter(o => o.status === 'ready').length} ready`}
       />
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statusCols.map(col => {
-          const colOrders = orders.filter(o => o.status === col.key);
+
+      {/* Kanban Board */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {kanbanColumns.map(status => {
+          const config = statusConfig[status];
+          const columnOrders = orders.filter(o => o.status === status);
+
           return (
-            <div key={col.key}>
-              <div className={`flex items-center gap-2 text-sm font-medium text-[#666666] mb-3 pb-2 border-b-2 ${col.color}`}>
-                {col.icon}
-                <span>{col.label}</span>
-                <span className="ml-auto text-xs bg-[#F0F0F0] rounded-full px-2 py-0.5">{colOrders.length}</span>
+            <div key={status} className={`rounded-2xl border-2 ${config.color} p-4 min-h-[400px]`}>
+              {/* Column Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  {config.icon}
+                  <h3 className="font-bold text-sm">{config.label}</h3>
+                </div>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${config.badge}`}>
+                  {columnOrders.length}
+                </span>
               </div>
+
+              {/* Order Cards */}
               <div className="space-y-3">
-                <AnimatePresence mode="popLayout">
-                  {colOrders.map((order) => (
-                    <motion.div
-                      key={order._id}
-                      layout
-                      initial={{ opacity: 0, scale: 0.9, y: -10 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                      transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-                      className="card text-sm"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-mono text-[#111111] font-semibold">{order.orderNumber}</span>
-                        <span className="text-[10px] text-[#888888]">
-                          {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs text-[#666666]">{order.customerId?.name}</p>
-                        <span className="text-[10px] text-[#888888] bg-[#F0F0F0] px-1.5 py-0.5 rounded">{order.tableId?.label}</span>
-                      </div>
-                      <div className="space-y-1 mb-3 border-t border-[#F0F0F0] pt-2">
-                        {order.items?.map((item, j) => (
-                          <div key={j} className="text-xs text-[#666666] flex justify-between">
-                            <span>{item.quantity}× {item.name} <span className="text-[#A1A1AA]">({item.size})</span></span>
-                            <span>{formatCurrency(item.price * item.quantity)}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="text-xs font-semibold text-[#111111] mb-3">
-                        Total: {formatCurrency(order.totalAmount)}
-                      </div>
-                      {getNextStatus(order.status) && (
-                        <button
-                          onClick={() => updateMutation.mutate({ id: order._id, status: getNextStatus(order.status) })}
-                          disabled={updateMutation.isPending}
-                          className={`w-full text-xs py-2 rounded-lg font-medium transition-all ${getNextStyle(order.status)} disabled:opacity-50`}
-                        >
-                          {getNextLabel(order.status)}
-                        </button>
-                      )}
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-                {colOrders.length === 0 && (
-                  <p className="text-center text-xs text-[#A1A1AA] py-6">No orders</p>
+                {columnOrders.length === 0 && (
+                  <p className="text-xs text-[#999] text-center py-8">No orders</p>
                 )}
+                {columnOrders.map((order, i) => (
+                  <motion.div
+                    key={order._id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="bg-white rounded-xl p-3 border border-[#EAEAEA] shadow-sm"
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-mono font-bold text-xs text-black">{order.orderNumber}</span>
+                      <span className="text-[10px] text-[#888]">
+                        {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+
+                    {/* Table & Customer */}
+                    <div className="mb-2">
+                      <p className="text-xs font-semibold text-[#111]">
+                        📍 {order.tableId?.label || 'Takeaway'}
+                      </p>
+                      <p className="text-[10px] text-[#888]">{order.customerId?.name || 'Guest'}</p>
+                    </div>
+
+                    {/* Items */}
+                    <div className="space-y-1 mb-3">
+                      {order.items?.map((item, j) => (
+                        <div key={j} className="flex justify-between text-xs">
+                          <span className="text-[#444]">{item.quantity}× {item.name} {item.size ? `(${item.size})` : ''}</span>
+                          <span className="text-[#888]">{formatCurrency(item.price * item.quantity)}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Total */}
+                    <div className="flex justify-between text-sm font-bold border-t border-[#EAEAEA] pt-2 mb-3">
+                      <span>Total</span>
+                      <span>{formatCurrency(order.totalAmount)}</span>
+                    </div>
+
+                    {/* Actions */}
+                    {status !== 'delivered' && (
+                      <div className="flex gap-2">
+                        {nextStatus[status] && (
+                          <button
+                            onClick={() => updateMutation.mutate({ id: order._id, status: nextStatus[status] })}
+                            className="flex-1 py-2 rounded-lg text-xs font-semibold bg-black text-white hover:bg-black/80 transition-all"
+                          >
+                            {status === 'new' ? '✓ Accept' : status === 'preparing' ? '🍽 Mark Ready' : '🚚 Delivered'}
+                          </button>
+                        )}
+                        {status === 'new' && (
+                          <button
+                            onClick={() => cancelMutation.mutate({ id: order._id, reason: 'Rejected by kitchen' })}
+                            className="px-3 py-2 rounded-lg text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-all"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
               </div>
             </div>
           );

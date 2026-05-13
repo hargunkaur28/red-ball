@@ -22,8 +22,8 @@ const membershipSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['active', 'expired', 'frozen', 'cancelled'],
-    default: 'active',
+    enum: ['pending', 'active', 'expired', 'frozen', 'cancelled'],
+    default: 'pending',  // CRITICAL: starts pending until payment
   },
   frozenAt: Date,
   frozenDays: {
@@ -43,9 +43,5 @@ const membershipSchema = new mongoose.Schema({
 }, {
   timestamps: true,
 });
-
-membershipSchema.index({ studentId: 1 });
-membershipSchema.index({ status: 1 });
-membershipSchema.index({ endDate: 1 });
 
 module.exports = mongoose.model('Membership', membershipSchema);

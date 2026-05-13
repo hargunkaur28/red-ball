@@ -8,8 +8,9 @@ router.get('/', auth, authorize('superadmin', 'admin', 'receptionist'), pc.getAl
 router.post('/create-order', auth, pc.createOrder);
 router.post('/verify', auth, pc.verifyPayment);
 router.post('/manual', auth, authorize('superadmin', 'admin', 'receptionist'), pc.manualPayment);
+router.post('/:id/mark-paid', auth, authorize('superadmin', 'admin', 'receptionist'), pc.markPaid);
 router.put('/:id/refund', auth, authorize('superadmin', 'admin'), pc.refundPayment);
 router.get('/:id/invoice', auth, pc.getInvoice);
-router.get('/:id/invoice/print', auth, pc.printInvoice);
+router.get('/:id/invoice/print', pc.printInvoice);
 
 module.exports = router;
