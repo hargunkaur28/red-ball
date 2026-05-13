@@ -8,7 +8,9 @@ router.get('/', auth, authorize('superadmin', 'admin', 'receptionist'), pc.getAl
 router.post('/create-order', auth, pc.createOrder);
 router.post('/verify', auth, pc.verifyPayment);
 router.post('/manual', auth, authorize('superadmin', 'admin', 'receptionist'), pc.manualPayment);
+router.post('/webhook/razorpay', pc.webhookHandler);
 router.post('/:id/mark-paid', auth, authorize('superadmin', 'admin', 'receptionist'), pc.markPaid);
+router.post('/:id/retry', auth, pc.retryPayment);
 router.put('/:id/refund', auth, authorize('superadmin', 'admin'), pc.refundPayment);
 router.get('/:id/invoice', auth, pc.getInvoice);
 router.get('/:id/invoice/print', pc.printInvoice);

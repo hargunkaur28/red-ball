@@ -9,6 +9,9 @@ const paymentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   },
+  customerName: {
+    type: String,
+  },
   type: {
     type: String,
     enum: ['membership', 'one-time-play', 'restaurant', 'manual'],
@@ -52,6 +55,7 @@ const paymentSchema = new mongoose.Schema({
   razorpayOrderId: String,
   razorpayPaymentId: String,
   razorpaySignature: String,
+  razorpayRefundId: String,
   pdfUrl: String,
   emailSentAt: Date,
   refundReason: String,
@@ -60,6 +64,11 @@ const paymentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   },
+  retryCount: {
+    type: Number,
+    default: 0,
+  },
+  failureReason: String,
 }, {
   timestamps: true,
 });
@@ -78,6 +87,9 @@ paymentSchema.pre('save', async function (next) {
 });
 
 paymentSchema.index({ studentId: 1 });
+paymentSchema.index({ razorpayOrderId: 1 });
+paymentSchema.index({ razorpayPaymentId: 1 });
+paymentSchema.index({ createdAt: -1 });
 paymentSchema.index({ status: 1 });
 paymentSchema.index({ type: 1 });
 paymentSchema.index({ createdAt: -1 });

@@ -24,14 +24,18 @@ const Admissions = lazy(() => import('./pages/admin/Admissions'));
 const MembershipPlans = lazy(() => import('./pages/admin/MembershipPlans'));
 const StudentMemberships = lazy(() => import('./pages/admin/StudentMemberships'));
 const OneTimePlay = lazy(() => import('./pages/admin/OneTimePlay'));
+const Slots = lazy(() => import('./pages/admin/Slots'));
 const Payments = lazy(() => import('./pages/admin/Payments'));
 const Analytics = lazy(() => import('./pages/admin/Analytics'));
 const UsersRoles = lazy(() => import('./pages/admin/UsersRoles'));
 const Settings = lazy(() => import('./pages/admin/Settings'));
+const OperationalDashboard = lazy(() => import('./pages/admin/OperationalDashboard'));
+const AttendanceDesk = lazy(() => import('./pages/admin/AttendanceDesk'));
 
 // User
 const UserDashboard = lazy(() => import('./pages/user/Dashboard'));
 const UserMembership = lazy(() => import('./pages/user/Membership'));
+const BookSlots = lazy(() => import('./pages/BookSlots'));
 const FoodOrdering = lazy(() => import('./pages/user/FoodOrdering'));
 const OrderHistory = lazy(() => import('./pages/user/OrderHistory'));
 const Profile = lazy(() => import('./pages/user/Profile'));
@@ -89,10 +93,13 @@ export default function App() {
                 <Route path="memberships" element={<StudentMemberships />} />
                 <Route path="plans" element={<MembershipPlans />} />
                 <Route path="one-time-play" element={<OneTimePlay />} />
+                <Route path="slots" element={<Slots />} />
                 <Route path="payments" element={<Payments />} />
                 <Route path="restaurant" element={<RestaurantOrders />} />
                 <Route path="inventory" element={<RestaurantInventory />} />
                 <Route path="analytics" element={<Analytics />} />
+                <Route path="operations" element={<OperationalDashboard />} />
+                <Route path="attendance-desk" element={<AttendanceDesk />} />
                 <Route path="users" element={<UsersRoles />} />
                 <Route path="settings" element={<Settings />} />
               </Route>
@@ -103,6 +110,7 @@ export default function App() {
               }>
                 <Route index element={<UserDashboard />} />
                 <Route path="membership" element={<UserMembership />} />
+                <Route path="book-slots" element={<BookSlots />} />
                 <Route path="food" element={<FoodOrdering />} />
                 <Route path="orders" element={<OrderHistory />} />
                 <Route path="profile" element={<Profile />} />
@@ -127,6 +135,9 @@ export default function App() {
                 <Route path="admissions" element={<Admissions />} />
                 <Route path="memberships" element={<StudentMemberships />} />
                 <Route path="one-time-play" element={<OneTimePlay />} />
+                <Route path="book-slots" element={<BookSlots />} />
+                <Route path="operations" element={<OperationalDashboard />} />
+                <Route path="attendance-desk" element={<AttendanceDesk />} />
                 <Route path="payments" element={<Payments />} />
               </Route>
 

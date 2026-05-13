@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, GraduationCap, CreditCard, Activity, IndianRupee, Utensils, Package, TrendingUp, Users, Settings, Menu, Search, Bell, X, LogOut, ChevronLeft } from 'lucide-react';
+import { LayoutDashboard, GraduationCap, CreditCard, Activity, IndianRupee, Utensils, Package, TrendingUp, Users, Settings, Menu, Search, Bell, X, LogOut, ChevronLeft, Clock } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import useUIStore from '../../store/uiStore';
 import { getInitials } from '../../lib/utils';
@@ -15,6 +15,9 @@ const menuItems = [
   { path: '/admin/memberships', label: 'Student Memberships', icon: <CreditCard size={18} /> },
   { path: '/admin/plans', label: 'Membership Plans', icon: <Activity size={18} /> },
   { path: '/admin/one-time-play', label: 'One-Time Play', icon: <Activity size={18} /> },
+  { path: '/admin/slots', label: 'Slot Bookings', icon: <Clock size={18} /> },
+  { path: '/admin/operations', label: 'Operations Board', icon: <Activity size={18} /> },
+  { path: '/admin/attendance-desk', label: 'Attendance Desk', icon: <Activity size={18} /> },
   { path: '/admin/payments', label: 'Payments & GST', icon: <IndianRupee size={18} /> },
   { path: '/admin/restaurant', label: 'Restaurant', icon: <Utensils size={18} /> },
   { path: '/admin/inventory', label: 'Inventory', icon: <Package size={18} /> },

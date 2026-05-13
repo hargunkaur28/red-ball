@@ -63,7 +63,7 @@ export default function Payments() {
 
   const columns = [
     { key: 'invoiceNumber', label: 'Invoice', sortable: true, render: r => <span className="font-mono text-black text-xs">{r.invoiceNumber}</span> },
-    { key: 'student', label: 'Customer', render: r => <span className="text-[#111111] text-sm">{r.studentId?.name || 'Walk-in'}</span> },
+    { key: 'student', label: 'Customer', render: r => <span className="text-[#111111] text-sm">{r.customerName || r.studentId?.name || 'Unknown'}</span> },
     { key: 'type', label: 'Type', render: r => (
       <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
         r.type === 'membership' ? 'bg-blue-50 text-blue-700' :

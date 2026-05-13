@@ -2,6 +2,13 @@ const Payment = require('../models/Payment');
 const Membership = require('../models/Membership');
 const Admission = require('../models/Admission');
 const { calculateGST } = require('../utils/gstCalculator');
+const {
+  verifyPaymentSignature,
+  createRazorpayOrder,
+  fetchPaymentDetails,
+  createRefund,
+  verifyWebhookSignature,
+} = require('../config/razorpay');
 
 // GET /api/payments
 exports.getAll = async (req, res) => {
@@ -45,9 +52,10 @@ exports.getAll = async (req, res) => {
 // POST /api/payments/create-order (Razorpay online payment)
 exports.createOrder = async (req, res) => {
   try {
-    const { amount, type, studentId, referenceId, gstPercent = 18 } = req.body;
+    const { amount, type, studentId, referenceId, gstPercent = 18, customerEmail, customerPhone, description } = req.body;
     const gst = calculateGST(amount, gstPercent);
 
+    // Create payment record first
     const payment = await Payment.create({
       studentId,
       type,
@@ -62,19 +70,36 @@ exports.createOrder = async (req, res) => {
       paymentMode: 'razorpay',
     });
 
-    // In production: create actual Razorpay order
-    const razorpayOrder = {
-      id: `order_${Date.now()}`,
-      amount: gst.totalAmount * 100,
+    // Create Razorpay order
+    const razorpayOrder = await createRazorpayOrder({
+      amount: gst.totalAmount * 100, // Amount in paise
       currency: 'INR',
-    };
+      receipt: payment._id.toString(),
+      description: description || `Payment for ${type}`,
+      customer_notify: 1,
+      notes: {
+        paymentId: payment._id.toString(),
+        type,
+        referenceId: referenceId?.toString() || '',
+      },
+    });
 
+    // Store Razorpay order ID in payment record
     payment.razorpayOrderId = razorpayOrder.id;
     await payment.save();
 
-    res.json({ payment, razorpayOrder });
+    res.json({
+      payment,
+      razorpayOrder: {
+        id: razorpayOrder.id,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+      },
+      keyId: process.env.RAZORPAY_KEY_ID,
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Server error.', error: error.message });
+    console.error('Create order error:', error);
+    res.status(500).json({ message: 'Failed to create order.', error: error.message });
   }
 };
 
@@ -83,10 +108,23 @@ exports.verifyPayment = async (req, res) => {
   try {
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
 
+    // Verify signature
+    const isValid = verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
+    if (!isValid) {
+      return res.status(400).json({ message: 'Invalid payment signature.' });
+    }
+
+    // Find payment record
     const payment = await Payment.findOne({ razorpayOrderId });
     if (!payment) return res.status(404).json({ message: 'Payment not found.' });
 
-    // In production: verify HMAC signature with Razorpay secret
+    // Fetch payment details from Razorpay to verify amount and status
+    const paymentDetails = await fetchPaymentDetails(razorpayPaymentId);
+    if (paymentDetails.status !== 'captured') {
+      return res.status(400).json({ message: 'Payment not captured by Razorpay.' });
+    }
+
+    // Update payment record
     payment.razorpayPaymentId = razorpayPaymentId;
     payment.razorpaySignature = razorpaySignature;
     payment.amountPaid = payment.totalAmount;
@@ -97,9 +135,21 @@ exports.verifyPayment = async (req, res) => {
     // CRITICAL: Activate related records after successful payment
     await activateOnPaymentSuccess(payment, req);
 
+    // Emit socket event for real-time updates
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('payment:success', {
+        paymentId: payment._id,
+        type: payment.type,
+        studentId: payment.studentId,
+      });
+      io.emit('dashboard:refresh');
+    }
+
     res.json({ payment, message: 'Payment verified and activated successfully.' });
   } catch (error) {
-    res.status(500).json({ message: 'Server error.' });
+    console.error('Verify payment error:', error);
+    res.status(500).json({ message: 'Server error.', error: error.message });
   }
 };
 
@@ -182,10 +232,31 @@ exports.markPaid = async (req, res) => {
 // PUT /api/payments/:id/refund
 exports.refundPayment = async (req, res) => {
   try {
-    const { reason } = req.body;
+    const { reason, fullRefund = true } = req.body;
     const payment = await Payment.findById(req.params.id);
     if (!payment) return res.status(404).json({ message: 'Payment not found.' });
 
+    if (payment.status === 'refunded') {
+      return res.status(400).json({ message: 'Payment already refunded.' });
+    }
+
+    if (payment.status !== 'paid' && payment.status !== 'partial') {
+      return res.status(400).json({ message: 'Only paid/partial payments can be refunded.' });
+    }
+
+    // Create refund via Razorpay if payment was via Razorpay
+    if (payment.razorpayPaymentId) {
+      try {
+        const refundAmount = fullRefund ? payment.amountPaid : req.body.refundAmount;
+        const refund = await createRefund(payment.razorpayPaymentId, refundAmount);
+        payment.razorpayRefundId = refund.id;
+      } catch (refundError) {
+        console.error('Razorpay refund error:', refundError);
+        return res.status(500).json({ message: 'Failed to process refund via Razorpay.' });
+      }
+    }
+
+    // Update payment status
     payment.status = 'refunded';
     payment.refundReason = reason;
     payment.refundedAt = new Date();
@@ -204,12 +275,17 @@ exports.refundPayment = async (req, res) => {
       );
     }
 
+    // Emit socket event
     const io = req.app.get('io');
-    if (io) io.emit('payment:refunded', { paymentId: payment._id });
+    if (io) {
+      io.emit('payment:refunded', { paymentId: payment._id, reason });
+      io.emit('dashboard:refresh');
+    }
 
-    res.json({ payment });
+    res.json({ payment, message: 'Refund processed successfully.' });
   } catch (error) {
-    res.status(500).json({ message: 'Server error.' });
+    console.error('Refund error:', error);
+    res.status(500).json({ message: 'Server error.', error: error.message });
   }
 };
 
@@ -299,3 +375,95 @@ async function activateOnPaymentSuccess(payment, req) {
     io.emit('dashboard:refresh');
   }
 }
+
+// POST /api/payments/webhook/razorpay — Webhook handler for Razorpay events
+exports.webhookHandler = async (req, res) => {
+  try {
+    const signature = req.headers['x-razorpay-signature'];
+    const body = req.rawBody; // Ensure rawBody is available
+
+    // Verify webhook signature
+    if (!verifyWebhookSignature(req.body, signature)) {
+      return res.status(401).json({ message: 'Invalid signature.' });
+    }
+
+    const event = req.body.event;
+    const eventData = req.body.payload.payment.entity;
+
+    if (event === 'payment.authorized' || event === 'payment.captured') {
+      // Payment successful
+      const payment = await Payment.findOne({ razorpayOrderId: eventData.order_id });
+      if (payment) {
+        payment.razorpayPaymentId = eventData.id;
+        payment.amountPaid = payment.totalAmount;
+        payment.remainingAmount = 0;
+        payment.status = 'paid';
+        await payment.save();
+        await activateOnPaymentSuccess(payment, req);
+      }
+    } else if (event === 'payment.failed') {
+      // Payment failed
+      const payment = await Payment.findOne({ razorpayOrderId: eventData.order_id });
+      if (payment) {
+        payment.status = 'failed';
+        await payment.save();
+        const io = req.app.get('io');
+        if (io) io.emit('payment:failed', { paymentId: payment._id });
+      }
+    } else if (event === 'refund.created' || event === 'refund.processed') {
+      // Refund processed
+      const payment = await Payment.findOne({ razorpayPaymentId: req.body.payload.refund.entity.payment_id });
+      if (payment) {
+        payment.status = 'refunded';
+        await payment.save();
+      }
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Webhook error:', error);
+    res.status(500).json({ message: 'Webhook processing error.' });
+  }
+};
+
+// POST /api/payments/:id/retry — Retry a failed payment
+exports.retryPayment = async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.id);
+    if (!payment) return res.status(404).json({ message: 'Payment not found.' });
+
+    if (payment.status !== 'failed' && payment.status !== 'pending') {
+      return res.status(400).json({ message: 'Cannot retry this payment.' });
+    }
+
+    // Create a new Razorpay order
+    const razorpayOrder = await createRazorpayOrder({
+      amount: payment.totalAmount * 100,
+      currency: 'INR',
+      receipt: payment._id.toString(),
+      description: `Retry Payment for ${payment.type}`,
+      notes: {
+        paymentId: payment._id.toString(),
+        type: payment.type,
+        retry: true,
+      },
+    });
+
+    payment.razorpayOrderId = razorpayOrder.id;
+    payment.status = 'pending';
+    await payment.save();
+
+    res.json({
+      payment,
+      razorpayOrder: {
+        id: razorpayOrder.id,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+      },
+      keyId: process.env.RAZORPAY_KEY_ID,
+    });
+  } catch (error) {
+    console.error('Retry payment error:', error);
+    res.status(500).json({ message: 'Failed to retry payment.', error: error.message });
+  }
+};

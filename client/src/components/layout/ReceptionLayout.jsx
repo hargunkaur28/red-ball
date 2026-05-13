@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, GraduationCap, CreditCard, Activity, Receipt, Menu, X, LogOut } from 'lucide-react';
+import { LayoutDashboard, GraduationCap, CreditCard, Activity, Calendar, Receipt, Menu, X, LogOut } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { getInitials } from '../../lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
@@ -13,6 +13,9 @@ const menuItems = [
   { path: '/reception/admissions', label: 'Admissions', icon: <GraduationCap size={18} /> },
   { path: '/reception/memberships', label: 'Memberships', icon: <CreditCard size={18} /> },
   { path: '/reception/one-time-play', label: 'One-Time Play', icon: <Activity size={18} /> },
+  { path: '/reception/book-slots', label: 'Book Slots', icon: <Calendar size={18} /> },
+  { path: '/reception/operations', label: 'Operations Board', icon: <Activity size={18} /> },
+  { path: '/reception/attendance-desk', label: 'Attendance Desk', icon: <Activity size={18} /> },
   { path: '/reception/payments', label: 'Payments & Receipts', icon: <Receipt size={18} /> },
 ];
 
