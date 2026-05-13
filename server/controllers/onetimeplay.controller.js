@@ -13,21 +13,27 @@ exports.getAll = async (req, res) => {
       const end = new Date(date);
       end.setHours(23, 59, 59, 999);
       filter.date = { $gte: start, $lte: end };
-    } else {
-      // Default to today
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const endOfDay = new Date();
-      endOfDay.setHours(23, 59, 59, 999);
-      filter.date = { $gte: today, $lte: endOfDay };
     }
 
+    // Fetch the plays (recent 50 entries if no date filter is passed)
     const plays = await OneTimePlay.find(filter)
       .populate('createdBy', 'name')
       .populate('paymentId')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(50);
 
-    const todayTotal = plays.reduce((sum, p) => sum + p.totalAmount, 0);
+    // Calculate today's total dynamically
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const todayTotal = plays
+      .filter(p => {
+        const pDate = new Date(p.createdAt);
+        return pDate >= todayStart && pDate <= todayEnd;
+      })
+      .reduce((sum, p) => sum + p.totalAmount, 0);
 
     res.json({ plays, todayTotal });
   } catch (error) {
