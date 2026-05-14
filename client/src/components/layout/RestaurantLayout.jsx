@@ -74,9 +74,21 @@ export default function RestaurantLayout() {
         )}
       </AnimatePresence>
       <div className="flex-1 lg:ml-64">
-        <header className="h-14 border-b border-[#EAEAEA] bg-white/80 backdrop-blur-md sticky top-0 z-30 flex items-center px-4 lg:px-6 lg:hidden">
-          <button onClick={() => setMobileOpen(true)} className="w-9 h-9 rounded-lg bg-[#F0F0F0] border border-[#EAEAEA] flex items-center justify-center text-[#666666]"><Menu size={18} /></button>
-          <span className="ml-3 text-sm font-semibold text-[#111111]">Restaurant</span>
+        <header className="h-16 border-b border-black/5 bg-white/90 backdrop-blur-md sticky top-0 z-30 flex items-center px-4 lg:hidden shadow-sm">
+          <button 
+            onClick={() => setMobileOpen(true)} 
+            className="w-10 h-10 rounded-xl bg-black text-white flex items-center justify-center shadow-lg transition-transform active:scale-95"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="ml-4">
+            <h1 className="text-sm font-black text-[#111111] tracking-tight uppercase leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+              Red Ball Sports Café
+            </h1>
+            <p className="text-[10px] font-bold text-[#C8102E] uppercase tracking-widest mt-0.5">
+              Management Portal
+            </p>
+          </div>
         </header>
         <main className="p-4 lg:p-6">
           <ErrorBoundary>

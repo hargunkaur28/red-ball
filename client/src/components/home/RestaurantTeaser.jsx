@@ -388,13 +388,13 @@ export default function RestaurantTeaser() {
                   </div>
 
                   {/* Quick Order CTA */}
-                  <button
-                    onClick={() => handleQuickOrder(item.name)}
+                  <Link
+                    to="/table-portal"
                     className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white text-white hover:text-black font-body text-xs font-bold uppercase tracking-wider transition-all duration-200 border border-white/10 hover:border-white flex items-center justify-center gap-2 group/btn"
                   >
                     <ShoppingBag size={14} className="group-hover/btn:scale-110 transition-transform" />
                     <span>Quick Try Action</span>
-                  </button>
+                  </Link>
                 </div>
               </motion.div>
             ))}
@@ -450,13 +450,13 @@ export default function RestaurantTeaser() {
                         {item.desc}
                       </p>
                     </div>
-                    <button
-                      onClick={() => handleQuickOrder(item.name)}
+                    <Link
+                      to="/table-portal"
                       className="w-full py-2 px-4 rounded-xl bg-white/5 text-white font-body text-[11px] font-bold uppercase tracking-wider border border-white/10 flex items-center justify-center gap-2"
                     >
                       <ShoppingBag size={13} />
                       <span>Quick Try</span>
-                    </button>
+                    </Link>
                   </div>
                 </div>
               ))}

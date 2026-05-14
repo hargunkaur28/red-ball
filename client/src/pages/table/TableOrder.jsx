@@ -7,7 +7,7 @@ import useCartStore from '../../store/cartStore';
 import { formatCurrency, calcGST } from '../../lib/utils';
 import { toast } from 'sonner';
 import { io } from 'socket.io-client';
-import { Clock, Flame, CheckCircle, AlertCircle, ShoppingBag, X, User, Phone, FileText, Sparkles, ArrowRight, ChefHat, CheckCircle2 } from 'lucide-react';
+import { Clock, Flame, CheckCircle, AlertCircle, ShoppingBag, X, Plus, User, Phone, FileText, Sparkles, ArrowRight, ArrowLeft, ChefHat, CheckCircle2 } from 'lucide-react';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const CATEGORIES = ['All', 'Featured', 'Protein Meals', 'Drinks', 'Recovery Shakes', 'Snacks', 'Healthy Bowls', 'Recovery Combos', 'High Carb Meals', 'Vegetarian'];
@@ -153,6 +153,7 @@ export default function TableOrder() {
   const [activeCategory, setActiveCategory] = useState('All');
   const [cartOpen, setCartOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(false);
+  const [selectedFood, setSelectedFood] = useState(null);
   const [loading, setLoading] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(null);
   const [scriptLoaded, setScriptLoaded] = useState(false);
@@ -410,50 +411,54 @@ export default function TableOrder() {
       <div className="absolute top-1/3 left-0 w-[500px] h-[500px] bg-[#C8102E]/10 rounded-full blur-[150px] pointer-events-none" />
 
       {/* Cinematic Top Navbar */}
-      <header className="sticky top-0 z-40 bg-[#0D0D0D]/90 backdrop-blur-md border-b border-white/10 px-4 py-4 shadow-xl">
+      <header className="sticky top-0 z-40 bg-[#0D0D0D]/95 backdrop-blur-lg border-b border-white/10 px-3 py-3 sm:px-6 sm:py-4 shadow-2xl">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#C8102E] flex items-center justify-center font-black tracking-tighter text-white shadow-[0_0_15px_#C8102E]">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-[#C8102E] flex items-center justify-center font-black tracking-tighter text-white shadow-[0_0_15px_rgba(200,16,46,0.4)] text-xs sm:text-base">
               RB
             </div>
-            <div>
-              <h1 className="font-bold text-xl leading-tight tracking-wider text-white" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-                RED BALL SPORTS CAFÉ
+            <div className="min-w-0">
+              <h1 className="font-bold text-base sm:text-xl leading-tight tracking-wider text-white truncate" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                <span className="sm:hidden">RB SPORTS CAFÉ</span>
+                <span className="hidden sm:inline">RED BALL SPORTS CAFÉ</span>
               </h1>
-              <p className="text-[11px] text-[#F5A623] font-bold tracking-widest uppercase">
-                {tableData?.table?.label || 'Digital Table Menu'} • {tableData?.table?.section || 'Premium Lounge'}
+              <p className="text-[9px] sm:text-[11px] text-[#F5A623] font-bold tracking-widest uppercase truncate opacity-90">
+                {tableData?.table?.label || 'Table'} • {tableData?.table?.section || 'Lounge'}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden md:flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full text-xs text-gray-300">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-ping" />
-              <span>Live Kitchen Synced</span>
-            </div>
+
+          <div className="flex items-center gap-1.5 sm:gap-3">
             <button 
               onClick={() => setOrdersOpen(true)}
-              className="px-4 py-2 rounded-xl bg-[#1A1A1A] hover:bg-[#222] text-[#F5A623] text-xs font-extrabold flex items-center gap-1.5 shadow-lg transition-all hover:scale-105 active:scale-95 border border-white/10 uppercase tracking-wider relative"
+              className="p-2 sm:px-4 sm:py-2 rounded-xl bg-[#1A1A1A] hover:bg-[#252525] text-[#F5A623] text-[10px] sm:text-xs font-extrabold flex items-center gap-1.5 shadow-lg transition-all border border-white/5 uppercase tracking-wider relative"
             >
               <Clock size={16} />
-              <span>My Orders</span>
+              <span className="hidden sm:inline">My Orders</span>
               {tableOrdersData?.orders?.some(o => o.status !== 'delivered' && o.status !== 'cancelled') && (
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse border-2 border-[#0D0D0D]" />
               )}
             </button>
+
             <button 
               onClick={() => setCartOpen(true)} 
-              className="px-4 py-2 rounded-xl bg-[#C8102E] hover:bg-[#A00D24] text-white text-xs font-extrabold flex items-center gap-2 shadow-lg transition-all hover:scale-105 active:scale-95 border border-white/10"
+              className="p-2 sm:px-4 sm:py-2 rounded-xl bg-[#C8102E] hover:bg-[#A00D24] text-white text-[10px] sm:text-xs font-extrabold flex items-center gap-1.5 shadow-lg transition-all border border-white/10"
             >
               <ShoppingBag size={16} />
-              <span>Cart ({getItemCount()})</span>
+              <span className="hidden sm:inline">Cart</span>
+              <span>({getItemCount()})</span>
             </button>
-            <button onClick={() => navigate('/table-portal')} className="hidden sm:inline-block p-2 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 text-xs font-bold transition-all border border-white/10">
-              Change Table
+            
+            <button 
+              onClick={() => navigate('/table-portal')} 
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all border border-white/5"
+              title="Return to Portal"
+            >
+              <ArrowLeft size={16} />
             </button>
           </div>
         </div>
       </header>
-
       {/* Hero-style FEATURED RECOVERY ITEMS SECTION */}
       <section className="max-w-6xl mx-auto px-4 pt-8 pb-12 border-b border-white/10">
         <div className="mb-8">
@@ -480,98 +485,126 @@ export default function TableOrder() {
                 key={item._id}
                 whileHover={{ y: -6 }}
                 transition={{ duration: 0.2 }}
-                className={`bg-[#161616] rounded-3xl overflow-hidden border border-white/10 shadow-2xl flex flex-col justify-between group transition-all duration-300 hover:border-white/20 hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] ${
+                className={`bg-[#161616] rounded-2xl sm:rounded-3xl overflow-hidden border border-white/10 shadow-2xl flex flex-col justify-between group transition-all duration-300 hover:border-white/20 hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] ${
                   !item.isAvailable ? 'opacity-60 grayscale' : ''
                 }`}
               >
-                {/* Immersive Image Header */}
-                <div className="relative h-40 sm:h-60 overflow-hidden bg-gradient-to-br from-[#161616] to-[#2D1215]">
-                  <img 
-                    src={item.image} 
-                    alt={item.name} 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out" 
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#161616] via-black/20 to-transparent" />
+                {/* Clickable Area */}
+                <div className="flex-1 flex flex-col cursor-pointer" onClick={() => setSelectedFood(item)}>
+                  {/* Immersive Image Header */}
+                  <div className="relative h-32 sm:h-60 overflow-hidden bg-gradient-to-br from-[#161616] to-[#2D1215]">
+                    <img 
+                      src={item.image} 
+                      alt={item.name} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out" 
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#161616] via-black/20 to-transparent" />
 
-                  {/* Top Badges */}
-                  <div className="absolute top-3 inset-x-3 flex items-start justify-between pointer-events-none">
-                    <span className="px-3 py-1 bg-black/70 backdrop-blur-md rounded-full text-white text-[10px] font-black tracking-widest uppercase border border-white/10">
-                      {item.category}
-                    </span>
-                    {item.chefRecommended && (
-                      <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#F5A623] text-black text-[10px] font-extrabold shadow-lg">
-                        <ChefHat size={12} /> Choice
+                    {/* Top Badges - Only on Desktop */}
+                    <div className="absolute top-3 inset-x-3 hidden sm:flex items-start justify-between pointer-events-none">
+                      <span className="px-3 py-1 bg-black/70 backdrop-blur-md rounded-full text-white text-[10px] font-black tracking-widest uppercase border border-white/10">
+                        {item.category}
                       </span>
-                    )}
-                  </div>
+                      {item.chefRecommended && (
+                        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#F5A623] text-black text-[10px] font-extrabold shadow-lg">
+                          <ChefHat size={12} /> Choice
+                        </span>
+                      )}
+                    </div>
 
-                  {/* Out of stock overlay */}
-                  {!item.isAvailable && (
-                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-10">
-                      <span className="px-4 py-1.5 bg-red-600 text-white text-xs font-black tracking-widest uppercase rounded-full">
-                        Out of Stock
+                    {/* Veg/Non-Veg Tag - For Mobile */}
+                    <div className="absolute top-2 left-2 sm:hidden flex flex-wrap gap-1">
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-wider text-white uppercase ${item.isVeg ? 'bg-green-600' : 'bg-red-600'}`}>
+                        {item.isVeg ? 'Veg' : 'Non-Veg'}
                       </span>
                     </div>
-                  )}
 
-                  {/* Price Tag pinned to bottom right */}
-                  <div className="absolute bottom-3 right-3 px-3 py-1 bg-[#C8102E] text-white rounded-xl font-bold text-sm shadow-xl font-mono">
-                    {formatCurrency(price)}
+                    {/* Out of stock overlay */}
+                    {!item.isAvailable && (
+                      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-10">
+                        <span className="px-4 py-1.5 bg-red-600 text-white text-xs font-black tracking-widest uppercase rounded-full">
+                          Out of Stock
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Price Tag - Desktop only */}
+                    <div className="absolute bottom-3 right-3 px-3 py-1 bg-[#C8102E] text-white rounded-xl font-bold text-sm shadow-xl font-mono hidden sm:block">
+                      {formatCurrency(price)}
+                    </div>
+                  </div>
+
+                  {/* Content Details Area */}
+                  <div className="p-4 sm:p-6 flex flex-col justify-between grow">
+                    <div>
+                      {/* Nutrition stats strip - Desktop only */}
+                      <div className="text-[#F5A623] font-bold text-xs tracking-wider mb-2 hidden sm:flex items-center gap-2">
+                        <span>⚡ {item.protein}g Protein</span>
+                        <span>•</span>
+                        <span>{item.calories} kcal</span>
+                      </div>
+
+                      <h3 className="text-sm sm:text-xl font-bold text-white tracking-wide mb-1 sm:mb-2 line-clamp-1 group-hover:text-[#F5A623] transition-colors">
+                        {item.name}
+                      </h3>
+
+                      <p className="text-gray-400 text-[11px] sm:text-xs leading-relaxed mb-3 sm:mb-6 line-clamp-2 min-h-[30px] sm:min-h-[36px]">
+                        {item.description}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                {/* Content Details Area */}
-                <div className="p-6 flex flex-col justify-between grow">
-                  <div>
-                    {/* Nutrition stats strip */}
-                    <div className="text-[#F5A623] font-bold text-xs tracking-wider mb-2 flex items-center gap-2">
-                      <span>⚡ {item.protein}g Protein</span>
-                      <span>•</span>
-                      <span>{item.calories} kcal</span>
-                    </div>
-
-                    <h3 className="text-xl font-bold text-white tracking-wide mb-2 line-clamp-1 group-hover:text-[#F5A623] transition-colors">
-                      {item.name}
-                    </h3>
-
-                    <p className="text-gray-400 text-xs leading-relaxed mb-6 line-clamp-2 min-h-[36px]">
-                      {item.description}
-                    </p>
-                  </div>
-
-                  {/* Quantity & CTA Action Bar */}
-                  <div className="flex items-center justify-between pt-4 border-t border-white/10">
-                    <div className="flex items-center gap-1 text-[11px] text-gray-500">
-                      <Clock size={12} />
-                      <span>{item.preparationTime} min prep</span>
+                {/* Quantity & CTA Action Bar */}
+                <div className="p-4 pt-0">
+                  <div className="flex items-center justify-between pt-3 sm:pt-4 border-t border-white/10">
+                    <div>
+                      <span className="text-lg font-bold font-mono text-[#F5A623] sm:hidden">
+                        {formatCurrency(price)}
+                      </span>
+                      <div className="flex items-center gap-1 text-[10px] sm:text-[11px] text-gray-500">
+                        <Clock size={12} />
+                        <span>{item.preparationTime} min prep</span>
+                      </div>
                     </div>
 
                     {item.isAvailable && (
                       <div>
                         {qty > 0 ? (
-                          <div className="flex items-center gap-2 bg-black rounded-full p-1 border border-white/10 shadow-lg">
+                          <div className="flex items-center gap-2 bg-black rounded-full p-1 border border-white/10 shadow-lg scale-90 sm:scale-100">
                             <button 
-                              onClick={() => updateQuantity(item._id, 'Regular', qty - 1)}
+                              onClick={(e) => { e.stopPropagation(); updateQuantity(item._id, 'Regular', qty - 1); }}
                               className="w-7 h-7 rounded-full bg-[#222] text-white hover:bg-[#333] flex items-center justify-center font-bold text-xs"
                             >
                               −
                             </button>
                             <span className="text-white text-xs font-bold w-5 text-center font-mono">{qty}</span>
                             <button 
-                              onClick={() => updateQuantity(item._id, 'Regular', qty + 1)}
+                              onClick={(e) => { e.stopPropagation(); updateQuantity(item._id, 'Regular', qty + 1); }}
                               className="w-7 h-7 rounded-full bg-[#F5A623] text-black hover:bg-[#E09410] flex items-center justify-center font-bold text-xs"
                             >
                               +
                             </button>
                           </div>
                         ) : (
-                          <button 
-                            onClick={() => { addItem({ menuItemId: item._id, name: item.name, size: 'Regular', price }); toast.success('Added to order!'); }}
-                            className="px-5 py-2.5 bg-[#C8102E] hover:bg-[#A00D24] text-white rounded-full text-xs font-bold transition-all shadow-lg hover:scale-105 active:scale-95 flex items-center gap-1.5 uppercase tracking-wider"
-                          >
-                            <span>Add</span>
-                            <span className="text-white/70 font-normal">+</span>
-                          </button>
+                          <>
+                            {/* Mobile Circular Button */}
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); addItem({ menuItemId: item._id, name: item.name, size: 'Regular', price }); toast.success('Added!'); }}
+                              className="w-10 h-10 rounded-full bg-[#C8102E] text-white flex sm:hidden flex-col items-center justify-center shadow-lg active:scale-90 transition-transform"
+                            >
+                              <span className="text-[10px] font-black leading-none">ADD</span>
+                              <Plus size={14} strokeWidth={3} />
+                            </button>
+                            {/* Desktop Pill Button */}
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); addItem({ menuItemId: item._id, name: item.name, size: 'Regular', price }); toast.success('Added to order!'); }}
+                              className="hidden sm:flex px-5 py-2.5 bg-[#C8102E] hover:bg-[#A00D24] text-white rounded-full text-xs font-bold transition-all shadow-lg hover:scale-105 active:scale-95 items-center gap-1.5 uppercase tracking-wider"
+                            >
+                              <span>Add</span>
+                              <span className="text-white/70 font-normal">+</span>
+                            </button>
+                          </>
                         )}
                       </div>
                     )}
@@ -584,8 +617,8 @@ export default function TableOrder() {
       </section>
 
       {/* Sticky Category Sliding Navigation Bar */}
-      <div className="sticky top-[73px] z-30 bg-[#0D0D0D]/95 backdrop-blur-md border-b border-white/10 py-3.5 px-4 shadow-md overflow-x-auto whitespace-nowrap scrollbar-none flex items-center justify-center w-full">
-        <div className="flex items-center justify-center gap-2 max-w-full px-2 mx-auto">
+      <div className="sticky top-[64px] sm:top-[73px] z-30 bg-[#0D0D0D]/95 backdrop-blur-md border-b border-white/10 py-3.5 shadow-md overflow-x-auto scrollbar-none w-full">
+        <div className="flex items-center gap-2 px-4 sm:justify-center min-w-max">
           {CATEGORIES.map(cat => (
             <button
               key={cat}
@@ -630,43 +663,48 @@ export default function TableOrder() {
                   !item.isAvailable ? 'opacity-50 grayscale' : ''
                 }`}
               >
-                {/* Image Section */}
-                <div className="relative h-32 sm:h-48 overflow-hidden">
-                  <img 
-                    src={item.image} 
-                    alt={item.name} 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#161616] via-transparent to-black/30" />
-                  
-                  <div className="absolute top-2 left-2 flex flex-wrap gap-1">
-                    <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-wider text-white uppercase ${item.isVeg ? 'bg-green-600' : 'bg-red-600'}`}>
-                      {item.isVeg ? 'Veg' : 'Non-Veg'}
-                    </span>
-                    {item.featured && (
-                      <span className="bg-[#F5A623] text-black px-2 py-0.5 rounded text-[9px] font-black shadow">
-                        ★ Hero
+                {/* Clickable Area */}
+                <div className="flex-1 flex flex-col cursor-pointer" onClick={() => setSelectedFood(item)}>
+                  {/* Image Section */}
+                  <div className="relative h-32 sm:h-48 overflow-hidden">
+                    <img 
+                      src={item.image} 
+                      alt={item.name} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#161616] via-transparent to-black/30" />
+                    
+                    <div className="absolute top-2 left-2 flex flex-wrap gap-1">
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-wider text-white uppercase ${item.isVeg ? 'bg-green-600' : 'bg-red-600'}`}>
+                        {item.isVeg ? 'Veg' : 'Non-Veg'}
                       </span>
+                      {item.featured && (
+                        <span className="bg-[#F5A623] text-black px-2 py-0.5 rounded text-[9px] font-black shadow">
+                          ★ Hero
+                        </span>
+                      )}
+                    </div>
+                    {!item.isAvailable && (
+                      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center text-white text-[11px] font-black uppercase tracking-widest shadow-lg">
+                        Out of Stock
+                      </div>
                     )}
                   </div>
-                  {!item.isAvailable && (
-                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center text-white text-[11px] font-black uppercase tracking-widest shadow-lg">
-                      Out of Stock
+
+                  {/* Content Info */}
+                  <div className="p-4 flex-1 flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-start gap-1 mb-1">
+                        <h4 className="font-extrabold text-sm text-white line-clamp-1 group-hover:text-[#F5A623] transition-colors">{item.name}</h4>
+                      </div>
+                      <p className="text-[11px] text-gray-400 line-clamp-2 mb-3 min-h-[30px]">
+                        {item.description || 'Nutrient-rich sports performance meal.'}
+                      </p>
                     </div>
-                  )}
+                  </div>
                 </div>
 
-                {/* Content Info */}
-                <div className="p-4 flex-1 flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-start gap-1 mb-1">
-                      <h4 className="font-extrabold text-sm text-white line-clamp-1">{item.name}</h4>
-                    </div>
-                    <p className="text-[11px] text-gray-400 line-clamp-2 mb-3 min-h-[30px]">
-                      {item.description || 'Nutrient-rich sports performance meal.'}
-                    </p>
-                  </div>
-
+                <div className="p-4 pt-0">
                   <div className="flex items-center justify-between pt-3 border-t border-white/10">
                     <div>
                       <span className="text-lg font-bold font-mono text-[#F5A623]">
@@ -683,14 +721,14 @@ export default function TableOrder() {
                         {qty > 0 ? (
                           <div className="flex items-center gap-1.5 bg-black rounded-full p-1 border border-white/10 shadow">
                             <button 
-                              onClick={() => updateQuantity(item._id, 'Regular', qty - 1)}
+                              onClick={(e) => { e.stopPropagation(); updateQuantity(item._id, 'Regular', qty - 1); }}
                               className="w-6 h-6 rounded-full bg-[#222] text-white font-bold text-xs flex items-center justify-center"
                             >
                               −
                             </button>
                             <span className="text-white text-xs font-bold w-4 text-center font-mono">{qty}</span>
                             <button 
-                              onClick={() => updateQuantity(item._id, 'Regular', qty + 1)}
+                              onClick={(e) => { e.stopPropagation(); updateQuantity(item._id, 'Regular', qty + 1); }}
                               className="w-6 h-6 rounded-full bg-[#F5A623] text-black font-bold text-xs flex items-center justify-center"
                             >
                               +
@@ -698,7 +736,7 @@ export default function TableOrder() {
                           </div>
                         ) : (
                           <button 
-                            onClick={() => { addItem({ menuItemId: item._id, name: item.name, size: 'Regular', price }); toast.success('Added to order!'); }}
+                            onClick={(e) => { e.stopPropagation(); addItem({ menuItemId: item._id, name: item.name, size: 'Regular', price }); toast.success('Added to order!'); }}
                             className="px-4 py-2 bg-[#C8102E] hover:bg-[#A00D24] text-white rounded-full text-xs font-bold uppercase transition-all shadow-md active:scale-95"
                           >
                             Add +
@@ -717,30 +755,35 @@ export default function TableOrder() {
       {/* Floating Bottom Cart Bar */}
       {getItemCount() > 0 && (
         <motion.div 
-          initial={{ y: 100 }} 
-          animate={{ y: 0 }} 
-          className="fixed bottom-6 left-0 right-0 z-40 px-4"
+          initial={{ y: 100, opacity: 0 }} 
+          animate={{ y: 0, opacity: 1 }} 
+          className="fixed bottom-6 inset-x-4 z-40 flex justify-center"
         >
-          <div className="max-w-md mx-auto">
-            <button 
-              onClick={() => setCartOpen(true)} 
-              className="w-full bg-[#161616] text-white border-2 border-[#F5A623] py-4 px-6 rounded-full shadow-2xl flex items-center justify-between group transition-all duration-200 hover:bg-[#1a1a1a] hover:scale-[1.02]"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-[#F5A623] text-black rounded-full flex items-center justify-center font-black text-xs shadow-inner">
+          <button 
+            onClick={() => setCartOpen(true)} 
+            className="w-full max-w-sm bg-black/90 backdrop-blur-2xl text-white border border-white/10 p-3.5 pl-4 pr-6 rounded-full shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] flex items-center justify-between group transition-all duration-300 hover:scale-[1.03] hover:border-[#F5A623]/40 active:scale-95"
+          >
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="w-11 h-11 bg-[#F5A623] text-black rounded-full flex items-center justify-center font-black text-sm shadow-[0_0_20px_rgba(245,166,35,0.3)]">
                   {getItemCount()}
                 </div>
-                <div className="text-left">
-                  <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest">Active Table Cart</p>
-                  <p className="text-sm font-extrabold text-white font-mono">{formatCurrency(gst.totalAmount)}</p>
-                </div>
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-600 rounded-full animate-ping opacity-75" />
               </div>
-              <div className="flex items-center gap-2 font-bold text-xs text-[#F5A623] uppercase tracking-wider group-hover:translate-x-1 transition-transform">
-                <span>View Cart & Checkout</span>
-                <ArrowRight size={14} />
+              <div className="text-left">
+                <p className="text-[9px] text-gray-500 uppercase font-black tracking-[0.2em] mb-0.5">Active Order</p>
+                <p className="text-lg font-black text-white font-mono leading-none">{formatCurrency(gst.totalAmount)}</p>
               </div>
-            </button>
-          </div>
+            </div>
+
+            <div className="flex flex-col items-end gap-0.5">
+              <div className="flex items-center gap-1.5 font-black text-[10px] text-[#F5A623] uppercase tracking-widest group-hover:translate-x-1 transition-transform">
+                <span>Checkout</span>
+                <ArrowRight size={14} strokeWidth={3} />
+              </div>
+              <p className="text-[8px] text-gray-500 uppercase font-bold pr-5">Tap to view cart</p>
+            </div>
+          </button>
         </motion.div>
       )}
 
@@ -984,6 +1027,121 @@ export default function TableOrder() {
             </motion.div>
           </>
         )}
+        {/* Product Quick View Modal */}
+        <AnimatePresence mode="wait">
+          {selectedFood && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+              <motion.div 
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }} 
+                exit={{ opacity: 0 }} 
+                className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+                onClick={() => setSelectedFood(null)}
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 20 }} 
+                animate={{ opacity: 1, scale: 1, y: 0 }} 
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="relative z-10 w-full max-w-md bg-[#161616] rounded-[32px] overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.8)] border border-white/10"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header Image */}
+                <div className="relative h-56 sm:h-72 w-full overflow-hidden">
+                  <img src={selectedFood.image} alt={selectedFood.name} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#161616] via-transparent to-black/20" />
+                  
+                  <button 
+                    onClick={() => setSelectedFood(null)}
+                    className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 backdrop-blur-md text-white flex items-center justify-center hover:bg-black/70 transition-colors border border-white/10"
+                  >
+                    <X size={20} />
+                  </button>
+
+                  <div className="absolute bottom-5 left-6 right-6 flex items-end justify-between">
+                    <div>
+                      <span className="px-2.5 py-0.5 bg-[#F5A623] text-black text-[9px] font-black uppercase tracking-widest rounded-full shadow-lg mb-1.5 inline-block">
+                        {selectedFood.category}
+                      </span>
+                      <h2 className="text-2xl font-black text-white tracking-wide uppercase leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                        {selectedFood.name}
+                      </h2>
+                    </div>
+                    <div className="text-xl font-black text-[#F5A623] font-mono">
+                      {formatCurrency(selectedFood.sizes?.[0]?.price || selectedFood.price || 199)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-6 sm:p-8 space-y-6 overflow-y-auto max-h-[55vh] scrollbar-none">
+                  {/* Nutrition Stats Grid */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-black/40 rounded-2xl p-3 border border-white/5 text-center">
+                      <div className="text-[#C8102E] mb-1 flex justify-center"><Flame size={16} /></div>
+                      <div className="text-lg font-black text-white">{selectedFood.calories || '---'}</div>
+                      <div className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Calories</div>
+                    </div>
+                    <div className="bg-black/40 rounded-2xl p-3 border border-white/5 text-center">
+                      <div className="text-[#F5A623] mb-1 flex justify-center"><Sparkles size={16} /></div>
+                      <div className="text-lg font-black text-white">{selectedFood.protein || '---'}g</div>
+                      <div className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Protein</div>
+                    </div>
+                    <div className="bg-black/40 rounded-2xl p-3 border border-white/5 text-center">
+                      <div className="text-blue-500 mb-1 flex justify-center"><Clock size={16} /></div>
+                      <div className="text-lg font-black text-white">{selectedFood.preparationTime || '---'}m</div>
+                      <div className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Prep Time</div>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div className="space-y-2">
+                    <h4 className="text-[10px] font-black text-[#888] uppercase tracking-widest border-l-2 border-[#C8102E] pl-2.5">
+                      The Performance Recipe
+                    </h4>
+                    <p className="text-gray-400 text-[13px] leading-relaxed font-medium">
+                      {selectedFood.description || 'This masterfully prepared dish is optimized for high-performance recovery and sustained energy levels.'}
+                    </p>
+                  </div>
+
+                  {/* Added Stuff / Ingredients (Mocked) */}
+                  <div className="space-y-3">
+                    <h4 className="text-[10px] font-black text-[#888] uppercase tracking-widest border-l-2 border-[#F5A623] pl-2.5">
+                      Recovery Matrix
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {['No Added Sugar', 'Gluten Free', 'High Fiber', 'Natural Ingredients'].map(tag => (
+                        <span key={tag} className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-full text-[9px] font-bold text-gray-400">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Action Button */}
+                  <div className="pt-2">
+                    <button 
+                      onClick={() => { 
+                        addItem({ 
+                          menuItemId: selectedFood._id, 
+                          name: selectedFood.name, 
+                          size: 'Regular', 
+                          price: selectedFood.sizes?.[0]?.price || selectedFood.price || 199 
+                        }); 
+                        toast.success('Added to your cart!');
+                        setSelectedFood(null);
+                      }}
+                      className="w-full py-4 bg-[#C8102E] hover:bg-[#A00D24] text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-[0_10px_30px_rgba(200,16,46,0.3)] transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      <ShoppingBag size={16} />
+                      Add to Cart
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </AnimatePresence>
     </div>
   );
