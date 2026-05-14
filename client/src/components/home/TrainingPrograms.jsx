@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Sparkles, Award } from 'lucide-react';
+import { ArrowRight, Sparkles, Award, Target, Trophy, Feather, Waves, Dumbbell, Flower2, Star } from 'lucide-react';
 
 const sports = [
   { 
-    icon: '🏏', 
+    icon: <Target size={20} />, 
     name: 'Cricket Coaching', 
     desc: 'Master batting, bowling & fielding with elite professional coaches in state-of-the-art practice nets.',
     image: 'https://images.unsplash.com/photo-1531415074968-036ba1b575da?q=80&w=1200&auto=format&fit=crop',
@@ -12,7 +12,7 @@ const sports = [
     stats: 'BCCI Certified Coaches'
   },
   { 
-    icon: '⚽', 
+    icon: <Trophy size={20} />, 
     name: 'Football Training', 
     desc: 'Sharpen elite ball control, tactical positioning, and high-speed match play under premium floodlights.',
     // image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=1200&auto=format&fit=crop',
@@ -21,7 +21,7 @@ const sports = [
     stats: 'FIFA Standard Pitch'
   },
   { 
-    icon: '🏸', 
+    icon: <Feather size={20} />, 
     name: 'Badminton Coaching', 
     desc: 'Build explosive court agility, smash precision, and master high-intensity indoor strategy.',
     image: 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?q=80&w=1200&auto=format&fit=crop',
@@ -29,7 +29,7 @@ const sports = [
     stats: 'BWF Approved Mats'
   },
   { 
-    icon: '🏊', 
+    icon: <Waves size={20} />, 
     name: 'Swimming Sessions', 
     desc: 'Learn competitive strokes, core endurance, and flawless diving technique in our all-weather pool.',
     image: 'https://images.unsplash.com/photo-1519315901367-f34ff9154487?q=80&w=1200&auto=format&fit=crop',
@@ -37,7 +37,7 @@ const sports = [
     stats: 'Olympic Dimensions'
   },
   { 
-    icon: '💪', 
+    icon: <Dumbbell size={20} />, 
     name: 'Gym & Fitness', 
     desc: 'Achieve absolute peak athletic conditioning with bespoke high-performance strength and explosive power regimens.',
     image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1200&auto=format&fit=crop',
@@ -45,7 +45,7 @@ const sports = [
     stats: 'Premium Rogue Gear'
   },
   { 
-    icon: '🧘', 
+    icon: <Flower2 size={20} />, 
     name: 'Yoga & Recovery', 
     desc: 'Accelerate post-match deep tissue repair, dynamic mobility, and laser-sharp mental visualization.',
     image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=1200&auto=format&fit=crop',
@@ -53,7 +53,7 @@ const sports = [
     stats: 'Cryo & Biohacking'
   },
   { 
-    icon: '👶', 
+    icon: <Star size={20} />, 
     name: "Kids' Cricket Clinic", 
     desc: 'High-energy foundational multi-skill coaching designed to ignite lifelong passion and flawless fundamental habits.',
     image: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?q=80&w=1200&auto=format&fit=crop',

@@ -42,9 +42,9 @@ const Profile = lazy(() => import('./pages/user/Profile'));
 
 // Restaurant
 const RestaurantDashboard = lazy(() => import('./pages/restaurant/Dashboard'));
-const RestaurantOrders = lazy(() => import('./pages/restaurant/Orders'));
+const LiveOrders = lazy(() => import('./pages/restaurant/Orders'));
+const RestaurantOrderHistory = lazy(() => import('./pages/restaurant/RestaurantOrders'));
 const RestaurantMenu = lazy(() => import('./pages/restaurant/Menu'));
-const RestaurantInventory = lazy(() => import('./pages/restaurant/Inventory'));
 const RestaurantTables = lazy(() => import('./pages/restaurant/Tables'));
 
 // Reception
@@ -52,6 +52,7 @@ const ReceptionDashboard = lazy(() => import('./pages/reception/Dashboard'));
 
 // Public
 const TableOrder = lazy(() => import('./pages/table/TableOrder'));
+const TablePortal = lazy(() => import('./pages/table/TablePortal'));
 
 // ── Auth Guard ─────────────────────────────────────────────────────
 function ProtectedRoute({ children, roles }) {
@@ -82,6 +83,7 @@ export default function App() {
             <Routes>
               {/* Public Routes */}
               <Route path="/login" element={<Login />} />
+              <Route path="/table-portal" element={<TablePortal />} />
               <Route path="/table/:tableId" element={<TableOrder />} />
 
               {/* Admin Panel */}
@@ -95,8 +97,9 @@ export default function App() {
                 <Route path="one-time-play" element={<OneTimePlay />} />
                 <Route path="slots" element={<Slots />} />
                 <Route path="payments" element={<Payments />} />
-                <Route path="restaurant" element={<RestaurantOrders />} />
-                <Route path="inventory" element={<RestaurantInventory />} />
+                <Route path="restaurant" element={<LiveOrders />} />
+                <Route path="history" element={<RestaurantOrderHistory />} />
+                <Route path="tables" element={<RestaurantTables />} />
                 <Route path="analytics" element={<Analytics />} />
                 <Route path="operations" element={<OperationalDashboard />} />
                 <Route path="attendance-desk" element={<AttendanceDesk />} />
@@ -121,9 +124,9 @@ export default function App() {
                 <ProtectedRoute roles={['manager', 'superadmin', 'admin']}><RestaurantLayout /></ProtectedRoute>
               }>
                 <Route index element={<RestaurantDashboard />} />
-                <Route path="orders" element={<RestaurantOrders />} />
+                <Route path="orders" element={<LiveOrders />} />
+                <Route path="history" element={<RestaurantOrderHistory />} />
                 <Route path="menu" element={<RestaurantMenu />} />
-                <Route path="inventory" element={<RestaurantInventory />} />
                 <Route path="tables" element={<RestaurantTables />} />
               </Route>
 

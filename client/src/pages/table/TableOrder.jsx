@@ -1,152 +1,990 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../lib/axios';
-import useAuthStore from '../../store/authStore';
 import useCartStore from '../../store/cartStore';
 import { formatCurrency, calcGST } from '../../lib/utils';
 import { toast } from 'sonner';
+import { io } from 'socket.io-client';
+import { Clock, Flame, CheckCircle, AlertCircle, ShoppingBag, X, User, Phone, FileText, Sparkles, ArrowRight, ChefHat, CheckCircle2 } from 'lucide-react';
+
+const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const CATEGORIES = ['All', 'Featured', 'Protein Meals', 'Drinks', 'Recovery Shakes', 'Snacks', 'Healthy Bowls', 'Recovery Combos', 'High Carb Meals', 'Vegetarian'];
+
+// Initial Premium Sports Café Dishes (Exact match with homepage showcase + additions)
+const initialCatalog = [
+  {
+    _id: 'dish-1',
+    name: 'Whey Protein Isolate Shake',
+    category: 'Recovery Shakes',
+    price: 249,
+    calories: 210,
+    protein: 28,
+    preparationTime: 5,
+    featured: true,
+    chefRecommended: true,
+    isVeg: true,
+    isAvailable: true,
+    image: 'https://images.unsplash.com/photo-1553530666-ba11a7da3888?q=80&w=800&auto=format&fit=crop',
+    description: 'Pure grass-fed isolate blended with raw cocoa, banana, and almond milk for rapid post-game muscle recovery.',
+    tags: '28g Protein • 210 kcal'
+  },
+  {
+    _id: 'dish-2',
+    name: 'Grilled Chicken Avocado Wrap',
+    category: 'Protein Meals',
+    price: 299,
+    calories: 420,
+    protein: 32,
+    preparationTime: 12,
+    featured: true,
+    chefRecommended: true,
+    isVeg: false,
+    isAvailable: true,
+    image: 'https://images.unsplash.com/photo-1626700051175-6818013e1d4f?q=80&w=800&auto=format&fit=crop',
+    description: 'Tender seasoned chicken breast, fresh avocado guacamole, and crisp iceberg folded in a toasted multigrain wrap.',
+    tags: '32g Protein • 420 kcal'
+  },
+  {
+    _id: 'dish-3',
+    name: 'Gourmet Pesto Grilled Sandwich',
+    category: 'Snacks',
+    price: 219,
+    calories: 380,
+    protein: 14,
+    preparationTime: 10,
+    featured: true,
+    chefRecommended: false,
+    isVeg: true,
+    isAvailable: true,
+    image: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?q=80&w=800&auto=format&fit=crop',
+    description: 'Thick sourdough toast packed with fresh basil pesto, chargrilled peppers, zucchini, and stringy low-fat mozzarella.',
+    tags: '14g Protein • 380 kcal'
+  },
+  {
+    _id: 'dish-4',
+    name: 'Hydration Electrolyte Elixir',
+    category: 'Drinks',
+    price: 149,
+    calories: 45,
+    protein: 0,
+    preparationTime: 5,
+    featured: true,
+    chefRecommended: false,
+    isVeg: true,
+    isAvailable: true,
+    image: 'https://images.unsplash.com/photo-1556881286-fc6915169721?q=80&w=800&auto=format&fit=crop',
+    description: 'Chilled pink Himalayan salt, pure organic coconut water, fresh lime, and essential trace minerals to stop cramps.',
+    tags: '0g Protein • 45 kcal'
+  },
+  {
+    _id: 'dish-5',
+    name: 'Superfood Quinoa Energy Bowl',
+    category: 'Healthy Bowls',
+    price: 349,
+    calories: 450,
+    protein: 18,
+    preparationTime: 15,
+    featured: true,
+    chefRecommended: true,
+    isVeg: true,
+    isAvailable: true,
+    image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=800&auto=format&fit=crop',
+    description: 'Protein-rich tri-color quinoa, spiced sweet potato, steamed edamame, and toasted flax seeds in citrus vinaigrette.',
+    tags: '18g Protein • 450 kcal'
+  },
+  {
+    _id: 'dish-6',
+    name: 'Wholewheat Protein Pasta',
+    category: 'High Carb Meals',
+    price: 379,
+    calories: 520,
+    protein: 26,
+    preparationTime: 18,
+    featured: true,
+    chefRecommended: false,
+    isVeg: true,
+    isAvailable: true,
+    image: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?q=80&w=800&auto=format&fit=crop',
+    description: 'High-fiber durum wheat pasta cooked perfectly in authentic arrabbiata tomato-herb reduction with paneer cubes.',
+    tags: '26g Protein • 520 kcal'
+  },
+  {
+    _id: 'dish-7',
+    name: 'Peanut Butter Banana Smoothie',
+    category: 'Recovery Shakes',
+    price: 199,
+    calories: 320,
+    protein: 24,
+    preparationTime: 5,
+    featured: false,
+    chefRecommended: true,
+    isVeg: true,
+    isAvailable: true,
+    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=800&auto=format&fit=crop',
+    description: 'Creamy high-protein organic peanut butter, ripe bananas, Greek yogurt, and cinnamon blended smooth.',
+    tags: '24g Protein • 320 kcal'
+  },
+  {
+    _id: 'dish-8',
+    name: 'Chicken Rice Performance Meal',
+    category: 'Protein Meals',
+    price: 399,
+    calories: 580,
+    protein: 42,
+    preparationTime: 15,
+    featured: false,
+    chefRecommended: true,
+    isVeg: false,
+    isAvailable: true,
+    image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=800&auto=format&fit=crop',
+    description: 'Herb-grilled lean chicken breast served over steamed brown rice and sautéed broccoli florets.',
+    tags: '42g Protein • 580 kcal'
+  }
+];
 
 export default function TableOrder() {
   const { tableId } = useParams();
-  const { isAuthenticated, user, login, register } = useAuthStore();
-  const { items, addItem, removeItem, updateQuantity, getSubtotal, getItemCount, clearCart, setTableId } = useCartStore();
-  const [authTab, setAuthTab] = useState('login');
-  const [authForm, setAuthForm] = useState({ name: '', email: '', phone: '', password: '' });
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { items, addItem, updateQuantity, getSubtotal, getItemCount, clearCart, setTableId } = useCartStore();
+  
+  const [activeCategory, setActiveCategory] = useState('All');
   const [cartOpen, setCartOpen] = useState(false);
+  const [ordersOpen, setOrdersOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [orderPlaced, setOrderPlaced] = useState(null);
+  const [scriptLoaded, setScriptLoaded] = useState(false);
 
-  useEffect(() => { setTableId(tableId); }, [tableId]);
+  // Checkout Form State
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [specialInstructions, setSpecialInstructions] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('cash'); // 'cash' (Pay at table) vs 'online' (Razorpay/UPI)
 
-  const { data: tableData } = useQuery({ queryKey: ['table-public', tableId], queryFn: () => api.get(`/tables/${tableId}/public`).then(r => r.data) });
-  const { data: menuData } = useQuery({ queryKey: ['menu'], queryFn: () => api.get('/menu').then(r => r.data) });
+  useEffect(() => { setTableId(tableId); }, [tableId, setTableId]);
 
-  const handleAuth = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      if (authTab === 'login') await login(authForm.email, authForm.password);
-      else await register(authForm);
-      toast.success('Welcome!');
-    } catch (err) { toast.error(err.response?.data?.message || 'Auth failed'); }
-    finally { setLoading(false); }
-  };
+  // Load Razorpay script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => setScriptLoaded(true);
+    document.body.appendChild(script);
+    return () => document.body.removeChild(script);
+  }, []);
+
+  // Socket.io Realtime Menu & Orders Synchronization
+  useEffect(() => {
+    const socket = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+    });
+    socket.on('menu:updated', () => {
+      qc.invalidateQueries({ queryKey: ['menu'] });
+      toast('🔄 Live Menu Synced', { description: 'Dishes and availability updated in real-time.' });
+    });
+    socket.on('order:updated', () => {
+      qc.invalidateQueries({ queryKey: ['table-orders', tableId] });
+    });
+    socket.on('order:status', () => {
+      qc.invalidateQueries({ queryKey: ['table-orders', tableId] });
+    });
+    socket.on('order:status-update', () => {
+      qc.invalidateQueries({ queryKey: ['table-orders', tableId] });
+    });
+    return () => socket.disconnect();
+  }, [qc, tableId]);
+
+  // Fetch Table Details
+  const { data: tableData } = useQuery({ 
+    queryKey: ['table-public', tableId], 
+    queryFn: () => api.get(`/tables/${tableId}/public`).then(r => r.data),
+    retry: false
+  });
+
+  // Fetch Live Table Orders
+  const { data: tableOrdersData } = useQuery({
+    queryKey: ['table-orders', tableId],
+    queryFn: () => api.get(`/orders/table/${tableId}`).then(r => r.data),
+    enabled: ordersOpen || !!orderPlaced,
+    refetchInterval: ordersOpen ? 3000 : false,
+  });
+
+  // Fetch Live Menu Items from backend API
+  const { data: menuData } = useQuery({ 
+    queryKey: ['menu'], 
+    queryFn: () => api.get('/menu').then(r => r.data) 
+  });
 
   const placeOrder = async () => {
+    if (items.length === 0) return toast.error('Your order cart is empty!');
+    setLoading(true);
+
     try {
-      const orderItems = items.map(i => ({ menuItemId: i.menuItemId, name: i.name, size: i.size, quantity: i.quantity, price: i.price, kitchenNote: i.kitchenNote }));
-      await api.post('/orders', { tableId, items: orderItems });
-      clearCart();
-      setCartOpen(false);
-      toast.success('Order placed! 🎉');
-    } catch (err) { toast.error('Failed to place order'); }
+      const orderItems = items.map(i => ({ 
+        menuItemId: i.menuItemId, 
+        name: i.name, 
+        size: i.size || 'Regular', 
+        quantity: i.quantity, 
+        price: i.price, 
+        kitchenNote: i.kitchenNote 
+      }));
+
+      const isOnline = paymentMethod === 'online';
+
+      const res = await api.post('/orders/table-order', { 
+        tableId, 
+        items: orderItems,
+        customerName: customerName || 'Guest Table User',
+        customerPhone: customerPhone || 'N/A',
+        paymentMethod: isOnline ? 'online' : 'cash',
+        paymentStatus: 'pending',
+        specialInstructions
+      });
+
+      const newOrder = res.data.order;
+
+      if (isOnline) {
+        if (!scriptLoaded || !window.Razorpay) {
+          toast.error('Payment gateway loading... Please try again.');
+          setLoading(false);
+          return;
+        }
+
+        const payRes = await api.post('/payments/create-order', {
+          amount: getSubtotal(),
+          gstPercent: 5,
+          type: 'restaurant',
+          studentId: null,
+          referenceId: newOrder._id,
+          description: `Table Order #${newOrder._id.slice(-6).toUpperCase()}`,
+        });
+
+        const rzpData = payRes.data;
+
+        const options = {
+          key: rzpData.keyId,
+          order_id: rzpData.razorpayOrder.id,
+          amount: rzpData.razorpayOrder.amount,
+          currency: rzpData.razorpayOrder.currency,
+          name: 'Red Ball Sports CAFÉ',
+          description: `Digital Menu Order • Table ${tableData?.table?.label || tableId}`,
+          theme: { color: '#C8102E' },
+          handler: async (response) => {
+            try {
+              await api.post('/payments/verify', {
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+              });
+
+              toast.success('Payment successful via Razorpay! Order sent to kitchen. 🚀');
+              clearCart();
+              setCartOpen(false);
+              setOrderPlaced({ ...newOrder, paymentStatus: 'paid' });
+              qc.invalidateQueries({ queryKey: ['table-orders', tableId] });
+            } catch (err) {
+              toast.error('Payment verification failed.');
+            }
+          },
+          modal: {
+            ondismiss: async () => {
+              toast.error('Payment cancelled. Please try again or switch to Pay at Table.');
+              setLoading(false);
+              try { 
+                await api.put(`/orders/${newOrder._id}/cancel`, { reason: 'User abandoned online payment', refund: false }); 
+              } catch (e) {}
+              qc.invalidateQueries({ queryKey: ['table-orders', tableId] });
+            }
+          }
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+      } else {
+        clearCart();
+        setCartOpen(false);
+        setOrderPlaced(newOrder);
+        toast.success('Order sent to kitchen! Please pay at table. 🍽️');
+        qc.invalidateQueries({ queryKey: ['table-orders', tableId] });
+      }
+    } catch (err) { 
+      toast.error(err.response?.data?.message || 'Failed to place order'); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const gst = calcGST(getSubtotal(), 5);
 
-  // Auth screen
-  if (!isAuthenticated) {
+  // Use backend dishes if present, otherwise instantly fallback to initialCatalog
+  const apiItems = menuData?.items || [];
+  const allDishes = apiItems.length > 0 ? apiItems.map((item, index) => {
+    const fallback = initialCatalog[index % initialCatalog.length];
+    return {
+      ...item,
+      image: item.image || fallback.image,
+      calories: item.calories || fallback.calories,
+      protein: item.protein || fallback.protein,
+      preparationTime: item.preparationTime || fallback.preparationTime,
+      category: item.category || fallback.category,
+      featured: item.featured ?? fallback.featured,
+      chefRecommended: item.chefRecommended ?? fallback.chefRecommended,
+      description: item.description || fallback.description
+    };
+  }) : initialCatalog;
+
+  // Separate Featured Items for the Hero Section
+  const featuredItems = allDishes.filter(i => i.featured);
+  const filteredDishes = activeCategory === 'All' ? allDishes : allDishes.filter(i => i.category === activeCategory || (activeCategory === 'Featured' && i.featured));
+
+  // Success Confirmation Screen
+  if (orderPlaced) {
     return (
-      <div className="min-h-screen bg-[#F7F7F7] flex items-center justify-center p-4">
-        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
-          <div className="text-center mb-6">
-            <div className="w-14 h-14 rounded-2xl bg-black flex items-center justify-center text-[#111111] font-bold text-xl mx-auto mb-3">RB</div>
-            <h1 className="text-xl font-bold text-[#111111]">Welcome to Red Ball Restaurant</h1>
-            <p className="text-sm text-[#666666] mt-1">{tableData?.table?.label || 'Table'}</p>
+      <div className="min-h-screen bg-[#0D0D0D] text-white flex flex-col items-center justify-center p-6 text-center" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+        <motion.div 
+          initial={{ scale: 0.8, opacity: 0 }} 
+          animate={{ scale: 1, opacity: 1 }} 
+          className="bg-[#161616] border border-white/10 rounded-3xl p-8 max-w-md w-full shadow-2xl relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-[#C8102E]/20 rounded-full blur-3xl pointer-events-none" />
+          
+          <div className="w-20 h-20 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+            <CheckCircle2 size={44} />
           </div>
-          <div className="card">
-            <div className="flex gap-2 mb-4">
-              {['login', 'signup'].map(t => (
-                <button key={t} onClick={() => setAuthTab(t)} className={`flex-1 py-2 rounded-lg text-sm ${authTab === t ? 'bg-black text-white' : 'btn-ghost'}`}>{t === 'login' ? 'Login' : 'Sign Up'}</button>
+          <h1 className="text-3xl font-black mb-2 tracking-wide text-white" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+            ORDER SENT TO KITCHEN!
+          </h1>
+          <p className="text-[#9CA3AF] text-xs mb-6 leading-relaxed">
+            Your masterfully prepared recovery meal is queued for real-time preparation.
+          </p>
+          
+          <div className="bg-black/50 rounded-2xl p-4 mb-6 border border-white/5 text-left text-xs space-y-2">
+            <div className="flex justify-between text-[#888]">
+              <span>Order ID</span>
+              <span className="font-mono text-white font-bold">{orderPlaced.orderNumber}</span>
+            </div>
+            <div className="flex justify-between text-[#888]">
+              <span>Table Service</span>
+              <span className="text-[#F5A623] font-bold">{tableData?.table?.label || 'Dine-In Lounge'}</span>
+            </div>
+            <div className="flex justify-between text-[#888]">
+              <span>Payment Mode</span>
+              <span className="capitalize text-white font-bold">
+                {orderPlaced.paymentMethod} ({orderPlaced.paymentStatus})
+              </span>
+            </div>
+            <div className="border-t border-white/10 pt-2 mt-2 space-y-1">
+              {orderPlaced.items?.map((item, idx) => (
+                <div key={idx} className="flex justify-between font-medium">
+                  <span>{item.quantity}× {item.name}</span>
+                  <span className="font-mono text-[#F5A623]">{formatCurrency(item.price * item.quantity)}</span>
+                </div>
               ))}
             </div>
-            <form onSubmit={handleAuth} className="space-y-3">
-              {authTab === 'signup' && (<><div><input className="input-field" placeholder="Name" value={authForm.name} onChange={e => setAuthForm({...authForm, name: e.target.value})} required /></div>
-                <div><input className="input-field" placeholder="Phone" value={authForm.phone} onChange={e => setAuthForm({...authForm, phone: e.target.value})} /></div></>)}
-              <div><input type="email" className="input-field" placeholder="Email" value={authForm.email} onChange={e => setAuthForm({...authForm, email: e.target.value})} required /></div>
-              <div><input type="password" className="input-field" placeholder="Password" value={authForm.password} onChange={e => setAuthForm({...authForm, password: e.target.value})} required /></div>
-              <button type="submit" className="btn-primary w-full py-3" disabled={loading}>{loading ? 'Please wait...' : authTab === 'login' ? 'Login' : 'Create Account'}</button>
-            </form>
+            <div className="border-t border-white/10 pt-2 mt-2 flex justify-between text-sm font-bold text-white">
+              <span>Grand Total</span>
+              <span className="text-[#C8102E] font-mono">{formatCurrency(orderPlaced.totalAmount)}</span>
+            </div>
           </div>
+
+          <button 
+            onClick={() => setOrderPlaced(null)} 
+            className="w-full py-4 rounded-full bg-[#C8102E] hover:bg-[#A00D24] text-white font-bold text-xs tracking-wider uppercase transition-all shadow-lg hover:scale-[1.02]"
+          >
+            Order Additional Recovery Items
+          </button>
         </motion.div>
       </div>
     );
   }
 
-  // Menu + ordering
   return (
-    <div className="min-h-screen bg-[#F7F7F7] pb-24">
-      <div className="sticky top-0 z-30 bg-white border-b border-[#EAEAEA] px-4 py-3">
-        <div className="flex items-center justify-between max-w-2xl mx-auto">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-black flex items-center justify-center text-[#111111] font-bold text-xs">RB</div>
-            <span className="text-sm font-semibold text-[#111111]">{tableData?.table?.label || 'Menu'}</span>
+    <div className="min-h-screen bg-[#0D0D0D] text-white pb-36 relative select-none overflow-x-hidden" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      
+      {/* Immersive Cinematic Background Gradients */}
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#F5A623]/10 rounded-full blur-[160px] pointer-events-none" />
+      <div className="absolute top-1/3 left-0 w-[500px] h-[500px] bg-[#C8102E]/10 rounded-full blur-[150px] pointer-events-none" />
+
+      {/* Cinematic Top Navbar */}
+      <header className="sticky top-0 z-40 bg-[#0D0D0D]/90 backdrop-blur-md border-b border-white/10 px-4 py-4 shadow-xl">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#C8102E] flex items-center justify-center font-black tracking-tighter text-white shadow-[0_0_15px_#C8102E]">
+              RB
+            </div>
+            <div>
+              <h1 className="font-bold text-xl leading-tight tracking-wider text-white" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                RED BALL SPORTS CAFÉ
+              </h1>
+              <p className="text-[11px] text-[#F5A623] font-bold tracking-widest uppercase">
+                {tableData?.table?.label || 'Digital Table Menu'} • {tableData?.table?.section || 'Premium Lounge'}
+              </p>
+            </div>
           </div>
-          <span className="text-xs text-[#888888]">Hi, {user?.name}</span>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden md:flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full text-xs text-gray-300">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-ping" />
+              <span>Live Kitchen Synced</span>
+            </div>
+            <button 
+              onClick={() => setOrdersOpen(true)}
+              className="px-4 py-2 rounded-xl bg-[#1A1A1A] hover:bg-[#222] text-[#F5A623] text-xs font-extrabold flex items-center gap-1.5 shadow-lg transition-all hover:scale-105 active:scale-95 border border-white/10 uppercase tracking-wider relative"
+            >
+              <Clock size={16} />
+              <span>My Orders</span>
+              {tableOrdersData?.orders?.some(o => o.status !== 'delivered' && o.status !== 'cancelled') && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
+              )}
+            </button>
+            <button 
+              onClick={() => setCartOpen(true)} 
+              className="px-4 py-2 rounded-xl bg-[#C8102E] hover:bg-[#A00D24] text-white text-xs font-extrabold flex items-center gap-2 shadow-lg transition-all hover:scale-105 active:scale-95 border border-white/10"
+            >
+              <ShoppingBag size={16} />
+              <span>Cart ({getItemCount()})</span>
+            </button>
+            <button onClick={() => navigate('/table-portal')} className="hidden sm:inline-block p-2 rounded-xl bg-white/10 hover:bg-white/20 text-gray-300 text-xs font-bold transition-all border border-white/10">
+              Change Table
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero-style FEATURED RECOVERY ITEMS SECTION */}
+      <section className="max-w-6xl mx-auto px-4 pt-8 pb-12 border-b border-white/10">
+        <div className="mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#F5A623]/10 border border-[#F5A623]/20 text-[#F5A623] text-xs font-bold uppercase tracking-wider mb-3">
+            <Sparkles size={14} /> Premium Athlete Hub
+          </div>
+          <h2 className="text-3xl md:text-5xl font-extrabold tracking-wide text-white mb-2" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+            FEATURED RECOVERY ITEMS
+          </h2>
+          <p className="text-gray-400 text-xs md:text-sm max-w-2xl leading-relaxed">
+            Handcrafted inside the Red Ball Kitchen using premium recovery-focused ingredients mapped for rapid muscle refuel and hydration.
+          </p>
+        </div>
+
+        {/* Featured Items Cards Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-6">
+          {featuredItems.map(item => {
+            const inCart = items.find(i => i.menuItemId === item._id && (i.size === 'Regular' || !i.size));
+            const qty = inCart ? inCart.quantity : 0;
+            const price = item.sizes?.[0]?.price || item.price || 249;
+
+            return (
+              <motion.div 
+                key={item._id}
+                whileHover={{ y: -6 }}
+                transition={{ duration: 0.2 }}
+                className={`bg-[#161616] rounded-3xl overflow-hidden border border-white/10 shadow-2xl flex flex-col justify-between group transition-all duration-300 hover:border-white/20 hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] ${
+                  !item.isAvailable ? 'opacity-60 grayscale' : ''
+                }`}
+              >
+                {/* Immersive Image Header */}
+                <div className="relative h-40 sm:h-60 overflow-hidden bg-gradient-to-br from-[#161616] to-[#2D1215]">
+                  <img 
+                    src={item.image} 
+                    alt={item.name} 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out" 
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#161616] via-black/20 to-transparent" />
+
+                  {/* Top Badges */}
+                  <div className="absolute top-3 inset-x-3 flex items-start justify-between pointer-events-none">
+                    <span className="px-3 py-1 bg-black/70 backdrop-blur-md rounded-full text-white text-[10px] font-black tracking-widest uppercase border border-white/10">
+                      {item.category}
+                    </span>
+                    {item.chefRecommended && (
+                      <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#F5A623] text-black text-[10px] font-extrabold shadow-lg">
+                        <ChefHat size={12} /> Choice
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Out of stock overlay */}
+                  {!item.isAvailable && (
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-10">
+                      <span className="px-4 py-1.5 bg-red-600 text-white text-xs font-black tracking-widest uppercase rounded-full">
+                        Out of Stock
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Price Tag pinned to bottom right */}
+                  <div className="absolute bottom-3 right-3 px-3 py-1 bg-[#C8102E] text-white rounded-xl font-bold text-sm shadow-xl font-mono">
+                    {formatCurrency(price)}
+                  </div>
+                </div>
+
+                {/* Content Details Area */}
+                <div className="p-6 flex flex-col justify-between grow">
+                  <div>
+                    {/* Nutrition stats strip */}
+                    <div className="text-[#F5A623] font-bold text-xs tracking-wider mb-2 flex items-center gap-2">
+                      <span>⚡ {item.protein}g Protein</span>
+                      <span>•</span>
+                      <span>{item.calories} kcal</span>
+                    </div>
+
+                    <h3 className="text-xl font-bold text-white tracking-wide mb-2 line-clamp-1 group-hover:text-[#F5A623] transition-colors">
+                      {item.name}
+                    </h3>
+
+                    <p className="text-gray-400 text-xs leading-relaxed mb-6 line-clamp-2 min-h-[36px]">
+                      {item.description}
+                    </p>
+                  </div>
+
+                  {/* Quantity & CTA Action Bar */}
+                  <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                    <div className="flex items-center gap-1 text-[11px] text-gray-500">
+                      <Clock size={12} />
+                      <span>{item.preparationTime} min prep</span>
+                    </div>
+
+                    {item.isAvailable && (
+                      <div>
+                        {qty > 0 ? (
+                          <div className="flex items-center gap-2 bg-black rounded-full p-1 border border-white/10 shadow-lg">
+                            <button 
+                              onClick={() => updateQuantity(item._id, 'Regular', qty - 1)}
+                              className="w-7 h-7 rounded-full bg-[#222] text-white hover:bg-[#333] flex items-center justify-center font-bold text-xs"
+                            >
+                              −
+                            </button>
+                            <span className="text-white text-xs font-bold w-5 text-center font-mono">{qty}</span>
+                            <button 
+                              onClick={() => updateQuantity(item._id, 'Regular', qty + 1)}
+                              className="w-7 h-7 rounded-full bg-[#F5A623] text-black hover:bg-[#E09410] flex items-center justify-center font-bold text-xs"
+                            >
+                              +
+                            </button>
+                          </div>
+                        ) : (
+                          <button 
+                            onClick={() => { addItem({ menuItemId: item._id, name: item.name, size: 'Regular', price }); toast.success('Added to order!'); }}
+                            className="px-5 py-2.5 bg-[#C8102E] hover:bg-[#A00D24] text-white rounded-full text-xs font-bold transition-all shadow-lg hover:scale-105 active:scale-95 flex items-center gap-1.5 uppercase tracking-wider"
+                          >
+                            <span>Add</span>
+                            <span className="text-white/70 font-normal">+</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Sticky Category Sliding Navigation Bar */}
+      <div className="sticky top-[73px] z-30 bg-[#0D0D0D]/95 backdrop-blur-md border-b border-white/10 py-3.5 px-4 shadow-md overflow-x-auto whitespace-nowrap scrollbar-none flex items-center justify-center w-full">
+        <div className="flex items-center justify-center gap-2 max-w-full px-2 mx-auto">
+          {CATEGORIES.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`px-5 py-2.5 rounded-full text-xs font-extrabold transition-all duration-200 tracking-wider shadow-sm uppercase shrink-0 ${
+                activeCategory === cat 
+                  ? 'bg-[#C8102E] text-white scale-105 shadow-[0_0_15px_rgba(200,16,46,0.4)]' 
+                  : 'bg-[#1A1A1A] text-gray-400 hover:bg-[#222] hover:text-white border border-white/5'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto p-4 space-y-4">
-        {(menuData?.items || []).filter(i => i.isAvailable).map((item, idx) => (
-          <motion.div key={item._id} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }}
-            className="card">
-            <div className="flex items-center gap-2 mb-1">
-              <span className={`w-3 h-3 rounded-sm border-2 ${item.isVeg ? 'border-green-500' : 'border-red-500'}`}><span className={`block w-1.5 h-1.5 rounded-full m-[1px] ${item.isVeg ? 'bg-green-500' : 'bg-red-500'}`} /></span>
-              <h3 className="text-[#111111] font-semibold text-sm">{item.name}</h3>
-            </div>
-            {item.description && <p className="text-xs text-[#888888] mb-2">{item.description}</p>}
-            <div className="flex flex-wrap gap-2">
-              {item.sizes?.map(s => (
-                <button key={s.label} onClick={() => { addItem({ menuItemId: item._id, name: item.name, size: s.label, price: s.price }); toast.success('Added!'); }}
-                  className="btn-ghost text-xs">{s.label} · {formatCurrency(s.price)} <span className="text-black ml-1">+</span></button>
-              ))}
-            </div>
-          </motion.div>
-        ))}
-      </div>
+      {/* Dynamic Menu Catalog Grids */}
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        <h3 className="text-2xl font-black tracking-wide text-white mb-6 uppercase" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+          {activeCategory} MENU SELECTION
+        </h3>
 
-      {/* Floating cart bar */}
+        {filteredDishes.length === 0 && (
+          <div className="text-center py-16 text-gray-500 bg-[#161616] rounded-3xl border border-white/5 p-8">
+            <AlertCircle size={36} className="mx-auto mb-2 text-[#F5A623] opacity-60" />
+            <p className="text-sm font-bold">No masterfully prepared dishes available in this specific category.</p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+          {filteredDishes.map(item => {
+            const inCart = items.find(i => i.menuItemId === item._id && (i.size === 'Regular' || !i.size));
+            const qty = inCart ? inCart.quantity : 0;
+            const price = item.sizes?.[0]?.price || item.price || 199;
+
+            return (
+              <motion.div 
+                key={item._id} 
+                initial={{ opacity: 0, y: 15 }} 
+                animate={{ opacity: 1, y: 0 }}
+                className={`bg-[#161616] rounded-2xl border border-white/5 shadow-lg overflow-hidden flex flex-col justify-between transition-all hover:border-white/20 group ${
+                  !item.isAvailable ? 'opacity-50 grayscale' : ''
+                }`}
+              >
+                {/* Image Section */}
+                <div className="relative h-32 sm:h-48 overflow-hidden">
+                  <img 
+                    src={item.image} 
+                    alt={item.name} 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#161616] via-transparent to-black/30" />
+                  
+                  <div className="absolute top-2 left-2 flex flex-wrap gap-1">
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-wider text-white uppercase ${item.isVeg ? 'bg-green-600' : 'bg-red-600'}`}>
+                      {item.isVeg ? 'Veg' : 'Non-Veg'}
+                    </span>
+                    {item.featured && (
+                      <span className="bg-[#F5A623] text-black px-2 py-0.5 rounded text-[9px] font-black shadow">
+                        ★ Hero
+                      </span>
+                    )}
+                  </div>
+                  {!item.isAvailable && (
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center text-white text-[11px] font-black uppercase tracking-widest shadow-lg">
+                      Out of Stock
+                    </div>
+                  )}
+                </div>
+
+                {/* Content Info */}
+                <div className="p-4 flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start gap-1 mb-1">
+                      <h4 className="font-extrabold text-sm text-white line-clamp-1">{item.name}</h4>
+                    </div>
+                    <p className="text-[11px] text-gray-400 line-clamp-2 mb-3 min-h-[30px]">
+                      {item.description || 'Nutrient-rich sports performance meal.'}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-white/10">
+                    <div>
+                      <span className="text-lg font-bold font-mono text-[#F5A623]">
+                        {formatCurrency(price)}
+                      </span>
+                      <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                        <Clock size={10} />
+                        <span>{item.preparationTime}m prep</span>
+                      </div>
+                    </div>
+
+                    {item.isAvailable && (
+                      <div>
+                        {qty > 0 ? (
+                          <div className="flex items-center gap-1.5 bg-black rounded-full p-1 border border-white/10 shadow">
+                            <button 
+                              onClick={() => updateQuantity(item._id, 'Regular', qty - 1)}
+                              className="w-6 h-6 rounded-full bg-[#222] text-white font-bold text-xs flex items-center justify-center"
+                            >
+                              −
+                            </button>
+                            <span className="text-white text-xs font-bold w-4 text-center font-mono">{qty}</span>
+                            <button 
+                              onClick={() => updateQuantity(item._id, 'Regular', qty + 1)}
+                              className="w-6 h-6 rounded-full bg-[#F5A623] text-black font-bold text-xs flex items-center justify-center"
+                            >
+                              +
+                            </button>
+                          </div>
+                        ) : (
+                          <button 
+                            onClick={() => { addItem({ menuItemId: item._id, name: item.name, size: 'Regular', price }); toast.success('Added to order!'); }}
+                            className="px-4 py-2 bg-[#C8102E] hover:bg-[#A00D24] text-white rounded-full text-xs font-bold uppercase transition-all shadow-md active:scale-95"
+                          >
+                            Add +
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </main>
+
+      {/* Floating Bottom Cart Bar */}
       {getItemCount() > 0 && (
-        <motion.div initial={{ y: 100 }} animate={{ y: 0 }} className="fixed bottom-0 left-0 right-0 z-40">
-          <div className="max-w-2xl mx-auto p-4">
-            <button onClick={() => setCartOpen(!cartOpen)} className="w-full btn-primary py-4 text-base flex items-center justify-between rounded-xl">
-              <span>{getItemCount()} items</span>
-              <span>{formatCurrency(gst.totalAmount)}</span>
+        <motion.div 
+          initial={{ y: 100 }} 
+          animate={{ y: 0 }} 
+          className="fixed bottom-6 left-0 right-0 z-40 px-4"
+        >
+          <div className="max-w-md mx-auto">
+            <button 
+              onClick={() => setCartOpen(true)} 
+              className="w-full bg-[#161616] text-white border-2 border-[#F5A623] py-4 px-6 rounded-full shadow-2xl flex items-center justify-between group transition-all duration-200 hover:bg-[#1a1a1a] hover:scale-[1.02]"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-[#F5A623] text-black rounded-full flex items-center justify-center font-black text-xs shadow-inner">
+                  {getItemCount()}
+                </div>
+                <div className="text-left">
+                  <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest">Active Table Cart</p>
+                  <p className="text-sm font-extrabold text-white font-mono">{formatCurrency(gst.totalAmount)}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 font-bold text-xs text-[#F5A623] uppercase tracking-wider group-hover:translate-x-1 transition-transform">
+                <span>View Cart & Checkout</span>
+                <ArrowRight size={14} />
+              </div>
             </button>
           </div>
         </motion.div>
       )}
 
-      {/* Cart drawer */}
-      {cartOpen && (
-        <>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 bg-black/60 z-50" onClick={() => setCartOpen(false)} />
-          <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-[#EAEAEA] rounded-t-2xl max-h-[80vh] overflow-y-auto">
-            <div className="max-w-2xl mx-auto p-4">
-              <h2 className="text-lg font-bold text-[#111111] mb-4">Your Cart</h2>
-              <div className="space-y-3 mb-4">
-                {items.map(i => (
-                  <div key={`${i.menuItemId}-${i.size}`} className="flex items-center justify-between p-3 bg-[#F7F7F7] rounded-xl border border-[#EAEAEA]">
-                    <div><p className="text-[#111111] text-sm font-medium">{i.name} ({i.size})</p><p className="text-xs text-[#888888]">{formatCurrency(i.price)} each</p></div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => updateQuantity(i.menuItemId, i.size, i.quantity - 1)} className="w-7 h-7 rounded-md bg-[#F0F0F0] text-[#111111] text-sm">−</button>
-                      <span className="text-[#111111] text-sm w-6 text-center">{i.quantity}</span>
-                      <button onClick={() => updateQuantity(i.menuItemId, i.size, i.quantity + 1)} className="w-7 h-7 rounded-md bg-[#F0F0F0] text-[#111111] text-sm">+</button>
+      {/* Checkout Drawer */}
+      <AnimatePresence>
+        {cartOpen && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50" 
+              onClick={() => setCartOpen(false)} 
+            />
+            <motion.div 
+              initial={{ y: '100%' }} 
+              animate={{ y: 0 }} 
+              exit={{ y: '100%' }} 
+              transition={{ type: "spring", damping: 26, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 z-50 bg-[#161616] rounded-t-3xl max-h-[88vh] overflow-y-auto shadow-2xl border-t border-white/10"
+            >
+              <div className="max-w-xl mx-auto p-6 md:p-8 text-white">
+                <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className="text-[#C8102E]" size={22} />
+                    <h2 className="text-xl font-extrabold tracking-wide text-white" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                      COMPLETE TABLE ORDER
+                    </h2>
+                  </div>
+                  <button onClick={() => setCartOpen(false)} className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-gray-400">
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Items in Cart */}
+                <div className="space-y-3 mb-6 max-h-[220px] overflow-y-auto pr-2 scrollbar-thin">
+                  {items.length === 0 ? (
+                    <div className="text-center py-8 bg-black/30 rounded-2xl border border-white/5 text-gray-400 text-xs font-bold">
+                      Your active table cart is empty. Add premium recovery dishes from the menu below!
+                    </div>
+                  ) : (
+                    items.map(i => (
+                      <div key={`${i.menuItemId}-${i.size}`} className="flex items-center justify-between p-3.5 bg-black/50 rounded-2xl border border-white/5">
+                        <div className="flex-1 pr-3">
+                          <p className="text-sm font-extrabold text-white">{i.name}</p>
+                          <p className="text-xs text-[#F5A623] font-mono">{formatCurrency(i.price)} each</p>
+                        </div>
+                        <div className="flex items-center gap-2 bg-[#1A1A1A] rounded-full p-1 border border-white/10">
+                          <button onClick={() => updateQuantity(i.menuItemId, i.size, i.quantity - 1)} className="w-6 h-6 rounded-full bg-[#222] text-white hover:bg-[#333] font-bold text-xs flex items-center justify-center">−</button>
+                          <span className="text-xs font-bold text-white w-4 text-center font-mono">{i.quantity}</span>
+                          <button onClick={() => updateQuantity(i.menuItemId, i.size, i.quantity + 1)} className="w-6 h-6 rounded-full bg-[#C8102E] text-white hover:bg-[#A00D24] font-bold text-xs flex items-center justify-center">+</button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Bill Breakdown */}
+                <div className="space-y-2 mb-6 p-4 bg-black/40 rounded-2xl border border-white/5 text-xs font-medium">
+                  <div className="flex justify-between text-gray-400"><span>Items Subtotal</span><span className="font-mono text-white">{formatCurrency(gst.amount)}</span></div>
+                  <div className="flex justify-between text-gray-400"><span>Restaurant GST (5%)</span><span className="font-mono text-white">{formatCurrency(gst.gstAmount)}</span></div>
+                  <div className="flex justify-between text-sm font-black text-white border-t border-white/10 pt-2 mt-2">
+                    <span>Grand Total Payable</span>
+                    <span className="text-[#C8102E] font-mono">{formatCurrency(gst.totalAmount)}</span>
+                  </div>
+                </div>
+
+                {/* Guest Details & Special Instructions */}
+                <div className="space-y-4 mb-6 border-t border-white/10 pt-5 text-left">
+                  <h3 className="font-black text-xs text-white uppercase tracking-widest">Customer Details & Instructions</h3>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="relative">
+                      <span className="absolute top-3.5 left-3.5 text-gray-500"><User size={16} /></span>
+                      <input
+                        type="text"
+                        placeholder="Your Name (Optional)"
+                        value={customerName}
+                        onChange={e => setCustomerName(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 rounded-xl bg-black border border-white/10 text-xs font-bold text-white focus:outline-none focus:border-[#C8102E]"
+                      />
+                    </div>
+                    <div className="relative">
+                      <span className="absolute top-3.5 left-3.5 text-gray-500"><Phone size={16} /></span>
+                      <input
+                        type="tel"
+                        placeholder="Phone Number (Optional)"
+                        value={customerPhone}
+                        onChange={e => setCustomerPhone(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 rounded-xl bg-black border border-white/10 text-xs font-bold text-white focus:outline-none focus:border-[#C8102E]"
+                      />
                     </div>
                   </div>
-                ))}
+
+                  <div className="relative">
+                    <span className="absolute top-3.5 left-3.5 text-gray-500"><FileText size={16} /></span>
+                    <textarea
+                      placeholder="Special kitchen notes (e.g., make it extra spicy, allergy instructions...)"
+                      rows="2"
+                      value={specialInstructions}
+                      onChange={e => setSpecialInstructions(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-black border border-white/10 text-xs text-white focus:outline-none focus:border-[#C8102E] resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Payment Mode Selection */}
+                <div className="space-y-3 mb-6 border-t border-white/10 pt-5 text-left">
+                  <h3 className="font-black text-xs text-white uppercase tracking-widest">Choose Payment Mode</h3>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('cash')}
+                      className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                        paymentMethod === 'cash' 
+                          ? 'border-[#C8102E] bg-red-950/20 shadow-lg' 
+                          : 'border-white/10 bg-black/50 hover:bg-black'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-extrabold text-xs text-white">Pay at Table</span>
+                        <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'cash' ? 'border-[#C8102E] bg-[#C8102E]' : 'border-gray-600'}`}>
+                          {paymentMethod === 'cash' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-gray-400 leading-tight">Pay waiter via cash or card terminal.</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('online')}
+                      className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                        paymentMethod === 'online' 
+                          ? 'border-[#F5A623] bg-amber-950/20 shadow-lg' 
+                          : 'border-white/10 bg-black/50 hover:bg-black'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-extrabold text-xs text-white">UPI / Razorpay</span>
+                        <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'online' ? 'border-[#F5A623] bg-[#F5A623]' : 'border-gray-600'}`}>
+                          {paymentMethod === 'online' && <span className="w-1.5 h-1.5 rounded-full bg-black" />}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-gray-400 leading-tight">Instant checkout via GPay, PhonePe, Paytm.</p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Submit Order Button */}
+                <button 
+                  onClick={placeOrder} 
+                  disabled={loading}
+                  className="w-full py-4 rounded-full bg-[#C8102E] hover:bg-[#A00D24] text-white font-extrabold text-sm uppercase tracking-widest shadow-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <span>Confirm Order & Send to Kitchen →</span>
+                  )}
+                </button>
               </div>
-              <div className="space-y-2 mb-4 p-3 bg-[#F7F7F7] rounded-xl border border-[#EAEAEA]">
-                <div className="flex justify-between text-sm"><span className="text-[#666666]">Subtotal</span><span className="text-[#111111]">{formatCurrency(gst.amount)}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-[#666666]">GST (5%)</span><span className="text-[#111111]">{formatCurrency(gst.gstAmount)}</span></div>
-                <div className="flex justify-between text-base font-bold border-t border-[#EAEAEA] pt-2"><span className="text-[#111111]">Total</span><span className="text-black">{formatCurrency(gst.totalAmount)}</span></div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Live Order Status Tracking Drawer */}
+      <AnimatePresence>
+        {ordersOpen && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50" 
+              onClick={() => setOrdersOpen(false)} 
+            />
+            <motion.div 
+              initial={{ y: '100%' }} 
+              animate={{ y: 0 }} 
+              exit={{ y: '100%' }} 
+              transition={{ type: "spring", damping: 26, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 z-50 bg-[#161616] rounded-t-3xl max-h-[88vh] overflow-y-auto shadow-2xl border-t border-white/10"
+            >
+              <div className="max-w-xl mx-auto p-6 md:p-8 text-white">
+                <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
+                  <div className="flex items-center gap-2">
+                    <Clock className="text-[#F5A623]" size={22} />
+                    <h2 className="text-xl font-extrabold tracking-wide text-white" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                      LIVE TABLE ORDERS & STATUS
+                    </h2>
+                  </div>
+                  <button onClick={() => setOrdersOpen(false)} className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-gray-400">
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="space-y-4 mb-4">
+                  {!tableOrdersData?.orders || tableOrdersData.orders.length === 0 ? (
+                    <div className="text-center py-10 bg-black/30 rounded-2xl border border-white/5 text-gray-400 text-xs font-bold">
+                      No orders placed from this table yet. Place your first order from the menu!
+                    </div>
+                  ) : (
+                    tableOrdersData.orders.map(order => (
+                      <div key={order._id} className="p-4 bg-black/50 rounded-2xl border border-white/10 space-y-3 text-left">
+                        <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                          <div>
+                            <span className="text-xs font-mono text-gray-400">Order #{order._id.slice(-6).toUpperCase()}</span>
+                            <span className="text-[10px] text-gray-500 ml-2">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                            order.status === 'delivered' ? 'bg-green-950 text-green-400 border border-green-500/30' :
+                            order.status === 'served' ? 'bg-blue-950 text-blue-400 border border-blue-500/30' :
+                            order.status === 'preparing' ? 'bg-amber-950 text-amber-400 border border-amber-500/30 font-bold animate-pulse' :
+                            order.status === 'cancelled' ? 'bg-red-950 text-red-400 border border-red-500/30' :
+                            'bg-gray-800 text-gray-300 border border-white/10'
+                          }`}>
+                            {order.status}
+                          </span>
+                        </div>
+
+                        <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1 scrollbar-thin">
+                          {order.items.map(item => (
+                            <div key={item._id} className="flex justify-between text-xs font-bold text-gray-200">
+                              <span>{item.quantity}x {item.name}</span>
+                              <span className="text-[#F5A623] font-mono">{formatCurrency(item.price * item.quantity)}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center justify-between border-t border-white/5 pt-2 text-xs font-bold">
+                          <span className="text-gray-400">Payment: <span className="uppercase text-white">{order.paymentMethod} ({order.paymentStatus})</span></span>
+                          <span className="text-[#C8102E] font-mono">{formatCurrency(order.totalAmount)}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
-              <button onClick={placeOrder} className="btn-primary w-full py-4 text-base">Place Order</button>
-            </div>
-          </motion.div>
-        </>
-      )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -467,7 +467,7 @@ export default function RestaurantTeaser() {
         {/* Global navigation CTA link */}
         <div className="text-center mt-12">
           <Link
-            to="/login"
+            to="/table-portal"
             className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-[#C8102E] text-white font-body font-bold text-sm hover:bg-[#F5A623] hover:text-black transition-all duration-300 shadow-xl hover:scale-105"
           >
             Access Digital Table Menu Portal <ArrowRight size={16} />

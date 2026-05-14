@@ -8,9 +8,9 @@ import ErrorBoundary from '../shared/ErrorBoundary';
 
 const menuItems = [
   { path: '/restaurant', label: 'Dashboard', icon: <LayoutDashboard size={18} />, end: true },
-  { path: '/restaurant/orders', label: 'Orders', icon: <ClipboardList size={18} /> },
+  { path: '/restaurant/orders', label: 'Live Orders', icon: <ClipboardList size={18} /> },
+  { path: '/restaurant/history', label: 'Order History', icon: <Package size={18} /> },
   { path: '/restaurant/menu', label: 'Menu', icon: <Utensils size={18} /> },
-  { path: '/restaurant/inventory', label: 'Inventory', icon: <Package size={18} /> },
   { path: '/restaurant/tables', label: 'Tables & QR', icon: <Grid size={18} /> },
 ];
 

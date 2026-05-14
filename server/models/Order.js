@@ -13,6 +13,14 @@ const orderSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   },
+  customerName: {
+    type: String,
+    trim: true,
+  },
+  customerPhone: {
+    type: String,
+    trim: true,
+  },
   items: [{
     menuItemId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -45,10 +53,19 @@ const orderSchema = new mongoose.Schema({
     enum: ['new', 'preparing', 'ready', 'delivered', 'cancelled'],
     default: 'new',
   },
+  paymentMethod: {
+    type: String,
+    enum: ['cash', 'upi', 'card', 'online'],
+    default: 'cash',
+  },
   paymentStatus: {
     type: String,
-    enum: ['pending', 'paid', 'refunded'],
+    enum: ['pending', 'paid', 'refunded', 'failed'],
     default: 'pending',
+  },
+  specialInstructions: {
+    type: String,
+    trim: true,
   },
   paymentId: {
     type: mongoose.Schema.Types.ObjectId,

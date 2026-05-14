@@ -9,7 +9,11 @@ const menuItemSchema = new mongoose.Schema({
   categoryId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'MenuCategory',
-    required: true,
+  },
+  category: {
+    type: String,
+    default: 'Snacks',
+    trim: true,
   },
   description: {
     type: String,
@@ -19,10 +23,26 @@ const menuItemSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  calories: {
+    type: Number,
+    default: 250,
+  },
+  protein: {
+    type: Number,
+    default: 15,
+  },
+  featured: {
+    type: Boolean,
+    default: false,
+  },
+  chefRecommended: {
+    type: Boolean,
+    default: false,
+  },
   sizes: [{
     label: {
       type: String,
-      enum: ['S', 'M', 'L', 'Regular'],
+      default: 'Regular',
     },
     price: {
       type: Number,

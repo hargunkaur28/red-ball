@@ -55,9 +55,7 @@ exports.createOrder = async (req, res) => {
     const { amount, type, studentId, referenceId, gstPercent = 18, customerEmail, customerPhone, description } = req.body;
     const gst = calculateGST(amount, gstPercent);
 
-    // Create payment record first
-    const payment = await Payment.create({
-      studentId,
+    const paymentData = {
       type,
       referenceId,
       amount: gst.amount,
@@ -68,19 +66,20 @@ exports.createOrder = async (req, res) => {
       remainingAmount: gst.totalAmount,
       status: 'pending',
       paymentMode: 'razorpay',
-    });
+    };
+    if (studentId) paymentData.studentId = studentId;
+
+    // Create payment record first
+    const payment = await Payment.create(paymentData);
 
     // Create Razorpay order
     const razorpayOrder = await createRazorpayOrder({
-      amount: gst.totalAmount * 100, // Amount in paise
+      amount: Math.round(gst.totalAmount * 100), // Amount in paise
       currency: 'INR',
-      receipt: payment._id.toString(),
-      description: description || `Payment for ${type}`,
-      customer_notify: 1,
+      receipt: `rcpt_${payment._id.toString().slice(-10)}`,
       notes: {
         paymentId: payment._id.toString(),
         type,
-        referenceId: referenceId?.toString() || '',
       },
     });
 
@@ -364,6 +363,18 @@ async function activateOnPaymentSuccess(payment, req) {
     }
   }
 
+  if (payment.type === 'restaurant' && payment.referenceId) {
+    const Order = require('../models/Order');
+    const order = await Order.findByIdAndUpdate(payment.referenceId, {
+      paymentStatus: 'paid',
+      paymentMethod: 'online'
+    }, { new: true }).populate('tableId', 'label tableNumber section');
+    
+    if (io && order) {
+      io.to('restaurant-managers').emit('order:new', { order });
+    }
+  }
+
   // Emit realtime updates
   if (io) {
     io.emit('payment:success', {
@@ -372,6 +383,7 @@ async function activateOnPaymentSuccess(payment, req) {
       type: payment.type,
       amount: payment.totalAmount,
     });
+    io.emit('order:status-update');
     io.emit('dashboard:refresh');
   }
 }

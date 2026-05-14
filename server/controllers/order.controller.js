@@ -4,9 +4,16 @@ const { calculateGST } = require('../utils/gstCalculator');
 
 exports.getAll = async (req, res) => {
   try {
-    const { status } = req.query;
+    const { status, date } = req.query;
     const filter = {};
     if (status) filter.status = status;
+    if (date) {
+      const start = new Date(date);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(date);
+      end.setHours(23, 59, 59, 999);
+      filter.createdAt = { $gte: start, $lte: end };
+    }
     const orders = await Order.find(filter)
       .populate('tableId', 'label tableNumber section')
       .populate('customerId', 'name phone email')
@@ -19,25 +26,32 @@ exports.getAll = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    const { tableId, items } = req.body;
+    const { tableId, items, customerName, customerPhone, paymentMethod, specialInstructions, paymentStatus } = req.body;
     const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const gst = calculateGST(subtotal, 5); // Restaurant = 5% GST
 
     const order = await Order.create({
       tableId,
-      customerId: req.user.userId,
+      customerId: req.user ? req.user.userId : undefined,
+      customerName,
+      customerPhone,
       items,
       subtotal,
       gstAmount: gst.gstAmount,
       totalAmount: gst.totalAmount,
+      paymentMethod: paymentMethod || 'cash',
+      paymentStatus: paymentStatus || 'pending',
+      specialInstructions,
     });
 
     const populated = await order.populate('tableId', 'label tableNumber section');
 
-    // Emit socket event for new order
+    // Emit socket event for new order ONLY IF payment is cash or already paid
     const io = req.app.get('io');
     if (io) {
-      io.to('restaurant-managers').emit('order:new', { order: populated });
+      if (order.paymentMethod === 'cash' || order.paymentStatus === 'paid') {
+        io.to('restaurant-managers').emit('order:new', { order: populated });
+      }
       io.emit('dashboard:refresh');
     }
 
@@ -49,12 +63,13 @@ exports.create = async (req, res) => {
 
 exports.updateStatus = async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, paymentStatus } = req.body;
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ message: 'Order not found.' });
 
     const previousStatus = order.status;
-    order.status = status;
+    if (status) order.status = status;
+    if (paymentStatus) order.paymentStatus = paymentStatus;
     await order.save();
 
     const populated = await Order.findById(order._id)
@@ -81,6 +96,7 @@ exports.updateStatus = async (req, res) => {
         order: populated,
       });
       io.to(`order-${order._id}`).emit('order:status', { orderId: order._id, status });
+      io.emit('order:status-update');
       io.emit('dashboard:refresh');
     }
 
@@ -127,6 +143,18 @@ exports.getCustomerOrders = async (req, res) => {
     res.json({ orders });
   } catch (error) {
     res.status(500).json({ message: 'Server error.' });
+  }
+};
+
+exports.getTableOrders = async (req, res) => {
+  try {
+    const orders = await Order.find({ tableId: req.params.tableId })
+      .populate('tableId', 'label tableNumber section')
+      .sort({ createdAt: -1 })
+      .limit(30);
+    res.json({ orders });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.', error: error.message });
   }
 };
 
