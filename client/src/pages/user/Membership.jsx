@@ -15,6 +15,7 @@ export default function Membership() {
   const { user } = useAuthStore();
   const qc = useQueryClient();
   const cardRef = useRef(null);
+  const premiumCardRef = useRef(null);
 
   const { data } = useQuery({
     queryKey: ['my-membership'],
@@ -32,9 +33,15 @@ export default function Membership() {
   });
 
   const handleDownload = async () => {
-    if (!cardRef.current) return;
+    if (!premiumCardRef.current) return;
     try {
-      const canvas = await html2canvas(cardRef.current, { scale: 3, backgroundColor: null, useCORS: true });
+      const canvas = await html2canvas(premiumCardRef.current, { 
+        scale: 4, 
+        backgroundColor: null, 
+        useCORS: true,
+        logging: false,
+        allowTaint: true
+      });
       const link = document.createElement('a');
       const safeName = user?.name || 'Member';
       link.download = `RBA_Membership_${safeName.replace(/\s+/g, '_')}.png`;
@@ -334,6 +341,81 @@ export default function Membership() {
           <Trophy size={48} className="mx-auto mb-4 text-[#CCC]" />
           <h3 className="text-lg font-semibold text-[#111] mb-2">No Membership Found</h3>
           <p className="text-sm text-[#888]">Visit the academy reception to sign up for a membership plan.</p>
+        </div>
+      )}
+
+      {/* HIDDEN PREMIUM PHYSICAL CARD FOR DOWNLOAD ONLY */}
+      {m && (
+        <div className="fixed -left-[2000px] top-0 pointer-events-none">
+          <div 
+            ref={premiumCardRef}
+            className="w-[600px] h-[360px] rounded-[32px] relative overflow-hidden text-white bg-[#111]"
+            style={{ 
+              backgroundImage: 'url(/membership-card-bg.png)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
+            }}
+          >
+            {/* Card Content Shell */}
+            <div className="absolute inset-0 p-10 flex flex-col justify-between">
+              
+              {/* Header */}
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-[#C8102E] rounded-2xl flex items-center justify-center font-black text-3xl tracking-tighter shadow-[0_10px_20px_rgba(0,0,0,0.4)]">
+                    RB
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-black tracking-tighter leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>RED BALL ACADEMY</h1>
+                    <p className="text-[11px] uppercase tracking-[0.4em] text-[#EF4444] font-bold mt-1">OFFICIAL MEMBER CARD</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-[rgba(255,255,255,0.4)] font-bold">MEMBER ID</p>
+                  <p className="text-sm font-mono text-[rgba(255,255,255,0.7)]">#{m._id.slice(-8).toUpperCase()}</p>
+                </div>
+              </div>
+
+              {/* Main Info Section */}
+              <div className="flex justify-between items-end">
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-[rgba(255,255,255,0.4)] font-bold mb-2">NAME</p>
+                    <h2 className="text-4xl font-black capitalize tracking-tight leading-none">{user.name}</h2>
+                  </div>
+                  
+                  <div className="flex gap-12">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-[rgba(255,255,255,0.4)] font-bold mb-1">PLAN</p>
+                      <p className="text-lg font-black text-[#FFD700] uppercase tracking-wider">{plan?.name || 'Standard'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-[rgba(255,255,255,0.4)] font-bold mb-1">EXPIRY</p>
+                      <p className="text-lg font-black text-white uppercase tracking-wider">{m.endDate ? new Date(m.endDate).toLocaleDateString('en-IN') : '—'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* QR and Security */}
+                <div className="flex flex-col items-center gap-4">
+                   {/* Security Chip Simulation */}
+                   <div className="w-12 h-10 rounded-lg bg-gradient-to-br from-[#FEF08A] via-[#EAB308] to-[#A16207] opacity-60 self-end mr-2" />
+                   
+                   <div className="bg-white p-3 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-4 border-[rgba(220,38,38,0.1)]">
+                    <QRCodeCanvas 
+                      value={`MEMBERSHIP_${m._id}`} 
+                      size={110} 
+                      level="H" 
+                    />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Bottom Branding Bar */}
+            <div className="absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-r from-[#DC2626] via-[#7F1D1D] to-[#DC2626]" />
+          </div>
         </div>
       )}
     </div>
