@@ -4,6 +4,7 @@ const Payment = require('../models/Payment');
 const Admission = require('../models/Admission');
 const { calculateGST } = require('../utils/gstCalculator');
 const { getDurationMs } = require('../utils/dateUtils');
+const { verifyPaymentSignature } = require('../config/razorpay');
 
 // GET /api/plans
 exports.getPlans = async (req, res) => {
@@ -103,17 +104,26 @@ exports.assignMembership = async (req, res) => {
 // PUT /api/memberships/:id/renew — RENEWAL WORKFLOW
 exports.renewMembership = async (req, res) => {
   try {
-    const { paymentMode, amountPaid } = req.body;
+    const { paymentMode, amountPaid, razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
     const membership = await Membership.findById(req.params.id).populate('planId');
     if (!membership) return res.status(404).json({ message: 'Membership not found.' });
 
     const plan = membership.planId;
     const gst = calculateGST(plan.price, plan.gstPercent || 18);
-    
-    // Determine amount paid
-    const parsedAmountPaid = amountPaid !== undefined ? parseFloat(amountPaid) : (paymentMode && paymentMode !== 'online' ? gst.totalAmount : 0);
+
+    // Verify Razorpay signature if provided
+    const isRazorpay = paymentMode === 'razorpay' && razorpayOrderId && razorpayPaymentId && razorpaySignature;
+    if (isRazorpay) {
+      const isValid = verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
+      if (!isValid) return res.status(400).json({ message: 'Invalid payment signature.' });
+    }
+
+    // Razorpay verified → full payment, else use provided amountPaid
+    const parsedAmountPaid = isRazorpay
+      ? gst.totalAmount
+      : (amountPaid !== undefined ? parseFloat(amountPaid) : (paymentMode && paymentMode !== 'online' ? gst.totalAmount : 0));
     const remainingAmount = Math.max(0, gst.totalAmount - parsedAmountPaid);
-    
+
     let paymentState = 'pending';
     if (remainingAmount === 0) paymentState = 'paid';
     else if (parsedAmountPaid > 0) paymentState = 'partial';
@@ -132,7 +142,8 @@ exports.renewMembership = async (req, res) => {
       amountPaid: Math.min(parsedAmountPaid, gst.totalAmount),
       remainingAmount,
       status: paymentState,
-      paymentMode: paymentMode || 'cash',
+      paymentMode: isRazorpay ? 'razorpay' : (paymentMode || 'cash'),
+      ...(isRazorpay && { razorpayOrderId, razorpayPaymentId, razorpaySignature }),
     });
 
     if (isFullyPaid) {

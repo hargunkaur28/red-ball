@@ -10,5 +10,6 @@ router.get('/memberships', auth, authorize('superadmin', 'admin'), ac.getMembers
 router.get('/sports-popularity', auth, authorize('superadmin', 'admin'), ac.getSportsPopularity);
 router.get('/restaurant', auth, authorize('superadmin', 'admin', 'manager'), ac.getRestaurantAnalytics);
 router.get('/recent-activity', auth, authorize('superadmin', 'admin', 'receptionist'), ac.getRecentActivity);
+router.get('/occupancy', auth, authorize('superadmin', 'admin', 'receptionist'), ac.getOccupancy);
 
 module.exports = router;

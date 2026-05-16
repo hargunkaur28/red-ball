@@ -4,6 +4,8 @@ const Membership = require('../models/Membership');
 const Order = require('../models/Order');
 const User = require('../models/User');
 const OneTimePlay = require('../models/OneTimePlay');
+const Slot = require('../models/Slot');
+const SlotBooking = require('../models/SlotBooking');
 
 // GET /api/analytics/overview — Dashboard summary cards
 exports.getOverview = async (req, res) => {
@@ -27,7 +29,13 @@ exports.getOverview = async (req, res) => {
       User.countDocuments({ role: 'student', isActive: true }),
       Membership.countDocuments({ status: 'active' }),
       Membership.countDocuments({ status: 'active', endDate: { $lte: sevenDays, $gte: new Date() } }),
-      Payment.countDocuments({ status: { $in: ['pending', 'partial'] } }),
+      Payment.countDocuments({ 
+        status: { $in: ['pending', 'partial'] },
+        $or: [
+          { type: { $ne: 'restaurant' } },
+          { type: 'restaurant', status: 'paid' }
+        ]
+      }),
       Payment.aggregate([
         { $match: { status: 'paid', createdAt: { $gte: today, $lte: endOfDay } } },
         { $group: { _id: null, total: { $sum: '$totalAmount' } } },
@@ -39,7 +47,15 @@ exports.getOverview = async (req, res) => {
 
     // Pending fees total amount (sum remaining amounts of pending and partial payments)
     const pendingFeesAmount = await Payment.aggregate([
-      { $match: { status: { $in: ['pending', 'partial'] } } },
+      { 
+        $match: { 
+          status: { $in: ['pending', 'partial'] },
+          $or: [
+            { type: { $ne: 'restaurant' } },
+            { type: 'restaurant', status: 'paid' }
+          ]
+        } 
+      },
       { 
         $group: { 
           _id: null, 
@@ -228,5 +244,46 @@ exports.getRecentActivity = async (req, res) => {
     res.json({ activity });
   } catch (error) {
     res.status(500).json({ message: 'Server error.' });
+  }
+};
+
+// GET /api/analytics/occupancy — Live occupancy data
+exports.getOccupancy = async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const [activePlayers, checkedIn, ongoingSessions, slots] = await Promise.all([
+      SlotBooking.aggregate([
+        { $match: { status: 'checked-in', createdAt: { $gte: today, $lte: endOfDay } } },
+        { $group: { _id: null, total: { $sum: '$numberOfPlayers' } } }
+      ]),
+      SlotBooking.countDocuments({ status: 'checked-in', createdAt: { $gte: today, $lte: endOfDay } }),
+      SlotBooking.countDocuments({ status: 'checked-in' }),
+      Slot.find().limit(10),
+    ]);
+
+    const arenas = slots.map(s => ({
+      name: s.name,
+      players: s.currentBookings || 0,
+      capacity: s.capacity || 1,
+      status: s.status,
+    }));
+
+    const totalCapacity = arenas.reduce((sum, a) => sum + a.capacity, 0);
+    const totalPlayers = arenas.reduce((sum, a) => sum + a.players, 0);
+    const load = totalCapacity > 0 ? `${Math.round((totalPlayers / totalCapacity) * 100)}%` : '0%';
+
+    res.json({
+      activePlayers: activePlayers[0]?.total || 0,
+      checkedIn,
+      ongoingSessions,
+      load,
+      arenas,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.', error: error.message });
   }
 };

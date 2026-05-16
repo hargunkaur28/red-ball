@@ -7,6 +7,8 @@ import { getInitials } from '../../lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import socket from '../../lib/socket';
 import ErrorBoundary from '../shared/ErrorBoundary';
+import MobileNavbar from './MobileNavbar';
+import { Package, QrCode, ShieldAlert } from 'lucide-react';
 
 const menuItems = [
   { path: '/reception', label: 'Dashboard', icon: <LayoutDashboard size={18} />, end: true },
@@ -17,6 +19,9 @@ const menuItems = [
   { path: '/reception/operations', label: 'Operations Board', icon: <Activity size={18} /> },
   { path: '/reception/attendance-desk', label: 'Attendance Desk', icon: <Activity size={18} /> },
   { path: '/reception/payments', label: 'Payments & Receipts', icon: <Receipt size={18} /> },
+  { path: '/reception/manage-bookings', label: 'Manage Bookings', icon: <Calendar size={18} /> },
+  { path: '/reception/qr-checkin', label: 'QR Check-In', icon: <QrCode size={18} /> },
+  { path: '/reception/schedule-blocking', label: 'Schedule Blocking', icon: <ShieldAlert size={18} /> },
 ];
 
 export default function ReceptionLayout() {
@@ -110,6 +115,7 @@ export default function ReceptionLayout() {
           </ErrorBoundary>
         </main>
       </div>
+      <MobileNavbar />
     </div>
   );
 }

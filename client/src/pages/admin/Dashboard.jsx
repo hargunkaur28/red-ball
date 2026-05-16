@@ -15,6 +15,9 @@ import {
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
 
+import QuickActions from '../../components/dashboard/QuickActions';
+import LiveOccupancy from '../../components/dashboard/LiveOccupancy';
+
 export default function AdminDashboard() {
   const { data: overview } = useQuery({
     queryKey: ['analytics', 'overview'],
@@ -65,8 +68,14 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div>
+    <div className="pb-24 lg:pb-0">
       <PageHeader title="Dashboard" subtitle="Welcome back! Here's your academy overview." />
+
+      {/* Quick Actions — NEW */}
+      <QuickActions />
+
+      {/* Live Occupancy — NEW */}
+      <LiveOccupancy />
 
       {/* CRITICAL: Pending Fees Alert Banner */}
       {pending?.totalCount > 0 && (

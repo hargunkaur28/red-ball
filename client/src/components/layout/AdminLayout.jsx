@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, GraduationCap, CreditCard, Activity, IndianRupee, Utensils, Package, TrendingUp, Users, Settings, Menu, Search, Bell, X, LogOut, ChevronLeft, Clock } from 'lucide-react';
+import { LayoutDashboard, GraduationCap, CreditCard, Activity, IndianRupee, Utensils, Package, TrendingUp, Users, Settings, Menu, Search, Bell, X, LogOut, ChevronLeft, Clock, Calendar, QrCode, ShieldAlert } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import useUIStore from '../../store/uiStore';
 import { getInitials } from '../../lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import socket from '../../lib/socket';
 import ErrorBoundary from '../shared/ErrorBoundary';
+import MobileNavbar from './MobileNavbar';
 
 const menuItems = [
   { path: '/admin', label: 'Dashboard', icon: <LayoutDashboard size={18} />, end: true },
@@ -22,6 +23,10 @@ const menuItems = [
   { path: '/admin/restaurant', label: 'Live Orders', icon: <Utensils size={18} /> },
   { path: '/admin/history', label: 'Order History', icon: <Package size={18} /> },
   { path: '/admin/tables', label: 'Tables & QR', icon: <Utensils size={18} /> },
+  { path: '/admin/manage-services', label: 'Services', icon: <Package size={18} /> },
+  { path: '/admin/manage-bookings', label: 'Bookings', icon: <Calendar size={18} /> },
+  { path: '/admin/qr-checkin', label: 'QR Check-In', icon: <QrCode size={18} /> },
+  { path: '/admin/schedule-blocking', label: 'Schedule Blocking', icon: <ShieldAlert size={18} /> },
   { path: '/admin/analytics', label: 'Analytics', icon: <TrendingUp size={18} /> },
   { path: '/admin/users', label: 'Users & Roles', icon: <Users size={18} /> },
   { path: '/admin/settings', label: 'Settings', icon: <Settings size={18} /> },
@@ -219,6 +224,7 @@ export default function AdminLayout() {
           </ErrorBoundary>
         </main>
       </div>
+      <MobileNavbar />
     </div>
   );
 }

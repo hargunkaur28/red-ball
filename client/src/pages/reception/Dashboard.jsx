@@ -6,12 +6,8 @@ import PageHeader from '../../components/shared/PageHeader';
 import { formatCurrency } from '../../lib/utils';
 import { GraduationCap, CreditCard, Activity, Receipt, RefreshCw, AlertTriangle, Clock } from 'lucide-react';
 
-const actions = [
-  { icon: <GraduationCap size={36} strokeWidth={1.5} />, title: 'New Admission', desc: 'Register a new student with membership', href: '/reception/admissions', color: 'border-black/20 hover:border-black/40' },
-  { icon: <RefreshCw size={36} strokeWidth={1.5} />, title: 'Membership Renewal', desc: 'Renew an existing membership', href: '/reception/memberships', color: 'border-blue-600/20 hover:border-blue-600/40' },
-  { icon: <Activity size={36} strokeWidth={1.5} />, title: 'One-Time Play', desc: 'Quick booking for walk-in players', href: '/reception/one-time-play', color: 'border-green-600/20 hover:border-green-600/40' },
-  { icon: <Receipt size={36} strokeWidth={1.5} />, title: 'Payments & Receipts', desc: 'View payments, collect fees, print receipts', href: '/reception/payments', color: 'border-amber-600/20 hover:border-amber-600/40' },
-];
+import QuickActions from '../../components/dashboard/QuickActions';
+import LiveOccupancy from '../../components/dashboard/LiveOccupancy';
 
 export default function ReceptionDashboard() {
   const { data: overview } = useQuery({
@@ -27,8 +23,14 @@ export default function ReceptionDashboard() {
   });
 
   return (
-    <div>
+    <div className="pb-24 lg:pb-0">
       <PageHeader title="Reception Panel" subtitle="Quick actions for daily operations" />
+
+      {/* Quick Actions — NEW */}
+      <QuickActions />
+
+      {/* Live Occupancy — NEW */}
+      <LiveOccupancy />
 
       {/* CRITICAL: Pending Fees Alerts */}
       {pending?.totalCount > 0 && (
@@ -78,23 +80,6 @@ export default function ReceptionDashboard() {
         </div>
       </div>
 
-      {/* Large Action Buttons */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {actions.map((a, i) => (
-          <motion.div key={a.title}
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}
-            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-          >
-            <Link to={a.href} className={`card flex items-center gap-6 cursor-pointer hover:bg-[#F5F5F5] border-2 ${a.color} transition-all py-6`}>
-              <span className="text-current">{a.icon}</span>
-              <div>
-                <h3 className="text-xl font-bold text-[#111111]">{a.title}</h3>
-                <p className="text-sm text-[#888888]">{a.desc}</p>
-              </div>
-            </Link>
-          </motion.div>
-        ))}
-      </div>
     </div>
   );
 }

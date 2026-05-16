@@ -61,10 +61,7 @@ export default function RestaurantOrders() {
 
   const orders = data?.orders || [];
 
-  // Exclude abandoned/unpaid online orders from history unless they are marked as cancelled
-  const validOrders = orders.filter(o => o.paymentMethod === 'cash' || o.paymentStatus === 'paid' || o.status === 'cancelled');
-
-  const filteredOrders = validOrders.filter(o => 
+  const filteredOrders = orders.filter(o =>
     o._id.toLowerCase().includes(searchQuery.toLowerCase()) ||
     o.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     o.tableId?.label?.toLowerCase().includes(searchQuery.toLowerCase())

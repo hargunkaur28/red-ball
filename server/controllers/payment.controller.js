@@ -16,9 +16,25 @@ exports.getAll = async (req, res) => {
     const { status, type, page = 1, limit = 20 } = req.query;
     const filter = {};
     if (status) filter.status = status;
+    else filter.status = { $ne: 'cancelled' };
+    
     if (type) filter.type = type;
 
-    const payments = await Payment.find(filter)
+    // CRITICAL: Exclude unpaid/pending restaurant payments from the billing dashboard
+    // Users only want to see PAID restaurant orders here. Unpaid ones are managed in the Kitchen portal.
+    const finalFilter = {
+      $and: [
+        filter,
+        {
+          $or: [
+            { type: { $ne: 'restaurant' } },
+            { type: 'restaurant', status: 'paid' }
+          ]
+        }
+      ]
+    };
+
+    const payments = await Payment.find(finalFilter)
       .populate('studentId', 'name email phone')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
@@ -28,11 +44,27 @@ exports.getAll = async (req, res) => {
 
     // Summary stats
     const paidTotal = await Payment.aggregate([
-      { $match: { status: { $in: ['paid', 'partial'] } } },
+      { 
+        $match: { 
+          status: { $in: ['paid', 'partial'] },
+          $or: [
+            { type: { $ne: 'restaurant' } },
+            { type: 'restaurant', status: 'paid' }
+          ]
+        } 
+      },
       { $group: { _id: null, total: { $sum: { $ifNull: ['$amountPaid', '$totalAmount'] } } } },
     ]);
     const pendingTotal = await Payment.aggregate([
-      { $match: { status: { $in: ['pending', 'partial'] } } },
+      { 
+        $match: { 
+          status: { $in: ['pending', 'partial'] },
+          $or: [
+            { type: { $ne: 'restaurant' } },
+            { type: 'restaurant', status: 'paid' } // This will effectively be 0 for pending, which is correct
+          ]
+        } 
+      },
       { $group: { _id: null, total: { $sum: { $ifNull: ['$remainingAmount', '$totalAmount'] } } } },
     ]);
 
@@ -52,12 +84,13 @@ exports.getAll = async (req, res) => {
 // POST /api/payments/create-order (Razorpay online payment)
 exports.createOrder = async (req, res) => {
   try {
-    const { amount, type, studentId, referenceId, gstPercent = 18, customerEmail, customerPhone, description } = req.body;
+    const { amount, type, studentId, referenceId, gstPercent = 18, customerName, customerEmail, customerPhone, description } = req.body;
     const gst = calculateGST(amount, gstPercent);
 
     const paymentData = {
       type,
       referenceId,
+      customerName,
       amount: gst.amount,
       gstAmount: gst.gstAmount,
       gstPercent: gst.gstPercent,
@@ -184,7 +217,7 @@ exports.manualPayment = async (req, res) => {
 // POST /api/payments/:id/mark-paid — Mark a pending payment as paid or partial
 exports.markPaid = async (req, res) => {
   try {
-    const { paymentMode, amountPaid } = req.body;
+    const { paymentMode, amountPaid, razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
     const payment = await Payment.findById(req.params.id);
     if (!payment) return res.status(404).json({ message: 'Payment not found.' });
 
@@ -192,8 +225,15 @@ exports.markPaid = async (req, res) => {
       return res.status(400).json({ message: 'Payment is already fully paid.' });
     }
 
-    // Default to paying the remaining amount if amountPaid is not provided
-    const addition = amountPaid !== undefined ? parseFloat(amountPaid) : payment.remainingAmount;
+    // Verify Razorpay signature if provided
+    const isRazorpay = paymentMode === 'razorpay' && razorpayOrderId && razorpayPaymentId && razorpaySignature;
+    if (isRazorpay) {
+      const isValid = verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
+      if (!isValid) return res.status(400).json({ message: 'Invalid payment signature.' });
+    }
+
+    // Default to paying the remaining amount if amountPaid is not provided, or full remaining if razorpay verified
+    const addition = isRazorpay ? payment.remainingAmount : (amountPaid !== undefined ? parseFloat(amountPaid) : payment.remainingAmount);
     const newAmountPaid = (payment.amountPaid || 0) + addition;
 
     payment.amountPaid = Math.min(newAmountPaid, payment.totalAmount);
@@ -208,7 +248,12 @@ exports.markPaid = async (req, res) => {
       payment.status = 'partial';
     }
 
-    payment.paymentMode = paymentMode || payment.paymentMode || 'cash';
+    payment.paymentMode = isRazorpay ? 'razorpay' : (paymentMode || payment.paymentMode || 'cash');
+    if (isRazorpay) {
+      payment.razorpayOrderId = razorpayOrderId;
+      payment.razorpayPaymentId = razorpayPaymentId;
+      payment.razorpaySignature = razorpaySignature;
+    }
     await payment.save();
 
     // CRITICAL: Activate related records if fully paid

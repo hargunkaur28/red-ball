@@ -31,6 +31,10 @@ const UsersRoles = lazy(() => import('./pages/admin/UsersRoles'));
 const Settings = lazy(() => import('./pages/admin/Settings'));
 const OperationalDashboard = lazy(() => import('./pages/admin/OperationalDashboard'));
 const AttendanceDesk = lazy(() => import('./pages/admin/AttendanceDesk'));
+const ManageServices = lazy(() => import('./pages/admin/ManageServices'));
+const ManageBookings = lazy(() => import('./pages/admin/ManageBookings'));
+const QRCheckIn = lazy(() => import('./pages/admin/QRCheckIn'));
+const ScheduleBlocking = lazy(() => import('./pages/admin/ScheduleBlocking'));
 
 // User
 const UserDashboard = lazy(() => import('./pages/user/Dashboard'));
@@ -105,6 +109,10 @@ export default function App() {
                 <Route path="attendance-desk" element={<AttendanceDesk />} />
                 <Route path="users" element={<UsersRoles />} />
                 <Route path="settings" element={<Settings />} />
+                <Route path="manage-services" element={<ManageServices />} />
+                <Route path="manage-bookings" element={<ManageBookings />} />
+                <Route path="qr-checkin" element={<QRCheckIn />} />
+                <Route path="schedule-blocking" element={<ScheduleBlocking />} />
               </Route>
 
               {/* User/Student Panel */}
@@ -142,6 +150,9 @@ export default function App() {
                 <Route path="operations" element={<OperationalDashboard />} />
                 <Route path="attendance-desk" element={<AttendanceDesk />} />
                 <Route path="payments" element={<Payments />} />
+                <Route path="manage-bookings" element={<ManageBookings />} />
+                <Route path="qr-checkin" element={<QRCheckIn />} />
+                <Route path="schedule-blocking" element={<ScheduleBlocking />} />
               </Route>
 
               {/* Redirect root */}

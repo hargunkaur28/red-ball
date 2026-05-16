@@ -24,6 +24,9 @@ const orderRoutes = require('./routes/order.routes');
 const tableRoutes = require('./routes/table.routes');
 const inventoryRoutes = require('./routes/inventory.routes');
 const analyticsRoutes = require('./routes/analytics.routes');
+const serviceRoutes = require('./routes/service.routes');
+const blockedScheduleRoutes = require('./routes/blockedSchedule.routes');
+const bookingRoutes = require('./routes/booking.routes');
 
 // Import cron jobs
 const startExpiryReminder = require('./jobs/expiryReminder.job');
@@ -115,6 +118,9 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/tables', tableRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/services', serviceRoutes);
+app.use('/api/blocked-schedules', blockedScheduleRoutes);
+app.use('/api/bookings', bookingRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -58,8 +58,8 @@ const slotBookingSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['confirmed', 'checked-in', 'completed', 'cancelled', 'no-show'],
-    default: 'confirmed',
+    enum: ['pending', 'confirmed', 'checked-in', 'completed', 'cancelled', 'no-show'],
+    default: 'pending',
   },
   paymentStatus: {
     type: String,

@@ -8,10 +8,10 @@ exports.getAll = async (req, res) => {
     const filter = {};
     if (status) filter.status = status;
     if (date) {
-      const start = new Date(date);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(date);
-      end.setHours(23, 59, 59, 999);
+      // Parse date as local noon to avoid UTC offset issues
+      const [year, month, day] = date.split('-').map(Number);
+      const start = new Date(year, month - 1, day, 0, 0, 0, 0);
+      const end   = new Date(year, month - 1, day, 23, 59, 59, 999);
       filter.createdAt = { $gte: start, $lte: end };
     }
     const orders = await Order.find(filter)
@@ -81,11 +81,6 @@ exports.updateStatus = async (req, res) => {
     // CRITICAL: Auto-deduct inventory when order is DELIVERED
     if (status === 'delivered' && previousStatus !== 'delivered') {
       await deductInventoryForOrder(order);
-
-      // Mark payment as paid for the order
-      order.paymentStatus = 'paid';
-      await order.save();
-
       if (io) io.emit('inventory:updated');
     }
 
@@ -121,6 +116,13 @@ exports.cancelOrder = async (req, res) => {
       order.paymentStatus = 'refunded';
     }
     await order.save();
+    
+    // CRITICAL: Also cancel the linked payment record if it exists and is still pending
+    const Payment = require('../models/Payment');
+    await Payment.updateMany(
+      { referenceId: order._id, type: 'restaurant', status: 'pending' },
+      { status: 'cancelled' }
+    );
 
     const io = req.app.get('io');
     if (io) {

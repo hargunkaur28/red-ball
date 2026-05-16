@@ -5,6 +5,7 @@ import { LayoutDashboard, ClipboardList, Utensils, Package, Grid, Menu, X, LogOu
 import useAuthStore from '../../store/authStore';
 import { getInitials } from '../../lib/utils';
 import ErrorBoundary from '../shared/ErrorBoundary';
+import MobileNavbar from './MobileNavbar';
 
 const menuItems = [
   { path: '/restaurant', label: 'Dashboard', icon: <LayoutDashboard size={18} />, end: true },
@@ -98,6 +99,7 @@ export default function RestaurantLayout() {
           </ErrorBoundary>
         </main>
       </div>
+      <MobileNavbar />
     </div>
   );
 }

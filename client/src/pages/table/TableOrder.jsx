@@ -261,6 +261,7 @@ export default function TableOrder() {
           type: 'restaurant',
           studentId: null,
           referenceId: newOrder._id,
+          customerName: customerName || `Table ${tableData?.table?.label || tableId}`,
           description: `Table Order #${newOrder._id.slice(-6).toUpperCase()}`,
         });
 

@@ -72,7 +72,27 @@ export default function MembershipPlans() {
   return (
     <div>
       <PageHeader title="Membership Plans" subtitle="Manage academy membership plans including test plans"
-        action={<button className="btn-primary" onClick={() => openModal()}>+ New Plan</button>} />
+        action={
+          <div className="flex gap-2">
+            <button 
+              className="btn-ghost text-xs border border-gray-200" 
+              onClick={() => {
+                const academyTiers = [
+                  { name: 'Monthly', durationValue: 1, durationUnit: 'months', price: 4500, features: ['Choose your sports', 'Priority ground booking', 'GST receipt emailed', 'Restaurant member discount', 'Monthly progress updates'], sportsIncluded: ['cricket', 'swimming', 'gym', 'badminton'] },
+                  { name: 'Quarterly', durationValue: 3, durationUnit: 'months', price: 11400, features: ['Choose your sports', 'Priority ground booking', 'GST receipt emailed', 'Restaurant member discount', 'Monthly progress updates'], sportsIncluded: ['cricket', 'swimming', 'gym', 'badminton'] },
+                  { name: 'Half-Yearly', durationValue: 6, durationUnit: 'months', price: 19200, features: ['Choose your sports', 'Priority ground booking', 'GST receipt emailed', 'Restaurant member discount', 'Monthly progress updates'], sportsIncluded: ['cricket', 'swimming', 'gym', 'badminton'] }
+                ];
+                if(confirm('Add the 3 standard Academy Tiers (Monthly, Quarterly, Half-Yearly)?')) {
+                  academyTiers.forEach(plan => createMutation.mutate(plan));
+                }
+              }}
+            >
+              Add Academy Tiers
+            </button>
+            <button className="btn-primary" onClick={() => openModal()}>+ New Plan</button>
+          </div>
+        } 
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {(data?.plans || []).map((plan, i) => (

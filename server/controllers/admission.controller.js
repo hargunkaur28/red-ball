@@ -5,6 +5,7 @@ const MembershipPlan = require('../models/MembershipPlan');
 const Payment = require('../models/Payment');
 const { calculateGST } = require('../utils/gstCalculator');
 const { getDurationMs } = require('../utils/dateUtils');
+const { verifyPaymentSignature } = require('../config/razorpay');
 
 // GET /api/admissions
 exports.getAll = async (req, res) => {
@@ -63,7 +64,17 @@ exports.create = async (req, res) => {
       emergencyContact, batchId, planId,
       sportsIncluded, notes, password,
       paymentMode, amountPaid,
+      razorpayOrderId, razorpayPaymentId, razorpaySignature,
     } = req.body;
+
+    // Verify Razorpay signature if UPI payment
+    const isRazorpay = paymentMode === 'razorpay' && razorpayOrderId && razorpayPaymentId && razorpaySignature;
+    if (isRazorpay) {
+      const isValid = verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
+      if (!isValid) {
+        return res.status(400).json({ message: 'Invalid payment signature. Admission not created.' });
+      }
+    }
 
     // STEP 1: Create or find user account
     let user = await User.findOne({ email });
@@ -93,7 +104,7 @@ exports.create = async (req, res) => {
       sportsIncluded,
       notes,
       status: 'active',
-      paymentStatus: 'pending', // CRITICAL: starts as pending
+      paymentStatus: planId ? 'pending' : 'paid', // CRITICAL: pending if plan selected, else paid
     });
 
     // STEP 3: Create membership + payment if plan selected
@@ -105,10 +116,12 @@ exports.create = async (req, res) => {
         const endDate = new Date(startDate.getTime() + durationMs);
         const gst = calculateGST(plan.price, plan.gstPercent || 18);
 
-        // Determine amount paid
-        const parsedAmountPaid = amountPaid !== undefined ? parseFloat(amountPaid) : (paymentMode && paymentMode !== 'online' ? gst.totalAmount : 0);
+        // Razorpay verified → full payment. Otherwise use provided amountPaid.
+        const parsedAmountPaid = isRazorpay
+          ? gst.totalAmount
+          : (amountPaid !== undefined ? parseFloat(amountPaid) : (paymentMode && paymentMode !== 'online' ? gst.totalAmount : 0));
         const remainingAmount = Math.max(0, gst.totalAmount - parsedAmountPaid);
-        
+
         let paymentState = 'pending';
         if (remainingAmount === 0) paymentState = 'paid';
         else if (parsedAmountPaid > 0) paymentState = 'partial';
@@ -127,7 +140,8 @@ exports.create = async (req, res) => {
           amountPaid: Math.min(parsedAmountPaid, gst.totalAmount),
           remainingAmount,
           status: paymentState,
-          paymentMode: paymentMode || 'cash',
+          paymentMode: isRazorpay ? 'razorpay' : (paymentMode || 'cash'),
+          ...(isRazorpay && { razorpayOrderId, razorpayPaymentId, razorpaySignature }),
         });
 
         // Create membership — ONLY active if payment is FULLY successful

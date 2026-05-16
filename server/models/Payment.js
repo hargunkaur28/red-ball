@@ -45,7 +45,7 @@ const paymentSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'partial', 'paid', 'refunded', 'failed'],
+    enum: ['pending', 'partial', 'paid', 'refunded', 'failed', 'cancelled'],
     default: 'pending',
   },
   paymentMode: {
@@ -92,6 +92,6 @@ paymentSchema.index({ razorpayPaymentId: 1 });
 paymentSchema.index({ createdAt: -1 });
 paymentSchema.index({ status: 1 });
 paymentSchema.index({ type: 1 });
-paymentSchema.index({ createdAt: -1 });
+
 
 module.exports = mongoose.model('Payment', paymentSchema);
