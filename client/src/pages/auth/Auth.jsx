@@ -425,6 +425,37 @@ body { background: #080808; }
   color: rgba(255,255,255,0.25); transition: color 0.2s;
 }
 .back-btn:hover { color: rgba(255,255,255,0.6); }
+
+/* ── RESPONSIVENESS ── */
+@media (max-width: 1024px) {
+  .auth-card { max-width: 900px; min-height: 580px; }
+  .brand-title { font-size: 64px; }
+}
+
+@media (max-width: 768px) {
+  .auth-root { padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; overflow-y: auto; height: auto; min-height: 100vh; }
+  .auth-card { flex-direction: column; min-height: auto; width: 100%; max-width: 480px; border-radius: 12px; margin-bottom: 20px; }
+  .brand-panel { width: 100%; height: 240px; order: 1 !important; }
+  .form-panel { width: 100%; padding: 40px 24px 60px; order: 2 !important; }
+  .brand-content { padding: 0 24px 20px; }
+  .brand-title { font-size: 44px; }
+  .brand-desc { display: none; }
+  .feature-cards { display: none; }
+  .rb-logo { top: 20px; left: 24px; width: 44px; height: 44px; font-size: 16px; }
+  .form-inner { max-width: 100%; }
+  .brand-divider { display: none; }
+  .back-btn { position: relative; bottom: auto; left: auto; transform: none; margin: 0 auto 40px auto; width: fit-content; z-index: 100; }
+}
+
+@media (max-width: 480px) {
+  .auth-root { padding: 0; }
+  .auth-card { border-radius: 0; margin-bottom: 0; }
+  .brand-panel { height: 210px; }
+  .brand-title { font-size: 40px; }
+  .form-panel { padding: 32px 20px 50px; }
+  .form-heading { font-size: 28px; }
+  .back-btn { margin: 30px auto 50px auto; }
+}
 `;
 
 export default function Auth() {
