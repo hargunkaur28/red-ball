@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, GraduationCap, CreditCard, Activity, IndianRupee, Utensils, Package, TrendingUp, Users, Settings, Menu, Search, Bell, X, LogOut, ChevronLeft, Clock, Calendar, QrCode, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, GraduationCap, CreditCard, Activity, IndianRupee, Utensils, Package, TrendingUp, Users, Settings, Menu, Search, Bell, X, LogOut, ChevronLeft, Clock, Calendar, QrCode, ShieldAlert, Star } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import useUIStore from '../../store/uiStore';
 import { getInitials } from '../../lib/utils';
@@ -27,6 +27,7 @@ const menuItems = [
   { path: '/admin/manage-bookings', label: 'Bookings', icon: <Calendar size={18} /> },
   { path: '/admin/qr-checkin', label: 'QR Check-In', icon: <QrCode size={18} /> },
   { path: '/admin/schedule-blocking', label: 'Schedule Blocking', icon: <ShieldAlert size={18} /> },
+  { path: '/admin/reviews', label: 'Reviews', icon: <Star size={18} /> },
   { path: '/admin/analytics', label: 'Analytics', icon: <TrendingUp size={18} /> },
   { path: '/admin/users', label: 'Users & Roles', icon: <Users size={18} /> },
   { path: '/admin/settings', label: 'Settings', icon: <Settings size={18} /> },

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Check, Unlock, Tag, MessageCircle, CalendarDays } from 'lucide-react';
 
-const plans = [
+const legacyPlans = [
   {
     name: 'Monthly',
     price: '4,500',
@@ -21,6 +21,28 @@ const plans = [
     name: 'Half-Yearly',
     price: '3,200',
     billing: 'Billed half-yearly',
+    highlighted: false,
+  },
+];
+
+const plans = [
+  {
+    name: 'Gym',
+    price: '1,400',
+    billing: 'Monthly · 10,000 yearly',
+    highlighted: false,
+  },
+  {
+    name: 'All Services',
+    price: '10,000',
+    billing: '3 months · 30,000 yearly',
+    highlighted: true,
+    badge: 'Best Value',
+  },
+  {
+    name: 'Coaching',
+    price: '3,000',
+    billing: 'Children coaching · 5PM-7PM',
     highlighted: false,
   },
 ];

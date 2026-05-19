@@ -27,11 +27,14 @@ const analyticsRoutes = require('./routes/analytics.routes');
 const serviceRoutes = require('./routes/service.routes');
 const blockedScheduleRoutes = require('./routes/blockedSchedule.routes');
 const bookingRoutes = require('./routes/booking.routes');
+const reviewRoutes = require('./routes/review.routes');
 
 // Import cron jobs
 const startExpiryReminder = require('./jobs/expiryReminder.job');
 const startLowStockAlert = require('./jobs/lowStockAlert.job');
-const startTestExpiryChecker = require('./jobs/testExpiryChecker.job');
+const startTestExpiryCheckerModule = require('./jobs/testExpiryChecker.job');
+const { stopTestExpiryChecker } = startTestExpiryCheckerModule;
+const startTestExpiryChecker = startTestExpiryCheckerModule;
 
 const app = express();
 const server = http.createServer(app);
@@ -121,6 +124,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/blocked-schedules', blockedScheduleRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -194,6 +198,25 @@ const startServer = async () => {
   server.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📡 Socket.io ready`);
+  });
+
+  // Graceful shutdown handlers
+  process.on('SIGTERM', () => {
+    console.log('⏹️ SIGTERM received, shutting down gracefully...');
+    stopTestExpiryChecker();
+    server.close(() => {
+      console.log('🛑 Server closed');
+      process.exit(0);
+    });
+  });
+
+  process.on('SIGINT', () => {
+    console.log('⏹️ SIGINT received, shutting down gracefully...');
+    stopTestExpiryChecker();
+    server.close(() => {
+      console.log('🛑 Server closed');
+      process.exit(0);
+    });
   });
 };
 

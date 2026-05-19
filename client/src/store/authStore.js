@@ -20,6 +20,13 @@ const useAuthStore = create((set, get) => ({
     return data;
   },
 
+  googleAuth: async (credential) => {
+    const { data } = await api.post('/auth/google', { credential });
+    localStorage.setItem('accessToken', data.accessToken);
+    set({ user: data.user, isAuthenticated: true, isLoading: false });
+    return data;
+  },
+
   logout: async () => {
     try { await api.post('/auth/logout'); } catch {}
     localStorage.removeItem('accessToken');
@@ -29,7 +36,21 @@ const useAuthStore = create((set, get) => ({
   checkAuth: async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      if (!token) { set({ isLoading: false }); return; }
+      if (!token) {
+        const refreshURL = import.meta.env.VITE_API_URL
+          ? `${import.meta.env.VITE_API_URL}/auth/refresh`
+          : '/api/auth/refresh';
+        const refresh = await fetch(refreshURL, {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (!refresh.ok) {
+          set({ isLoading: false });
+          return;
+        }
+        const refreshData = await refresh.json();
+        localStorage.setItem('accessToken', refreshData.accessToken);
+      }
       const { data } = await api.get('/auth/me');
       set({ user: data.user, isAuthenticated: true, isLoading: false });
     } catch {

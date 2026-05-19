@@ -293,25 +293,62 @@ exports.validateMembershipQR = async (req, res) => {
 exports.checkInMembership = async (req, res) => {
   try {
     const membershipId = req.params.id;
-    const membership = await Membership.findById(membershipId).populate('studentId');
+    const membership = await Membership.findById(membershipId).populate('studentId').populate('planId');
 
-    if (!membership || membership.status !== 'active') {
+    if (!membership) {
+      return res.status(404).json({ message: 'Membership not found.' });
+    }
+
+    if (membership.status !== 'active') {
       return res.status(400).json({ message: 'Invalid or inactive membership.' });
+    }
+
+    if (new Date(membership.endDate) < new Date()) {
+      membership.status = 'expired';
+      await membership.save();
+      return res.status(400).json({ message: 'Membership has expired. Please renew.' });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(today);
+    endOfDay.setHours(23, 59, 59, 999);
+    const existing = await Attendance.findOne({
+      userId: membership.studentId._id,
+      date: { $gte: today, $lte: endOfDay },
+      checkOutTime: null,
+    });
+    if (existing) {
+      return res.status(409).json({ message: 'Already checked in. Duplicate scan blocked.', attendance: existing });
     }
 
     // Create attendance record
     const attendance = await Attendance.create({
       userId: membership.studentId._id,
-      date: new Date(),
+      date: today,
       checkInTime: new Date(),
+      status: 'present',
       checkInMethod: 'membership-id',
+      sport: membership.planId?.sportsIncluded?.join(', '),
       relatedBookingId: membership._id,
       relatedBookingType: 'membership',
     });
 
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('attendance:check-in', {
+        userId: membership.studentId._id,
+        name: membership.studentId.name,
+        membershipId,
+        timestamp: attendance.checkInTime,
+      });
+      io.emit('dashboard:refresh');
+    }
+
     res.json({
       message: 'Check-in successful!',
-      attendance
+      attendance,
+      membership,
     });
 
   } catch (error) {

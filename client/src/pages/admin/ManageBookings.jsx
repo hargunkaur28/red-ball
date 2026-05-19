@@ -34,6 +34,15 @@ export default function ManageBookings() {
     },
   });
 
+  const collectPaymentMutation = useMutation({
+    mutationFn: ({ paymentId, amount }) => api.post(`/payments/${paymentId}/mark-paid`, { paymentMode: 'cash', amountPaid: amount }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['bookings'] });
+      toast.success('Payment collected and booking confirmed!');
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Payment collection failed'),
+  });
+
   const filteredBookings = bookings?.filter(b => 
     b.playerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     b.slotName?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -137,6 +146,15 @@ export default function ManageBookings() {
               </div>
 
               <div className="flex gap-2">
+                {booking.status === 'pending' && booking.paymentId && (
+                  <button 
+                    onClick={() => collectPaymentMutation.mutate({ paymentId: booking.paymentId, amount: booking.totalAmount })}
+                    className="flex-1 btn-primary h-10 text-xs gap-2 bg-green-600 hover:bg-green-700 border-green-600 text-white"
+                    disabled={collectPaymentMutation.isPending}
+                  >
+                    <CheckCircle size={16} /> Collect Payment
+                  </button>
+                )}
                 {booking.status === 'confirmed' && (
                   <button 
                     onClick={() => checkInMutation.mutate(booking._id)}

@@ -10,6 +10,15 @@ const serviceSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  pricingOptions: [{
+    label: String,
+    price: Number,
+    unit: String,
+    note: String,
+  }],
+  availability: {
+    type: String,
+  },
   playerCapacity: {
     type: Number,
     required: true,

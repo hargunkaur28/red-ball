@@ -87,6 +87,7 @@ exports.checkIn = async (req, res) => {
         userId,
         date: today,
         checkInTime: new Date(),
+        status: 'present',
         checkInMethod: method || 'manual',
         sport,
         ground,
@@ -97,6 +98,7 @@ exports.checkIn = async (req, res) => {
       attendance.checkInTime = new Date();
       attendance.checkInMethod = method || 'manual';
       attendance.checkOutTime = null;
+      attendance.status = 'present';
     }
 
     await attendance.save();

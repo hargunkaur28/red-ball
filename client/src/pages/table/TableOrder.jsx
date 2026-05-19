@@ -320,7 +320,7 @@ export default function TableOrder() {
     }
   };
 
-  const gst = calcGST(getSubtotal(), 5);
+
 
   // Use backend dishes if present, otherwise instantly fallback to initialCatalog
   const apiItems = menuData?.items || [];
@@ -844,11 +844,9 @@ export default function TableOrder() {
 
                 {/* Bill Breakdown */}
                 <div className="space-y-2 mb-6 p-4 bg-black/40 rounded-2xl border border-white/5 text-xs font-medium">
-                  <div className="flex justify-between text-gray-400"><span>Items Subtotal</span><span className="font-mono text-white">{formatCurrency(gst.amount)}</span></div>
-                  <div className="flex justify-between text-gray-400"><span>Restaurant GST (5%)</span><span className="font-mono text-white">{formatCurrency(gst.gstAmount)}</span></div>
-                  <div className="flex justify-between text-sm font-black text-white border-t border-white/10 pt-2 mt-2">
+                  <div className="flex justify-between text-sm font-black text-white">
                     <span>Grand Total Payable</span>
-                    <span className="text-[#C8102E] font-mono">{formatCurrency(gst.totalAmount)}</span>
+                    <span className="text-[#C8102E] font-mono">{formatCurrency(getSubtotal())}</span>
                   </div>
                 </div>
 

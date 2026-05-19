@@ -26,7 +26,7 @@ const membershipPlanSchema = new mongoose.Schema({
   },
   sportsIncluded: [{
     type: String,
-    enum: ['cricket', 'swimming', 'gym', 'turf', 'badminton'],
+    enum: ['cricket', 'swimming', 'gym', 'turf', 'badminton', 'football', 'pickleball', 'coaching', 'all-services', 'yoga'],
   }],
   price: {
     type: Number,

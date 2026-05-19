@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QrCode, CheckCircle, XCircle, Loader2, Camera, User, Calendar, Clock, MapPin, X } from 'lucide-react';
@@ -11,6 +11,13 @@ export default function QRCheckIn() {
   const [scanning, setScanning] = useState(false);
   const [scannedResult, setScannedResult] = useState(null);
   const [validating, setValidating] = useState(false);
+  const [feed, setFeed] = useState([]);
+
+  useEffect(() => {
+    api.get('/attendance/today')
+      .then(res => setFeed(res.data.attendance || []))
+      .catch(() => {});
+  }, []);
 
   const handleScan = async (result) => {
     if (!result || validating) return;
@@ -64,11 +71,8 @@ export default function QRCheckIn() {
     setValidating(true);
     try {
       if (scannedResult.type === 'membership') {
-        await api.post('/attendance/check-in', {
-          userId: scannedResult.rawMembership.studentId._id,
-          method: 'qr-scan',
-          notes: 'Scanned at Reception QR Check-In'
-        });
+        const res = await api.post(`/memberships/${scannedResult._id}/check-in`);
+        setFeed(prev => [res.data.attendance, ...prev].slice(0, 8));
       } else {
         await api.post(`/bookings/${scannedResult._id}/check-in`);
       }
@@ -199,6 +203,26 @@ export default function QRCheckIn() {
             </div>
           </motion.div>
         )}
+      </div>
+      <div className="max-w-xl mx-auto mt-6">
+        <div className="card">
+          <h3 className="text-sm font-bold text-[#111] mb-3">Realtime Check-In Feed</h3>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {feed.length === 0 ? (
+              <p className="text-sm text-[#888]">Scans will appear here after check-in.</p>
+            ) : feed.map((item) => (
+              <div key={item._id || item.createdAt} className="flex items-center justify-between rounded-xl bg-[#F7F7F7] border border-[#EAEAEA] px-3 py-2">
+                <div>
+                  <p className="text-sm font-semibold text-[#111]">{item.userId?.name || 'Member'}</p>
+                  <p className="text-xs text-[#666]">{item.checkInMethod || 'qr-scan'}</p>
+                </div>
+                <span className="text-xs text-green-700 font-bold">
+                  {item.checkInTime ? new Date(item.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'now'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

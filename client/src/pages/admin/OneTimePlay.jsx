@@ -6,6 +6,7 @@ import PageHeader from '../../components/shared/PageHeader';
 import { formatCurrency, calcGST } from '../../lib/utils';
 import { toast } from 'sonner';
 import { X, AlertCircle, CheckCircle, Loader, Trash2 } from 'lucide-react';
+import { QRCodeCanvas } from 'qrcode.react';
 
 const sportRates = { cricket: 500, swimming: 400, gym: 300, turf: 800, badminton: 350 };
 
@@ -235,6 +236,21 @@ export default function OneTimePlay() {
 
         {/* Today's entries */}
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="card">
+          <div className="rounded-2xl border border-[#EAEAEA] bg-[#F7F7F7] p-4 mb-5 flex items-center gap-4">
+            <div className="bg-white p-3 rounded-xl border border-[#EAEAEA]">
+              <QRCodeCanvas value={`${window.location.origin}/one-time-booking`} size={104} level="H" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-[#111]">Reception QR Booking</h3>
+              <p className="text-xs text-[#666] mt-1">Customers scan this to book one-time play. Cash stays pending until reception confirms; Razorpay confirms automatically.</p>
+              <button
+                onClick={() => navigator.clipboard.writeText(`${window.location.origin}/one-time-booking`).then(() => toast.success('Booking link copied'))}
+                className="btn-ghost text-xs mt-3"
+              >
+                Copy Link
+              </button>
+            </div>
+          </div>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-medium text-[#666666]">Recent Entries</h3>
             {entries?.todayTotal > 0 && (

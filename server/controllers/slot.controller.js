@@ -1,6 +1,8 @@
 const Slot = require('../models/Slot');
 const SlotBooking = require('../models/SlotBooking');
+const Payment = require('../models/Payment');
 const { calculateGST } = require('../utils/gstCalculator');
+const { createRazorpayOrder, verifyPaymentSignature } = require('../config/razorpay');
 
 // GET /api/slots — Get available slots with filters
 exports.getSlots = async (req, res) => {
@@ -269,5 +271,181 @@ exports.getMyBookings = async (req, res) => {
   } catch (error) {
     console.error('getMyBookings error:', error);
     res.status(500).json({ message: 'Server error.' });
+  }
+};
+
+// POST /api/slots/public-booking/order — Create a Razorpay order for public one-time booking
+exports.createPublicBookingOrder = async (req, res) => {
+  try {
+    const { slotId, numberOfPlayers = 1, duration } = req.body;
+    let slot;
+    let service;
+    const Service = require('../models/Service');
+
+    try {
+      slot = await Slot.findById(slotId);
+    } catch (e) {
+      // Ignore
+    }
+
+    if (!slot) {
+      try {
+        service = await Service.findById(slotId);
+      } catch (e) {
+        // Ignore
+      }
+    }
+
+    if (!slot && !service) {
+      return res.status(404).json({ message: 'Service or Slot not found.' });
+    }
+
+    const players = Math.max(1, parseInt(numberOfPlayers) || 1);
+    if (slot && slot.currentBookings + players > slot.capacity) {
+      return res.status(409).json({ message: 'Slot capacity is no longer available.' });
+    }
+
+    const basePrice = slot ? slot.pricePerSlot * players : service.hourlyPrice * players;
+    const finalPrice = (slot && slot.isPeakHour) ? basePrice * slot.peakHourMultiplier : basePrice;
+    const gst = calculateGST(finalPrice);
+    const order = await createRazorpayOrder({
+      amount: Math.round(gst.totalAmount * 100),
+      currency: 'INR',
+      receipt: `${slot ? 'slot' : 'service'}_${(slot || service)._id.toString().slice(-10)}_${Date.now().toString().slice(-6)}`,
+      notes: { slotId: (slot || service)._id.toString(), duration: duration || (slot ? slot.duration : 60) },
+    });
+
+    res.json({
+      razorpayOrder: { id: order.id, amount: order.amount, currency: order.currency },
+      keyId: process.env.RAZORPAY_KEY_ID,
+      amount: gst.amount,
+      gstAmount: gst.gstAmount,
+      totalAmount: gst.totalAmount,
+    });
+  } catch (error) {
+    console.error('createPublicBookingOrder error:', error);
+    res.status(500).json({ message: 'Failed to create payment order.', error: error.message });
+  }
+};
+
+// POST /api/slots/public-booking — QR one-time booking portal submission
+exports.createPublicBooking = async (req, res) => {
+  try {
+    const {
+      slotId,
+      name,
+      email,
+      phone,
+      sport,
+      duration,
+      paymentMethod = 'cash',
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+    } = req.body;
+
+    if (!slotId || !name || !email || !phone) {
+      return res.status(400).json({ message: 'Name, email, phone and slot are required.' });
+    }
+
+    let slot;
+    let service;
+    const Service = require('../models/Service');
+
+    try {
+      slot = await Slot.findById(slotId);
+    } catch (e) {
+      // Ignore cast error, try service
+    }
+
+    if (!slot) {
+      try {
+        service = await Service.findById(slotId);
+      } catch (e) {
+        // Ignore cast error
+      }
+    }
+
+    if (!slot && !service) {
+      return res.status(404).json({ message: 'Service or Slot not found.' });
+    }
+
+    if (slot && slot.currentBookings + 1 > slot.capacity) {
+      return res.status(409).json({ message: 'Slot is full. Please choose another slot.' });
+    }
+
+    const isRazorpay = paymentMethod === 'razorpay';
+    if (isRazorpay) {
+      const isValid = razorpayOrderId && razorpayPaymentId && razorpaySignature
+        && verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
+      if (!isValid) {
+        return res.status(400).json({ message: 'Payment validation failed.' });
+      }
+    }
+
+    const basePrice = slot ? slot.pricePerSlot : service.hourlyPrice;
+    const finalPrice = (slot && slot.isPeakHour) ? basePrice * slot.peakHourMultiplier : basePrice;
+    const gst = calculateGST(finalPrice);
+
+    const booking = await SlotBooking.create({
+      slotId: slot ? slot._id : null,
+      slotName: slot ? slot.name : service.name,
+      bookingType: 'one-time-play',
+      playerName: name,
+      playerEmail: email,
+      playerPhone: phone,
+      numberOfPlayers: 1,
+      startTime: slot ? slot.startTime : "Flexible",
+      endTime: slot ? slot.endTime : "Flexible",
+      duration: duration || (slot ? slot.duration : 60),
+      price: finalPrice,
+      gstAmount: gst.gstAmount,
+      totalAmount: gst.totalAmount,
+      paymentStatus: isRazorpay ? 'paid' : 'pending',
+      status: isRazorpay ? 'confirmed' : 'pending',
+      notes: sport ? `QR portal sport: ${sport}` : 'QR portal booking',
+    });
+
+    const payment = await Payment.create({
+      type: 'one-time-play',
+      referenceId: booking._id,
+      customerName: name,
+      amount: gst.amount,
+      gstAmount: gst.gstAmount,
+      gstPercent: gst.gstPercent,
+      totalAmount: gst.totalAmount,
+      amountPaid: isRazorpay ? gst.totalAmount : 0,
+      remainingAmount: isRazorpay ? 0 : gst.totalAmount,
+      status: isRazorpay ? 'paid' : 'pending',
+      paymentMode: isRazorpay ? 'razorpay' : 'cash',
+      ...(isRazorpay && { razorpayOrderId, razorpayPaymentId, razorpaySignature }),
+    });
+
+    booking.paymentId = payment._id;
+    await booking.save();
+
+    if (isRazorpay) {
+      slot.currentBookings += 1;
+      slot.bookings.push(booking._id);
+      await slot.save();
+    }
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('booking:created', { booking, paymentStatus: booking.paymentStatus });
+      io.emit('slot:updated', slot);
+      io.emit('dashboard:refresh');
+    }
+
+    res.status(201).json({
+      booking,
+      payment,
+      message: isRazorpay
+        ? 'Booking confirmed. Please show this booking ID at entry.'
+        : 'Cash booking request received. Reception must confirm payment before entry.',
+    });
+  } catch (error) {
+    console.error('createPublicBooking error:', error);
+    res.status(500).json({ message: 'Booking failed.', error: error.message });
   }
 };

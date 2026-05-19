@@ -16,6 +16,7 @@ router.post('/register', [
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
 ], validate, authController.register);
 
+router.post('/google', authController.googleAuth);
 router.post('/refresh', authController.refresh);
 router.post('/logout', authController.logout);
 

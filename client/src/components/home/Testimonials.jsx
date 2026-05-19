@@ -2,6 +2,8 @@ import { motion } from 'framer-motion';
 import { Star } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Pagination } from 'swiper/modules';
+import { useQuery } from '@tanstack/react-query';
+import api from '../../lib/axios';
 import 'swiper/css';
 import 'swiper/css/pagination';
 
@@ -34,6 +36,19 @@ const testimonials = [
 ];
 
 export default function Testimonials() {
+  const { data } = useQuery({
+    queryKey: ['featured-reviews'],
+    queryFn: () => api.get('/reviews/featured').then(r => r.data).catch(() => ({ reviews: [] })),
+  });
+  const visibleTestimonials = data?.reviews?.length
+    ? data.reviews.map(review => ({
+        sport: review.category,
+        text: review.comment,
+        name: review.name,
+        rating: review.rating,
+      }))
+    : testimonials;
+
   return (
     <section className="bg-[#0D0D0D] py-20 md:py-28">
       <div className="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12">
@@ -82,7 +97,7 @@ export default function Testimonials() {
             }}
             className="pb-12"
           >
-            {testimonials.map((t, i) => (
+            {visibleTestimonials.map((t, i) => (
               <SwiperSlide key={i} className="!h-auto">
                 <div
                   className="bg-[#1A1A1A] rounded-3xl p-8 border border-white/[0.08] h-full min-h-[240px] flex flex-col justify-between transition-all duration-300 hover:-translate-y-2 hover:border-[rgba(245,166,35,0.4)] cursor-pointer group shadow-lg"
@@ -109,7 +124,7 @@ export default function Testimonials() {
                     {/* Stars */}
                     <div className="flex gap-1 mb-3">
                       {[...Array(5)].map((_, s) => (
-                        <Star key={s} size={16} className="text-[#F5A623] fill-[#F5A623]" />
+                        <Star key={s} size={16} className={`text-[#F5A623] ${s < (t.rating || 5) ? 'fill-[#F5A623]' : ''}`} />
                       ))}
                     </div>
 

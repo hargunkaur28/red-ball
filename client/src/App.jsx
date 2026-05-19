@@ -35,6 +35,7 @@ const ManageServices = lazy(() => import('./pages/admin/ManageServices'));
 const ManageBookings = lazy(() => import('./pages/admin/ManageBookings'));
 const QRCheckIn = lazy(() => import('./pages/admin/QRCheckIn'));
 const ScheduleBlocking = lazy(() => import('./pages/admin/ScheduleBlocking'));
+const Reviews = lazy(() => import('./pages/admin/Reviews'));
 
 // User
 const UserDashboard = lazy(() => import('./pages/user/Dashboard'));
@@ -43,6 +44,7 @@ const BookSlots = lazy(() => import('./pages/BookSlots'));
 const FoodOrdering = lazy(() => import('./pages/user/FoodOrdering'));
 const OrderHistory = lazy(() => import('./pages/user/OrderHistory'));
 const Profile = lazy(() => import('./pages/user/Profile'));
+const UserReviews = lazy(() => import('./pages/user/Reviews'));
 
 // Restaurant
 const RestaurantDashboard = lazy(() => import('./pages/restaurant/Dashboard'));
@@ -57,6 +59,7 @@ const ReceptionDashboard = lazy(() => import('./pages/reception/Dashboard'));
 // Public
 const TableOrder = lazy(() => import('./pages/table/TableOrder'));
 const TablePortal = lazy(() => import('./pages/table/TablePortal'));
+const OneTimeBookingPortal = lazy(() => import('./pages/OneTimeBookingPortal'));
 
 // ── Auth Guard ─────────────────────────────────────────────────────
 function ProtectedRoute({ children, roles }) {
@@ -89,6 +92,7 @@ export default function App() {
               <Route path="/login" element={<Auth />} />
               <Route path="/table-portal" element={<TablePortal />} />
               <Route path="/table/:tableId" element={<TableOrder />} />
+              <Route path="/one-time-booking" element={<OneTimeBookingPortal />} />
 
               {/* Admin Panel */}
               <Route path="/admin" element={
@@ -113,6 +117,7 @@ export default function App() {
                 <Route path="manage-bookings" element={<ManageBookings />} />
                 <Route path="qr-checkin" element={<QRCheckIn />} />
                 <Route path="schedule-blocking" element={<ScheduleBlocking />} />
+                <Route path="reviews" element={<Reviews />} />
               </Route>
 
               {/* User/Student Panel */}
@@ -124,6 +129,7 @@ export default function App() {
                 <Route path="book-slots" element={<BookSlots />} />
                 <Route path="food" element={<FoodOrdering />} />
                 <Route path="orders" element={<OrderHistory />} />
+                <Route path="reviews" element={<UserReviews />} />
                 <Route path="profile" element={<Profile />} />
               </Route>
 

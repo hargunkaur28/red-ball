@@ -21,6 +21,19 @@ const orderSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  orderType: {
+    type: String,
+    enum: ['table', 'delivery', 'pickup'],
+    default: 'table',
+  },
+  deliveryAddress: {
+    type: String,
+    trim: true,
+  },
+  deliveryLocation: {
+    lat: Number,
+    lng: Number,
+  },
   items: [{
     menuItemId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -103,6 +116,7 @@ orderSchema.pre('save', async function (next) {
 
 orderSchema.index({ status: 1 });
 orderSchema.index({ tableId: 1 });
+orderSchema.index({ orderType: 1 });
 orderSchema.index({ customerId: 1 });
 orderSchema.index({ createdAt: -1 });
 

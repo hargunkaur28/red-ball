@@ -420,6 +420,27 @@ async function activateOnPaymentSuccess(payment, req) {
     }
   }
 
+  if (payment.type === 'one-time-play' && payment.referenceId) {
+    const SlotBooking = require('../models/SlotBooking');
+    const Slot = require('../models/Slot');
+    
+    const booking = await SlotBooking.findByIdAndUpdate(payment.referenceId, {
+      paymentStatus: 'paid',
+      status: 'confirmed'
+    }, { new: true });
+    
+    if (booking) {
+      const slot = await Slot.findById(booking.slotId);
+      if (slot) {
+        if (!slot.bookings.includes(booking._id)) {
+          slot.currentBookings += 1;
+          slot.bookings.push(booking._id);
+          await slot.save();
+        }
+      }
+    }
+  }
+
   // Emit realtime updates
   if (io) {
     io.emit('payment:success', {

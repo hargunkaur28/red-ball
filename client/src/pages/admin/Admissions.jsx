@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, Loader } from 'lucide-react';
+import { CalendarCheck, CreditCard, Download, Edit, Loader, QrCode, RefreshCw, Snowflake, Trash2 } from 'lucide-react';
 import api from '../../lib/axios';
 import PageHeader from '../../components/shared/PageHeader';
 import DataTable from '../../components/shared/DataTable';
@@ -38,6 +38,16 @@ export default function Admissions() {
   const { data, isLoading } = useQuery({
     queryKey: ['admissions', filter, search],
     queryFn: () => api.get(`/admissions?status=${filter}&search=${search}`).then(r => r.data),
+  });
+
+  const { data: membershipsData, isLoading: membershipsLoading } = useQuery({
+    queryKey: ['all-memberships', filter],
+    queryFn: () => api.get(`/memberships/all${filter ? `?status=${filter}` : ''}`).then(r => r.data),
+  });
+
+  const { data: attendanceData } = useQuery({
+    queryKey: ['attendance', 'today'],
+    queryFn: () => api.get('/attendance/today').then(r => r.data).catch(() => ({ attendance: [] })),
   });
 
   const { data: plansData } = useQuery({
@@ -149,7 +159,98 @@ export default function Admissions() {
     onError: (e) => toast.error(e.response?.data?.message || 'Failed to delete admission'),
   });
 
-  const columns = [
+  const freezeMutation = useMutation({
+    mutationFn: (id) => api.put(`/memberships/${id}/freeze`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['all-memberships'] });
+      qc.invalidateQueries({ queryKey: ['admissions'] });
+      toast.success('Membership frozen.');
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Could not freeze membership'),
+  });
+
+  const getBadge = (status) => {
+    const styles = {
+      paid: 'bg-green-50 text-green-700',
+      active: 'bg-green-50 text-green-700',
+      present: 'bg-green-50 text-green-700',
+      pending: 'bg-amber-50 text-amber-700',
+      partial: 'bg-blue-50 text-blue-700',
+      frozen: 'bg-blue-50 text-blue-700',
+      expired: 'bg-red-50 text-red-700',
+      missing: 'bg-gray-100 text-gray-600',
+      ready: 'bg-green-50 text-green-700',
+    };
+    return <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full ${styles[status] || styles.missing}`}>{status || 'missing'}</span>;
+  };
+
+  const membershipById = new Map((membershipsData?.memberships || []).map(m => [m._id, m]));
+  const attendanceByUser = new Map((attendanceData?.attendance || []).map(a => [a.userId?._id, a]));
+  const operationalRows = (data?.admissions || []).map((admission) => {
+    const membership = admission.membershipId?._id ? membershipById.get(admission.membershipId._id) || admission.membershipId : admission.membershipId;
+    const plan = membership?.planId || admission.membershipId?.planId;
+    const student = admission.studentId || membership?.studentId || {};
+    const attendance = attendanceByUser.get(student?._id);
+    return {
+      ...admission,
+      student,
+      membership,
+      plan,
+      memberName: student?.name || 'Unknown',
+      phone: admission.phone || student?.phone || '',
+      membershipType: plan?.name || 'No plan',
+      sports: admission.sportsIncluded?.length ? admission.sportsIncluded : plan?.sportsIncluded || [],
+      startDate: membership?.startDate,
+      expiryDate: membership?.endDate,
+      paymentStatus: admission.paymentStatus || membership?.paymentId?.status || 'pending',
+      attendanceStatus: attendance?.checkInTime && !attendance?.checkOutTime ? 'present' : 'missing',
+      qrStatus: membership?._id && membership.status === 'active' ? 'ready' : 'missing',
+    };
+  });
+
+  const filteredRows = operationalRows.filter((row) => {
+    const term = search.trim().toLowerCase();
+    if (!term) return true;
+    return [row.memberName, row.phone, row.membershipType, row.sports.join(' ')]
+      .join(' ')
+      .toLowerCase()
+      .includes(term);
+  }).map(row => {
+    // Add actions menu items to each row
+    row.actions = [
+      { label: 'Renew', icon: <RefreshCw size={14} />, onClick: () => toast.info('Open Student Memberships to complete renewal.') },
+      row.membership?._id && { label: 'Freeze', icon: <Snowflake size={14} />, onClick: () => freezeMutation.mutate(row.membership._id) },
+      { label: 'Edit', icon: <Edit size={14} />, onClick: () => toast.info('Edit drawer will use the existing admission form in the next phase.') },
+      { label: 'Attendance', icon: <CalendarCheck size={14} />, onClick: () => window.open(`/admin/attendance-desk?member=${row.student?._id || ''}`, '_self') },
+      { label: 'QR', icon: <QrCode size={14} />, onClick: () => row.membership?._id ? navigator.clipboard.writeText(`MEMBERSHIP_${row.membership._id}`).then(() => toast.success('QR payload copied.')) : toast.error('No active membership QR') },
+      { label: 'Payments', icon: <CreditCard size={14} />, onClick: () => window.open('/admin/payments', '_self') },
+    ].filter(Boolean);
+    return row;
+  });
+
+  const exportOperationalRows = () => {
+    const headers = ['Member Name', 'Phone', 'Sport/Membership', 'Membership Type', 'Start Date', 'Expiry Date', 'Payment Status', 'Attendance Status', 'QR Status'];
+    const rows = filteredRows.map(r => [
+      r.memberName,
+      r.phone,
+      r.sports.join(' / '),
+      r.membershipType,
+      r.startDate ? new Date(r.startDate).toLocaleDateString('en-IN') : '',
+      r.expiryDate ? new Date(r.expiryDate).toLocaleDateString('en-IN') : '',
+      r.paymentStatus,
+      r.attendanceStatus,
+      r.qrStatus,
+    ]);
+    const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `red-ball-members-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
+  const legacyColumns = [
     { key: 'admissionNumber', label: 'Adm. No.', sortable: true, render: (r) => <span className="font-mono text-black text-xs">{r.admissionNumber}</span> },
     {
       key: 'name', label: 'Student', sortable: true, render: (r) => (
@@ -197,6 +298,43 @@ export default function Admissions() {
     },
   ];
 
+  const columns = [
+    {
+      key: 'name', label: 'Member Name', sortable: true, render: (r) => (
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-[#111] flex items-center justify-center text-xs font-bold text-white">{r.memberName?.[0]}</div>
+          <div>
+            <p className="text-[#111111] font-medium text-sm">{r.memberName}</p>
+            <p className="text-xs text-[#888888]">{r.admissionNumber}</p>
+          </div>
+        </div>
+      )
+    },
+    { key: 'phone', label: 'Phone', render: (r) => <span className="text-[#666666] text-sm">{r.phone || '-'}</span> },
+    {
+      key: 'sports', label: 'Sport/Membership', render: (r) => (
+        <div className="flex gap-1 flex-wrap">{r.sports?.map(s => <span key={s} className="badge badge-info text-[10px]">{s}</span>)}</div>
+      )
+    },
+    { key: 'membershipType', label: 'Membership Type', render: r => <span className="text-sm font-medium text-[#111]">{r.membershipType}</span> },
+    { key: 'startDate', label: 'Start Date', render: r => <span className="text-sm text-[#666]">{r.startDate ? new Date(r.startDate).toLocaleDateString('en-IN') : '-'}</span> },
+    {
+      key: 'expiryDate', label: 'Expiry Date', render: r => (
+        <span className={`text-sm ${r.expiryDate && new Date(r.expiryDate) < new Date() ? 'text-red-600 font-bold' : 'text-[#666]'}`}>
+          {r.expiryDate ? new Date(r.expiryDate).toLocaleDateString('en-IN') : '-'}
+        </span>
+      ),
+    },
+    { key: 'paymentStatus', label: 'Payment Status', render: r => getBadge(r.paymentStatus) },
+    { key: 'attendanceStatus', label: 'Attendance Status', render: r => getBadge(r.attendanceStatus) },
+    { key: 'qrStatus', label: 'QR Status', render: r => getBadge(r.qrStatus) },
+    {
+      key: 'actions',
+      label: '',
+      isActionMenu: true,
+    },
+  ];
+
   const sports = ['cricket', 'swimming', 'gym', 'turf', 'badminton', 'football', 'yoga'];
 
   const selectedPlan = plansData?.plans?.find(p => p._id === form.planId);
@@ -204,12 +342,17 @@ export default function Admissions() {
   return (
     <div>
       <PageHeader
-        title="Admissions"
-        subtitle={`${data?.total || 0} total admissions`}
+        title="Admissions + Memberships"
+        subtitle={`${filteredRows.length} operational records`}
         action={
-          <button className="btn-primary" onClick={() => { setForm({ ...emptyForm }); setDrawerOpen(true); }}>
-            + New Admission
-          </button>
+          <div className="flex gap-2">
+            <button className="btn-ghost gap-2" onClick={exportOperationalRows}>
+              <Download size={16} /> Export
+            </button>
+            <button className="btn-primary" onClick={() => { setForm({ ...emptyForm }); setDrawerOpen(true); }}>
+              + New Admission
+            </button>
+          </div>
         }
       />
 
@@ -223,7 +366,7 @@ export default function Admissions() {
         ))}
       </div>
 
-      {isLoading ? <SkeletonTable /> : <DataTable columns={columns} data={data?.admissions || []} />}
+      {(isLoading || membershipsLoading) ? <SkeletonTable /> : <DataTable columns={columns} data={filteredRows} />}
 
       {/* Admission Drawer */}
       <AnimatePresence>

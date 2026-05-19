@@ -194,10 +194,10 @@ export default function RestaurantOrders() {
                             <div className="mb-3 bg-gray-50 rounded-xl p-2.5 border border-gray-100">
                               <div className="flex items-center justify-between">
                                 <span className="text-sm font-extrabold text-[#C8102E]">
-                                  📍 {order.tableId?.label || `Table #${order.tableId?.tableNumber || 'Takeaway'}`}
+                                  {order.orderType === 'delivery' ? 'Delivery Order' : order.orderType === 'pickup' ? 'Pickup Order' : (order.tableId?.label || `Table #${order.tableId?.tableNumber || 'Dine-in'}`)}
                                 </span>
                                 <span className="text-xs text-gray-500 font-semibold">
-                                  {order.tableId?.section || 'Indoor'}
+                                  {order.orderType || order.tableId?.section || 'Indoor'}
                                 </span>
                               </div>
                               {(order.customerName || order.customerId?.name) && (
@@ -205,6 +205,12 @@ export default function RestaurantOrders() {
                                   <User size={12} />
                                   <span>{order.customerName || order.customerId?.name}</span>
                                   {order.customerPhone && <span>({order.customerPhone})</span>}
+                                </p>
+                              )}
+                              {order.orderType === 'delivery' && order.deliveryAddress && (
+                                <p className="text-xs text-gray-600 mt-1 flex items-center gap-1 font-medium">
+                                  <Truck size={12} />
+                                  <span>{order.deliveryAddress}</span>
                                 </p>
                               )}
                             </div>
@@ -345,7 +351,7 @@ export default function RestaurantOrders() {
                             </div>
                             <div className="flex items-center gap-1.5 text-xs text-black font-black uppercase tracking-tighter">
                               <span className="text-[#C8102E]">📍</span>
-                              <span>{order.tableId?.label || `Table #${order.tableId?.tableNumber || 'Takeaway'}`}</span>
+                              <span>{order.orderType === 'delivery' ? 'Delivery Order' : order.orderType === 'pickup' ? 'Pickup Order' : (order.tableId?.label || `Table #${order.tableId?.tableNumber || 'Dine-in'}`)}</span>
                             </div>
                           </div>
                         </td>

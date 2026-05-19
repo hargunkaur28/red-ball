@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, CreditCard, Calendar, Utensils, ClipboardList, User, Menu, X, LogOut } from 'lucide-react';
+import { Home, CreditCard, Calendar, Utensils, ClipboardList, User, Menu, X, LogOut, Star } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { getInitials } from '../../lib/utils';
 import ErrorBoundary from '../shared/ErrorBoundary';
@@ -12,6 +12,7 @@ const menuItems = [
   { path: '/user/book-slots', label: 'Book Slots', icon: <Calendar size={18} /> },
   { path: '/user/food', label: 'Order Food', icon: <Utensils size={18} /> },
   { path: '/user/orders', label: 'Order History', icon: <ClipboardList size={18} /> },
+  { path: '/user/reviews', label: 'Reviews', icon: <Star size={18} /> },
   { path: '/user/profile', label: 'Profile', icon: <User size={18} /> },
 ];
 

@@ -26,19 +26,28 @@ exports.getAll = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    const { tableId, items, customerName, customerPhone, paymentMethod, specialInstructions, paymentStatus } = req.body;
+    const { tableId, items, customerName, customerPhone, paymentMethod, specialInstructions, paymentStatus, orderType, deliveryAddress, deliveryLocation, customerId } = req.body;
+    if (!items?.length) {
+      return res.status(400).json({ message: 'Order must include at least one item.' });
+    }
+    const normalizedOrderType = orderType || (tableId ? 'table' : 'pickup');
+    if (normalizedOrderType === 'delivery' && !deliveryAddress) {
+      return res.status(400).json({ message: 'Delivery address is required.' });
+    }
     const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const gst = calculateGST(subtotal, 5); // Restaurant = 5% GST
-
+    
     const order = await Order.create({
       tableId,
-      customerId: req.user ? req.user.userId : undefined,
+      customerId: req.user ? req.user.userId : customerId,
       customerName,
       customerPhone,
+      orderType: normalizedOrderType,
+      deliveryAddress,
+      deliveryLocation,
       items,
       subtotal,
-      gstAmount: gst.gstAmount,
-      totalAmount: gst.totalAmount,
+      gstAmount: 0,
+      totalAmount: subtotal,
       paymentMethod: paymentMethod || 'cash',
       paymentStatus: paymentStatus || 'pending',
       specialInstructions,
@@ -139,7 +148,17 @@ exports.cancelOrder = async (req, res) => {
 
 exports.getCustomerOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ customerId: req.user.userId })
+    const filter = {
+      $or: [
+        { customerId: req.user.userId }
+      ]
+    };
+    
+    if (req.user.phone) {
+      filter.$or.push({ customerPhone: req.user.phone });
+    }
+
+    const orders = await Order.find(filter)
       .populate('tableId', 'label')
       .sort({ createdAt: -1 });
     res.json({ orders });
@@ -196,3 +215,30 @@ async function deductInventoryForOrder(order) {
     console.error('Inventory deduction error:', error.message);
   }
 }
+
+// POST /api/orders/create-razorpay-order
+exports.createRazorpayOrder = async (req, res) => {
+  try {
+    const { amount } = req.body;
+    if (!amount) {
+      return res.status(400).json({ message: 'Amount is required.' });
+    }
+
+    const { createRazorpayOrder } = require('../config/razorpay');
+    const order = await createRazorpayOrder({ 
+      amount: Math.round(amount * 100), 
+      currency: 'INR' 
+    });
+
+    res.status(200).json({
+      success: true,
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      keyId: process.env.RAZORPAY_KEY_ID,
+    });
+  } catch (error) {
+    console.error('Error creating Razorpay order:', error);
+    res.status(500).json({ message: 'Failed to create payment order.' });
+  }
+};

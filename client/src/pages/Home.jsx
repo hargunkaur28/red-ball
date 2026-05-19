@@ -17,6 +17,22 @@ import Footer from '../components/home/Footer';
 import ScrollToTop from '../components/home/ScrollToTop';
 import WhatsAppFloat from '../components/home/WhatsAppFloat';
 
+function FlowSection({ children, theme = 'dark', id }) {
+  return (
+    <motion.div
+      id={id}
+      data-theme={theme}
+      initial={{ opacity: 0, y: 36 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.08 }}
+      transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+      className="relative"
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 export default function Home() {
   // Always display landing animation on home page load for maximum visual wow factor
   const [showIntro, setShowIntro] = useState(true);
@@ -44,16 +60,22 @@ export default function Home() {
         transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1], delay: showIntro ? 0.15 : 0 }}
       >
         <HeroSection />
-        <FacilityRentals />
-        <TrainingPrograms />
+        <FlowSection id="section-sports">
+          <FacilityRentals />
+        </FlowSection>
+        <FlowSection id="section-coaching">
+          <TrainingPrograms />
+        </FlowSection>
         <div id="section-about" data-theme="light">
           <AboutSection />
         </div>
         <ValuesMarquee />
-        <RestaurantTeaser />
-        <div id="section-membership" data-theme="light">
+        <FlowSection id="section-restaurant">
+          <RestaurantTeaser />
+        </FlowSection>
+        <FlowSection id="section-membership" theme="light">
           <MembershipPlans />
-        </div>
+        </FlowSection>
         <Testimonials />
         <div id="section-portal" data-theme="light">
           <PortalCTA />

@@ -1,10 +1,13 @@
 const mongoose = require('mongoose');
 
 const slotBookingSchema = new mongoose.Schema({
+  bookingId: {
+    type: String,
+    unique: true,
+  },
   slotId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Slot',
-    required: true,
   },
   slotName: {
     type: String,
@@ -77,6 +80,14 @@ const slotBookingSchema = new mongoose.Schema({
   notes: String,
 }, {
   timestamps: true,
+});
+
+slotBookingSchema.pre('save', async function (next) {
+  if (!this.bookingId) {
+    const count = await mongoose.model('SlotBooking').countDocuments();
+    this.bookingId = `RB-BOOK-${String(count + 1).padStart(5, '0')}`;
+  }
+  next();
 });
 
 slotBookingSchema.index({ slotId: 1, status: 1 });

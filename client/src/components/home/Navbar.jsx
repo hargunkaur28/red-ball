@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, X } from 'lucide-react';
+import useAuthStore from '../../store/authStore';
 
 const navLinks = [
   { label: 'Home', href: '#hero' },
@@ -31,6 +32,7 @@ export default function Navbar() {
   const [isLightSection, setIsLightSection] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const { isAuthenticated, user } = useAuthStore();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 80);
@@ -170,17 +172,31 @@ export default function Navbar() {
 
           {/* Right CTA */}
           <div className="flex items-center gap-3">
-            <Link
-              to="/login"
-              className={`hidden md:inline-flex px-5 py-2 rounded-full border-2 text-sm font-medium transition-all duration-200 ${
-                isLightSection 
-                  ? 'border-[#C8102E] text-[#C8102E] hover:bg-[#C8102E] hover:text-white' 
-                  : 'border-[#F5A623] text-[#F5A623] hover:bg-[#F5A623] hover:text-black'
-              }`}
-              style={{ fontFamily: "'DM Sans', sans-serif" }}
-            >
-              Login
-            </Link>
+            {isAuthenticated ? (
+              <Link
+                to="/user"
+                className={`hidden md:inline-flex px-5 py-2 rounded-full border-2 text-sm font-medium transition-all duration-200 ${
+                  isLightSection 
+                    ? 'border-[#C8102E] text-[#C8102E] hover:bg-[#C8102E] hover:text-white' 
+                    : 'border-[#F5A623] text-[#F5A623] hover:bg-[#F5A623] hover:text-black'
+                }`}
+                style={{ fontFamily: "'DM Sans', sans-serif" }}
+              >
+                Portal
+              </Link>
+            ) : (
+              <Link
+                to="/login"
+                className={`hidden md:inline-flex px-5 py-2 rounded-full border-2 text-sm font-medium transition-all duration-200 ${
+                  isLightSection 
+                    ? 'border-[#C8102E] text-[#C8102E] hover:bg-[#C8102E] hover:text-white' 
+                    : 'border-[#F5A623] text-[#F5A623] hover:bg-[#F5A623] hover:text-black'
+                }`}
+                style={{ fontFamily: "'DM Sans', sans-serif" }}
+              >
+                Login
+              </Link>
+            )}
             <Link
               to="/login"
               className="hidden md:inline-flex px-6 py-2.5 rounded-full bg-[#C8102E] text-white text-sm font-semibold transition-all duration-200 hover:bg-[#8B0B1E] hover:shadow-[0_0_16px_rgba(200,16,46,0.5)] hover:scale-[1.03]"
@@ -258,13 +274,23 @@ export default function Navbar() {
 
         {/* Drawer CTAs */}
         <div className="p-6 space-y-3">
-          <Link
-            to="/login"
-            onClick={() => setDrawerOpen(false)}
-            className="block text-center py-3 rounded-full border-2 border-[#F5A623] text-[#F5A623] font-medium transition-all hover:bg-[#F5A623] hover:text-black"
-          >
-            Login
-          </Link>
+          {isAuthenticated ? (
+            <Link
+              to="/user"
+              onClick={() => setDrawerOpen(false)}
+              className="block text-center py-3 rounded-full border-2 border-[#F5A623] text-[#F5A623] font-medium transition-all hover:bg-[#F5A623] hover:text-black"
+            >
+              Portal
+            </Link>
+          ) : (
+            <Link
+              to="/login"
+              onClick={() => setDrawerOpen(false)}
+              className="block text-center py-3 rounded-full border-2 border-[#F5A623] text-[#F5A623] font-medium transition-all hover:bg-[#F5A623] hover:text-black"
+            >
+              Login
+            </Link>
+          )}
           <Link
             to="/login"
             onClick={() => setDrawerOpen(false)}

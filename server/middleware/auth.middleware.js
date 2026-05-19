@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
+const ACCESS_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_secure_123';
+
 const auth = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -17,7 +19,7 @@ const auth = async (req, res, next) => {
       return res.status(401).json({ message: 'Access denied. No token provided.' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, ACCESS_SECRET);
 
     const user = await User.findById(decoded.userId);
     if (!user || !user.isActive) {
@@ -29,6 +31,7 @@ const auth = async (req, res, next) => {
       role: user.role,
       email: user.email,
       name: user.name,
+      phone: user.phone,
     };
     next();
   } catch (error) {

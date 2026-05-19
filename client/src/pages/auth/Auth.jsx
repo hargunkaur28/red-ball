@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
@@ -365,6 +365,36 @@ body { background: #080808; }
 .submit-btn:active { transform: scale(0.99); }
 .submit-btn:disabled { opacity: 0.65; cursor: not-allowed; }
 
+.google-btn {
+  width: 100%;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 9px;
+  padding: 12px 14px;
+  color: rgba(255,255,255,0.86);
+  background: rgba(255,255,255,0.055);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.google-btn:hover { border-color: rgba(200,16,46,0.35); background: rgba(255,255,255,0.08); }
+.google-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.google-mark {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: conic-gradient(from -45deg, #4285f4 0 25%, #34a853 0 50%, #fbbc05 0 75%, #ea4335 0);
+  display: inline-block;
+}
+
 .spinner {
   width: 17px; height: 17px;
   border: 2px solid rgba(255,255,255,0.28);
@@ -465,8 +495,54 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
   const [errors, setErrors] = useState({});
+  const googleButtonRef = useRef(null);
   const navigate = useNavigate();
-  const { login, register, getRedirectPath } = useAuthStore();
+  const { login, register, googleAuth, getRedirectPath } = useAuthStore();
+
+  useEffect(() => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId || !googleButtonRef.current) return;
+
+    const initializeGoogle = () => {
+      if (!window.google?.accounts?.id || !googleButtonRef.current) return;
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async ({ credential }) => {
+          if (!credential) return;
+          setLoading(true);
+          try {
+            await googleAuth(credential);
+            toast.success('Signed in with Google.');
+            navigate(getRedirectPath());
+          } catch (err) {
+            toast.error(err.response?.data?.message || 'Google sign-in failed');
+          } finally {
+            setLoading(false);
+          }
+        },
+      });
+      googleButtonRef.current.innerHTML = '';
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: 'outline',
+        size: 'large',
+        type: 'standard',
+        width: googleButtonRef.current.offsetWidth || 320,
+      });
+    };
+
+    if (window.google?.accounts?.id) {
+      initializeGoogle();
+      return;
+    }
+
+    const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+    const script = existing || document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = initializeGoogle;
+    if (!existing) document.body.appendChild(script);
+  }, [getRedirectPath, googleAuth, navigate]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -664,6 +740,14 @@ export default function Auth() {
                   <button type="submit" className="submit-btn" disabled={loading}>
                     {loading ? <div className="spinner" /> : <>{isLogin ? 'Sign In' : 'Create Account'}<ArrowIcon /></>}
                   </button>
+
+                  {import.meta.env.VITE_GOOGLE_CLIENT_ID ? (
+                    <div ref={googleButtonRef} className="google-btn" />
+                  ) : (
+                    <button type="button" className="google-btn" disabled title="Set VITE_GOOGLE_CLIENT_ID to enable Google auth">
+                      <span className="google-mark" /> Google Sign-In Unconfigured
+                    </button>
+                  )}
                 </form>
 
                 <div className="toggle-row">
