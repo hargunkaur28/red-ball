@@ -71,6 +71,9 @@ const TablePortal = lazy(() => import('./pages/table/TablePortal'));
 const OneTimeBookingPortal = lazy(() => import('./pages/OneTimeBookingPortal'));
 const EntryPortal = lazy(() => import('./pages/EntryPortal'));
 const SportsQRCodes = lazy(() => import('./pages/admin/SportsQRCodes'));
+const MembershipPortal = lazy(() => import('./pages/MembershipPortal'));
+const BookSlotsMarketplace = lazy(() => import('./pages/BookSlotsMarketplace'));
+const SportDetailPage = lazy(() => import('./pages/SportDetailPage'));
 
 // ── Auth Guard ─────────────────────────────────────────────────────
 function ProtectedRoute({ children, roles }) {
@@ -107,7 +110,9 @@ export default function App() {
               <Route path="/table-portal" element={<TablePortal />} />
               <Route path="/table/:tableId" element={<TableOrder />} />
               <Route path="/one-time-booking" element={<OneTimeBookingPortal />} />
-              <Route path="/book-slots" element={<OneTimeBookingPortal />} />
+              <Route path="/book-slots" element={<BookSlotsMarketplace />} />
+              <Route path="/sports/:slug" element={<SportDetailPage />} />
+              <Route path="/buy-membership" element={<MembershipPortal />} />
               <Route path="/entry/:qrSlug" element={<EntryPortal />} />
 
               {/* Admin Panel */}
@@ -157,8 +162,10 @@ export default function App() {
                 <Route path="dashboard" element={<UserDashboard />} />
                 <Route path="scan" element={<ScanQR />} />
                 <Route path="membership" element={<UserMembership />} />
-                <Route path="book-slots" element={<OneTimeBookingPortal embedded />} />
+                <Route path="book-slots" element={<BookSlotsMarketplace embedded />} />
                 <Route path="one-time-booking" element={<OneTimeBookingPortal embedded />} />
+                <Route path="sports/:slug" element={<SportDetailPage embedded />} />
+                <Route path="buy-memberships" element={<MembershipPortal embedded />} />
                 <Route path="table-portal" element={<TablePortal embedded />} />
                 <Route path="orders" element={<OrderHistory />} />
                 <Route path="reviews" element={<UserReviews />} />

@@ -86,6 +86,22 @@ exports.getPublicSports = async (req, res) => {
   }
 };
 
+// GET /api/sports/public/:slug - Get single active sport by slug (public) + its membership plans
+exports.getPublicSportBySlug = async (req, res) => {
+  try {
+    const sport = await Sport.findOne({ slug: req.params.slug, active: true, deletedAt: null });
+    if (!sport) return res.status(404).json({ success: false, message: 'Sport not found' });
+
+    const activeSportKeys = await getActiveSportKeys();
+    const allPlans = await MembershipPlan.find({ isActive: true }).sort({ price: 1 });
+    const plans = allPlans.filter(p => planIsValidForSmartEntry(p, sport, activeSportKeys));
+
+    res.json({ success: true, sport, plans });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // GET /api/sports/:id - Get sport details
 exports.getSportById = async (req, res) => {
   try {
@@ -417,7 +433,7 @@ const planIsValidForSmartEntry = (plan, sport, activeSportKeys) => {
 
   const sportSlug = normalizeKey(sport.slug);
   const sportName = normalizeKey(sport.name);
-  return includedKeys.some((key) => isAllServicesKey(key) || key === sportSlug || key === sportName);
+  return includedKeys.some((key) => key === sportSlug || key === sportName);
 };
 
 // Custom in-memory rate-limiter middleware for public entry endpoints

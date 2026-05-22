@@ -10,6 +10,10 @@ router.post('/plans', auth, authorize('superadmin', 'admin'), mc.createPlan);
 router.put('/plans/:id', auth, authorize('superadmin', 'admin'), mc.updatePlan);
 router.delete('/plans/:id', auth, authorize('superadmin', 'admin'), mc.deletePlan);
 
+// Public Membership Booking
+router.post('/memberships/public-purchase', mc.publicPurchaseOrder);
+router.post('/memberships/public-verify', mc.publicVerifyPayment);
+
 // Memberships
 router.get('/memberships/all', auth, authorize('superadmin', 'admin', 'receptionist'), mc.getAllMemberships);
 router.get('/memberships/:studentId', auth, mc.getStudentMembership);

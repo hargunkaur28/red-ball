@@ -14,6 +14,7 @@ const optionalAuth = async (req, res, next) => {
 // SUPERADMIN SPORT MANAGEMENT ROUTES
 // ==========================================
 router.get('/public', sportController.getPublicSports);
+router.get('/public/:slug', sportController.getPublicSportBySlug);
 router.get('/', auth, authorize('superadmin'), sportController.getAllSports);
 router.get('/:id', auth, authorize('superadmin'), sportController.getSportById);
 router.post('/', auth, authorize('superadmin'), sportController.createSport);

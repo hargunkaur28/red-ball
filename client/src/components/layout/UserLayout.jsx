@@ -24,7 +24,7 @@ const mobileNavItems = [
   { path: '/user', label: 'Home', Icon: Home, match: (path) => path === '/user' || path === '/user/dashboard' },
   { path: '/user/book-slots', label: 'Bookings', Icon: Calendar, match: (path) => path === '/user/book-slots' || path === '/user/one-time-booking' },
   { path: '/user/table-portal', label: 'Order Food', Icon: Utensils, match: (path) => path === '/user/table-portal' },
-  { path: '/user/profile', label: 'Profile', Icon: User, match: (path) => path === '/user/profile' },
+  { isAction: true, action: 'openMenu', label: 'Menu', Icon: Menu, match: () => false },
 ];
 
 export default function UserLayout() {
@@ -135,8 +135,25 @@ export default function UserLayout() {
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#1a1a1a] bg-[#0A0D0D] px-3 pb-[calc(env(safe-area-inset-bottom)+8px)] pt-2 shadow-[0_-12px_35px_rgba(0,0,0,0.18)] lg:hidden">
         <div className="mx-auto grid max-w-md grid-cols-4">
-          {mobileNavItems.map(({ path, label, Icon, match }) => {
-            const active = match(location.pathname);
+          {mobileNavItems.map(({ path, label, Icon, match, isAction, action }) => {
+            const active = match ? match(location.pathname) : false;
+            
+            if (isAction && action === 'openMenu') {
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setMobileOpen(true)}
+                  className={`flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-xl transition active:scale-95 ${
+                    mobileOpen ? 'text-[#C8102E]' : 'text-[#8A8A8A]'
+                  }`}
+                >
+                  <Icon size={mobileOpen ? 22 : 20} strokeWidth={mobileOpen ? 2.8 : 2.4} fill="none" />
+                  <span className="text-[11px] font-semibold leading-none">{label}</span>
+                </button>
+              );
+            }
+
             return (
               <Link
                 key={path}

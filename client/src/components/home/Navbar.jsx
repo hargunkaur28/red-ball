@@ -7,24 +7,17 @@ const navLinks = [
   { label: 'Home', href: '#hero' },
   { label: 'About Us', href: '#about' },
   { label: 'Our Sports', href: '#sports', hasDropdown: true },
-  { label: 'Restaurant', href: '#restaurant' },
-  { label: 'Gallery', href: '#gallery' },
+  { label: 'Restaurant', href: '/table-portal' },
   { label: 'Contact', href: '#contact' },
 ];
 
-const dropdownLeft = [
-  { label: 'Cricket Coaching', color: '#C8102E' },
-  { label: 'Swimming', color: '#0EA5E9' },
-  { label: 'Badminton', color: '#8B5CF6' },
-  { label: 'Football', color: '#22C55E' },
-  { label: 'Gym & Fitness', color: '#F59E0B' },
-];
-
-const dropdownRight = [
-  { label: 'Cricket Ground Booking', color: '#C8102E' },
-  { label: 'Swimming Pool', color: '#0EA5E9' },
-  { label: 'Badminton Court', color: '#8B5CF6' },
-  { label: 'Football Ground', color: '#22C55E' },
+const dropdownSports = [
+  { label: 'Cricket', href: '/sports/cricket', color: '#C8102E' },
+  { label: 'Swimming', href: '/sports/swimming', color: '#0EA5E9' },
+  { label: 'Badminton', href: '/sports/badminton', color: '#8B5CF6' },
+  { label: 'Gym', href: '/sports/gym', color: '#F59E0B' },
+  { label: 'Table Tennis', href: '/sports/table-tennis', color: '#F97316' },
+  { label: 'Pickleball', href: '/sports/pickleball', color: '#A855F7' },
 ];
 
 export default function Navbar() {
@@ -104,16 +97,26 @@ export default function Navbar() {
                 onMouseEnter={() => link.hasDropdown && setDropdownOpen(true)}
                 onMouseLeave={() => link.hasDropdown && setDropdownOpen(false)}
               >
-                <a
-                  href={link.href}
-                  className={`nav-link px-4 py-2 ${textColor} text-[15px] font-medium flex items-center gap-1 transition-colors hover:text-[#C8102E]`}
-                  style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}
-                >
-                  {link.label}
-                  {link.hasDropdown && (
-                    <ChevronDown size={14} className={`transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
-                  )}
-                </a>
+                {link.href.startsWith('/') ? (
+                  <Link
+                    to={link.href}
+                    className={`nav-link px-4 py-2 ${textColor} text-[15px] font-medium flex items-center gap-1 transition-colors hover:text-[#C8102E]`}
+                    style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}
+                  >
+                    {link.label}
+                  </Link>
+                ) : (
+                  <a
+                    href={link.href}
+                    className={`nav-link px-4 py-2 ${textColor} text-[15px] font-medium flex items-center gap-1 transition-colors hover:text-[#C8102E]`}
+                    style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}
+                  >
+                    {link.label}
+                    {link.hasDropdown && (
+                      <ChevronDown size={14} className={`transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
+                    )}
+                  </a>
+                )}
 
                 {/* Dropdown */}
                 {link.hasDropdown && (
@@ -126,41 +129,23 @@ export default function Navbar() {
                       transition: 'opacity 200ms ease, transform 200ms ease',
                     }}
                   >
-                    <div className="w-[520px] bg-[#1A1A1A] border border-white/10 rounded-xl p-6 shadow-2xl grid grid-cols-2 gap-6">
-                      <div>
-                        <p className="text-xs uppercase tracking-[3px] text-[#F5A623] font-semibold mb-3"
-                           style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                          Training Sessions
-                        </p>
-                        {dropdownLeft.map((item) => (
-                          <a
+                    <div className="w-[420px] bg-[#1A1A1A] border border-white/10 rounded-xl p-6 shadow-2xl">
+                      <p className="text-xs uppercase tracking-[3px] text-[#F5A623] font-semibold mb-4 text-center"
+                         style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                        Select a Sport
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        {dropdownSports.map((item) => (
+                          <Link
                             key={item.label}
-                            href="#sports"
+                            to={item.href}
                             className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 hover:bg-[#C8102E]/10 hover:border-l-2 hover:border-l-[#C8102E] group"
                           >
                             <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                            <span className="text-sm text-white/80 group-hover:text-white transition-colors" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                            <span className="text-sm text-white/80 group-hover:text-white transition-colors font-medium" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                               {item.label}
                             </span>
-                          </a>
-                        ))}
-                      </div>
-                      <div>
-                        <p className="text-xs uppercase tracking-[3px] text-[#F5A623] font-semibold mb-3"
-                           style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                          Facility Rentals
-                        </p>
-                        {dropdownRight.map((item) => (
-                          <a
-                            key={item.label}
-                            href="#facilities"
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 hover:bg-[#C8102E]/10 hover:border-l-2 hover:border-l-[#C8102E] group"
-                          >
-                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                            <span className="text-sm text-white/80 group-hover:text-white transition-colors" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                              {item.label}
-                            </span>
-                          </a>
+                          </Link>
                         ))}
                       </div>
                     </div>
@@ -198,7 +183,7 @@ export default function Navbar() {
               </Link>
             )}
             <Link
-              to="/book-slots"
+              to={isAuthenticated ? '/user/book-slots' : '/book-slots'}
               className="hidden md:inline-flex px-6 py-2.5 rounded-full bg-[#C8102E] text-white text-sm font-semibold transition-all duration-200 hover:bg-[#8B0B1E] hover:shadow-[0_0_16px_rgba(200,16,46,0.5)] hover:scale-[1.03]"
               style={{ fontFamily: "'DM Sans', sans-serif" }}
             >
@@ -253,22 +238,41 @@ export default function Navbar() {
         {/* Nav links */}
         <nav className="flex-1 flex flex-col px-6 pt-4 gap-1">
           {navLinks.map((link, i) => (
-            <a
-              key={link.label}
-              href={link.href}
-              onClick={() => setDrawerOpen(false)}
-              className="text-white text-xl py-3 border-b border-white/5 transition-all duration-250"
-              style={{
-                fontFamily: "'Bebas Neue', sans-serif",
-                letterSpacing: '2px',
-                animationDelay: drawerOpen ? `${i * 60}ms` : '0ms',
-                opacity: drawerOpen ? 1 : 0,
-                transform: drawerOpen ? 'translateX(0)' : 'translateX(24px)',
-                transition: `opacity 250ms ease ${i * 60}ms, transform 250ms ease ${i * 60}ms`,
-              }}
-            >
-              {link.label}
-            </a>
+            link.href.startsWith('/') ? (
+              <Link
+                key={link.label}
+                to={link.href}
+                onClick={() => setDrawerOpen(false)}
+                className="text-white text-xl py-3 border-b border-white/5 transition-all duration-250"
+                style={{
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  letterSpacing: '2px',
+                  animationDelay: drawerOpen ? `${i * 60}ms` : '0ms',
+                  opacity: drawerOpen ? 1 : 0,
+                  transform: drawerOpen ? 'translateX(0)' : 'translateX(24px)',
+                  transition: `opacity 250ms ease ${i * 60}ms, transform 250ms ease ${i * 60}ms`,
+                }}
+              >
+                {link.label}
+              </Link>
+            ) : (
+              <a
+                key={link.label}
+                href={link.href}
+                onClick={() => setDrawerOpen(false)}
+                className="text-white text-xl py-3 border-b border-white/5 transition-all duration-250"
+                style={{
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  letterSpacing: '2px',
+                  animationDelay: drawerOpen ? `${i * 60}ms` : '0ms',
+                  opacity: drawerOpen ? 1 : 0,
+                  transform: drawerOpen ? 'translateX(0)' : 'translateX(24px)',
+                  transition: `opacity 250ms ease ${i * 60}ms, transform 250ms ease ${i * 60}ms`,
+                }}
+              >
+                {link.label}
+              </a>
+            )
           ))}
         </nav>
 
@@ -292,7 +296,7 @@ export default function Navbar() {
             </Link>
           )}
           <Link
-            to="/book-slots"
+            to={isAuthenticated ? '/user/book-slots' : '/book-slots'}
             onClick={() => setDrawerOpen(false)}
             className="block text-center py-3 rounded-full bg-[#C8102E] text-white font-semibold transition-all hover:bg-[#8B0B1E]"
           >

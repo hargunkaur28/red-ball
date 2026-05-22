@@ -39,7 +39,7 @@ exports.purchaseOrder = async (req, res) => {
 
     const ratePerHour = sport.hourlyPrice || 0;
     const amount = ratePerHour; // 1 hour access
-    const gstAmount = Math.round(amount * 0.18 * 100) / 100;
+    const gstAmount = 0; // Removed GST
     const totalAmount = amount + gstAmount;
 
     const rzpOrder = await createRazorpayOrder({

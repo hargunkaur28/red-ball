@@ -54,6 +54,34 @@ const sportSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  description: {
+    type: String,
+    default: '',
+  },
+  tagline: {
+    type: String,
+    default: '',
+  },
+  icon: {
+    type: String,
+    default: '',
+  },
+  features: {
+    type: [String],
+    default: [],
+  },
+  images: {
+    type: [String],
+    default: [],
+  },
+  thumbnail: {
+    type: String,
+    default: '',
+  },
+  heroImage: {
+    type: String,
+    default: '',
+  },
 }, {
   timestamps: true,
 });

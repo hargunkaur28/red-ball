@@ -40,6 +40,9 @@ export default function OneTimeBookingPortal({ embedded = false }) {
           try {
             await googleAuth(credential);
             toast.success('Signed in with Google.');
+            if (!embedded) {
+              navigate('/user/book-slots');
+            }
           } catch (err) {
             toast.error(err.response?.data?.message || 'Google sign-in failed');
           }
@@ -47,10 +50,9 @@ export default function OneTimeBookingPortal({ embedded = false }) {
       });
       node.innerHTML = '';
       window.google.accounts.id.renderButton(node, {
-        theme: 'outline',
+        theme: 'filled_black',
         size: 'large',
         type: 'standard',
-        width: node.offsetWidth || 320,
       });
     };
 
@@ -124,8 +126,7 @@ export default function OneTimeBookingPortal({ embedded = false }) {
   }, [sportsList, selectedSportId]);
 
   const baseAmount = selectedSport ? selectedSport.hourlyPrice : 0;
-  const gstAmount = Math.round(baseAmount * 0.18 * 100) / 100;
-  const totalAmount = baseAmount + gstAmount;
+  const totalAmount = baseAmount;
 
   const handlePurchase = async (e) => {
     e.preventDefault();
@@ -316,7 +317,7 @@ export default function OneTimeBookingPortal({ embedded = false }) {
                         {isSelected && (
                           <div className="absolute top-0 right-0 w-3 h-3 bg-[#df1526] rounded-bl-lg" />
                         )}
-                        <p className="font-extrabold text-base uppercase tracking-tight group-hover:text-white transition-colors">{sport.name}</p>
+                        <p className="font-extrabold text-[13px] sm:text-base uppercase tracking-tight group-hover:text-white transition-colors truncate">{sport.name}</p>
                         <p className="text-xs text-white/40 mt-1">{formatCurrency(sport.hourlyPrice)}/hr</p>
                       </button>
                     );
@@ -390,10 +391,7 @@ export default function OneTimeBookingPortal({ embedded = false }) {
                   <span className="text-white/55">1 Hour Play Pass ({selectedSport.name})</span>
                   <span>{formatCurrency(baseAmount)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-white/55">GST (18%)</span>
-                  <span>{formatCurrency(gstAmount)}</span>
-                </div>
+
                 <div className="flex justify-between font-extrabold text-base pt-2 border-t border-white/5">
                   <span className="text-white">Total Amount</span>
                   <span className="text-[#df1526]">{formatCurrency(totalAmount)}</span>
@@ -430,7 +428,13 @@ export default function OneTimeBookingPortal({ embedded = false }) {
             </div>
             <button 
               type="button"
-              onClick={() => window.location.href = '/#membership'}
+              onClick={() => {
+                if (isAuthenticated) {
+                  navigate('/user/buy-memberships');
+                } else {
+                  navigate('/buy-membership');
+                }
+              }}
               className="relative z-10 px-6 py-3 rounded-xl bg-[#F5A623] text-black font-extrabold uppercase tracking-widest text-xs hover:bg-[#E09410] transition-colors shrink-0 whitespace-nowrap shadow-lg shadow-[#F5A623]/20"
             >
               Explore Plans

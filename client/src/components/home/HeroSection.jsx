@@ -52,7 +52,7 @@ export default function HeroSection() {
   const line2Words = useMemo(() => 'Play. Train. Dominate.'.split(' '), []);
 
   return (
-    <section id="hero" className="relative w-full h-screen overflow-hidden">
+    <section id="hero" className="relative w-full min-h-[100dvh] md:h-screen overflow-hidden flex flex-col">
       {/* Background Images with fade */}
       {heroImages.map((img, i) => (
         <div
@@ -78,9 +78,9 @@ export default function HeroSection() {
       />
 
       {/* Hero Content */}
-      <div className="relative z-20 h-full flex items-center pt-24 md:pt-0 pb-16 md:pb-0 overflow-y-auto md:overflow-visible">
-        <div className="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 w-full flex flex-col md:flex-row items-center justify-between gap-12 h-full py-20 md:py-0">
-          <div className="max-w-[700px] flex-shrink-0 mt-16 md:mt-0">
+      <div className="relative z-20 flex-1 flex items-center pt-24 md:pt-0 pb-8 md:pb-0 w-full">
+        <div className="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 w-full flex flex-col md:flex-row items-center justify-between gap-8 md:gap-12 w-full pt-4 md:pt-0">
+          <div className="max-w-[700px] flex-shrink-0 mt-4 md:mt-0">
 
             {/* Eyebrow */}
             <motion.p
@@ -158,7 +158,7 @@ export default function HeroSection() {
             >
               <div className="flex flex-wrap gap-4">
                 <Link
-                  to="/book-slots"
+                  to={isAuthenticated ? "/user/book-slots" : "/book-slots"}
                   className="px-8 py-3.5 rounded-full bg-[#C8102E] text-white text-base font-semibold transition-all duration-200 hover:bg-[#8B0B1E] hover:scale-[1.04] hover:shadow-[0_0_20px_rgba(200,16,46,0.45)] flex items-center gap-2"
                   style={{ fontFamily: "'DM Sans', sans-serif" }}
                 >
@@ -173,17 +173,17 @@ export default function HeroSection() {
                     My Dashboard
                   </Link>
                 ) : (
-                  <a
-                    href="#membership"
+                  <Link
+                    to="/buy-membership"
                     className="px-8 py-3.5 rounded-full border-2 border-[#F5A623] text-[#F5A623] text-base font-semibold transition-all duration-200 hover:bg-[#F5A623] hover:text-black hover:scale-[1.04]"
                     style={{ fontFamily: "'DM Sans', sans-serif" }}
                   >
                     Join Now
-                  </a>
+                  </Link>
                 )}
               </div>
               <Link
-                to={isAuthenticated ? "/user/scan" : "/login"}
+                to={isAuthenticated ? "/user/scan" : "/login?redirectTo=/user/scan"}
                 className="text-sm font-bold text-[#F5A623] hover:text-white flex items-center gap-2 transition-colors ml-2"
                 style={{ fontFamily: "'DM Sans', sans-serif" }}
               >
@@ -216,7 +216,7 @@ export default function HeroSection() {
                     <p className="text-white/50 text-[10px] uppercase tracking-wider font-bold">Play & Train</p>
                   </div>
                 </div>
-                <Link to={`/entry/${sport.slug}`} className="px-4 py-2 bg-white/10 hover:bg-[#C8102E] text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors border border-white/10 hover:border-[#C8102E] flex items-center gap-1 shrink-0">
+                <Link to={`/sports/${sport.slug}`} className="px-4 py-2 bg-white/10 hover:bg-[#C8102E] text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors border border-white/10 hover:border-[#C8102E] flex items-center gap-1 shrink-0">
                   Book <ArrowRight size={14} />
                 </Link>
               </motion.div>

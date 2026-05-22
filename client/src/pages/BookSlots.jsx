@@ -14,7 +14,7 @@ export default function BookSlots() {
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState({
     date: new Date().toISOString().split('T')[0],
-    sport: 'cricket'
+    sport: null // null means show all sports
   });
   const [bookingForm, setBookingForm] = useState({
     playerName: '',
@@ -27,7 +27,12 @@ export default function BookSlots() {
   // Fetch available slots
   const { data: slotsData, isLoading } = useQuery({
     queryKey: ['available-slots', filters.date, filters.sport],
-    queryFn: () => api.get(`/slots?date=${filters.date}&sport=${filters.sport}`).then(r => r.data),
+    queryFn: () => {
+      const url = filters.sport 
+        ? `/slots?date=${filters.date}&sport=${filters.sport}`
+        : `/slots?date=${filters.date}`;
+      return api.get(url).then(r => r.data);
+    },
   });
 
   // Fetch user's bookings
@@ -114,12 +119,13 @@ export default function BookSlots() {
               />
             </div>
             <div>
-              <label className="block text-xs text-[#666666] mb-1">Sport</label>
+              <label className="block text-xs text-[#666666] mb-1">Sport (Optional)</label>
               <select
-                value={filters.sport}
-                onChange={(e) => setFilters({ ...filters, sport: e.target.value })}
+                value={filters.sport || ''}
+                onChange={(e) => setFilters({ ...filters, sport: e.target.value || null })}
                 className="input-field bg-white text-sm w-full"
               >
+                <option value="">All Facilities</option>
                 {sports.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
               </select>
             </div>
@@ -130,7 +136,7 @@ export default function BookSlots() {
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="lg:col-span-3">
           <div className="card">
             <h3 className="text-sm font-medium text-[#666666] mb-4">
-              Available Slots - {filters.sport.toUpperCase()} on {new Date(filters.date).toLocaleDateString()}
+              Available Slots - {filters.sport ? filters.sport.toUpperCase() : 'ALL FACILITIES'} on {new Date(filters.date).toLocaleDateString()}
             </h3>
 
             {isLoading ? (
