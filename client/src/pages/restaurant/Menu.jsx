@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../lib/axios';
 import PageHeader from '../../components/shared/PageHeader';
 import { formatCurrency } from '../../lib/utils';
-import { CheckCircle2, XCircle, Plus, Trash2, Sparkles, Flame, Clock } from 'lucide-react';
+import { CheckCircle2, XCircle, Plus, Trash2, Sparkles, Flame, Clock, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 const emptyForm = { 
@@ -23,7 +23,7 @@ const emptyForm = {
   imageFile: null
 };
 
-const CATEGORIES_LIST = ['Featured', 'Protein Meals', 'Drinks', 'Recovery Shakes', 'Snacks', 'Healthy Bowls', 'Recovery Combos', 'High Carb Meals', 'Vegetarian'];
+
 
 export default function Menu() {
   const qc = useQueryClient();
@@ -31,6 +31,7 @@ export default function Menu() {
   const [form, setForm] = useState({ ...emptyForm });
   const [editId, setEditId] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { data } = useQuery({ 
     queryKey: ['menu'], 
@@ -105,7 +106,16 @@ export default function Menu() {
   };
 
   const items = data?.items || [];
-  const filtered = categoryFilter ? items.filter(i => i.category === categoryFilter || (categoryFilter === 'Featured' && i.featured)) : items;
+  const CATEGORIES_LIST = Array.from(new Set(items.map(item => item.category))).sort((a, b) => a.localeCompare(b));
+
+  const filtered = items
+    .filter(i => categoryFilter ? i.category === categoryFilter : true)
+    .filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()) || (i.category || '').toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      const catCompare = (a.category || '').localeCompare(b.category || '');
+      if (catCompare !== 0) return catCompare;
+      return (a.name || '').localeCompare(b.name || '');
+    });
 
   return (
     <div className="pb-24">
@@ -122,6 +132,18 @@ export default function Menu() {
           </button>
         }
       />
+
+      {/* Search Bar */}
+      <div className="mb-4 relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+        <input 
+          type="text" 
+          placeholder="Search dishes by name or category..." 
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#C8102E] text-sm shadow-sm"
+        />
+      </div>
 
       {/* Category Tabs */}
       <div className="flex gap-2 mb-6 flex-wrap overflow-x-auto pb-2">

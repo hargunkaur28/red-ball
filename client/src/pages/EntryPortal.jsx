@@ -697,7 +697,11 @@ export default function EntryPortal() {
     }));
   }, [user]);
 
-
+  useEffect(() => {
+    if (!loading && !isAuthenticated && data?.sport?.slug) {
+      window.location.replace(`/sports/${data.sport.slug}`);
+    }
+  }, [loading, isAuthenticated, data?.sport?.slug]);
 
   useEffect(() => {
     if (!data?.hasActiveCheckIn || !data?.activeCheckIn?.checkInTime) return;
@@ -1113,58 +1117,19 @@ export default function EntryPortal() {
                   )}
 
                   {!data?.hasActiveCheckIn && !data?.hasMembership && !data?.hasPrepaidPass && (
-                    <>
-                      {!isAuthenticated && (
-                        <div className="bg-white/5 border border-white/10 rounded-xl p-5 mb-6 text-center">
-                          <p className="text-white/80 text-sm mb-3">Already have an account or active membership?</p>
-                          <button
-                            onClick={() => navigate(`/login?redirectTo=/entry/${qrSlug}`)}
-                            className="w-full py-2.5 px-4 rounded-xl bg-[#df1526] hover:bg-[#df1526]/80 active:scale-[0.98] transition-all text-sm font-semibold shadow-lg shadow-red-950/20"
-                          >
-                            Log In to Check In
-                          </button>
-                        </div>
-                      )}
-                      <div className="entry-status-badge badge-no-membership"><ShieldCheck size={14} /> No Active Membership</div>
-                      <div className="plan-list">
-                        {data?.sport?.hourlyPrice > 0 && (
-                          <button className="plan-card" onClick={() => handleSelectOption({ type: 'one-time' })}>
-                            <span className="plan-icon"><CreditCard size={18} /></span>
-                            <span>
-                              <span className="plan-name">One-Time Access</span>
-                              <span className="plan-duration">1 hour walk-in entry</span>
-                            </span>
-                            <span className="plan-price">{formatMoney(data.sport.hourlyPrice)}/hr</span>
-                          </button>
-                        )}
-                      </div>
-
-                      {visiblePlans.length > 0 && (
-                        <>
-                          <div className="entry-divider" />
-                          <div className="entry-plans-title">Or buy a membership</div>
-                          <div className="plan-list">
-                            {visiblePlans.map((plan) => (
-                              <button
-                                key={plan._id}
-                                className={`plan-card membership-plan ${isAllServicesPlan(plan) ? 'all-services-plan' : ''}`}
-                                onClick={() => handleSelectOption({ type: 'membership', plan })}
-                              >
-                                <span className="plan-icon"><BadgeCheck size={20} /></span>
-                                <span>
-                                  <span className="plan-name">{plan.name}</span>
-                                  <span className="plan-duration">
-                                    {plan.durationValue} {plan.durationUnit}
-                                    {isAllServicesPlan(plan) ? ' • Full Access' : ''}
-                                  </span>
-                                </span>
-                                <span className="plan-price">{formatMoney(plan.price)}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </>
+                    <div className="bg-red-50/10 border border-red-500/30 rounded-xl p-5 mt-4 mb-4 text-center">
+                      <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
+                      <h4 className="text-red-300 font-bold text-xl mb-2">Access Denied / Wrong QR</h4>
+                      <p className="text-red-200/80 text-sm mb-6">
+                        You don't have an active membership or pass for <strong>{data?.sport?.name}</strong>.
+                      </p>
+                      <button
+                        onClick={() => navigate(`/sports/${data?.sport?.slug}`)}
+                        className="w-full py-3 px-4 rounded-xl bg-[#df1526] hover:bg-[#df1526]/80 active:scale-[0.98] transition-all text-white text-sm font-bold shadow-lg shadow-red-950/20 flex items-center justify-center gap-2"
+                      >
+                        Book {data?.sport?.name} Slots
+                      </button>
+                    </div>
                   )}
                 </motion.section>
               )}

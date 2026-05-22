@@ -339,14 +339,19 @@ export default function Memberships() {
                       {/* Sports */}
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
-                          {sportsIncluded.length > 0
-                            ? sportsIncluded.map((sp, idx) => (
-                                <span key={idx} className="text-xs bg-[#F5F5F5] text-[#444] px-2 py-0.5 rounded">
-                                  {typeof sp === 'string' ? sp : sp.name || '—'}
-                                </span>
-                              ))
-                            : <span className="text-text-muted">—</span>
-                          }
+                          {row.sport ? (
+                            <span className="text-xs bg-[#e0f2fe] text-blue-700 px-2 py-0.5 rounded font-medium border border-blue-100 capitalize">
+                              {row.sport}
+                            </span>
+                          ) : sportsIncluded.length > 0 ? (
+                            sportsIncluded.map((sp, idx) => (
+                              <span key={idx} className="text-xs bg-[#F5F5F5] text-[#444] px-2 py-0.5 rounded">
+                                {typeof sp === 'string' ? sp : sp.name || '—'}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-text-muted">—</span>
+                          )}
                         </div>
                       </td>
 

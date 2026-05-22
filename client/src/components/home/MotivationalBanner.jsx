@@ -38,7 +38,7 @@ export default function MotivationalBanner() {
           </p>
 
           <Link
-            to="/login"
+            to="/login?mode=register"
             className="inline-flex px-10 py-4 rounded-full bg-[#C8102E] text-white text-lg font-semibold transition-all duration-200 hover:bg-[#8B0B1E] hover:scale-[1.04] hover:shadow-[0_0_24px_rgba(200,16,46,0.5)]"
             style={{ fontFamily: "'DM Sans', sans-serif" }}
           >

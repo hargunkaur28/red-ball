@@ -166,35 +166,49 @@ export default function HeroSection() {
               transition={{ duration: 0.6, delay: 0.5 }}
               className="flex flex-col items-start gap-5"
             >
-              <div className="flex flex-wrap gap-4">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 w-full pr-4 sm:pr-0">
                 <Link
                   to={isAuthenticated ? "/user/book-slots" : "/book-slots"}
-                  className="px-8 py-3.5 rounded-full bg-[#C8102E] text-white text-base font-semibold transition-all duration-200 hover:bg-[#8B0B1E] hover:scale-[1.04] hover:shadow-[0_0_20px_rgba(200,16,46,0.45)] flex items-center gap-2"
+                  className="w-full sm:w-auto px-6 py-3.5 sm:px-8 rounded-full bg-[#C8102E] text-white text-sm sm:text-base font-semibold transition-all duration-200 hover:bg-[#8B0B1E] hover:scale-[1.04] hover:shadow-[0_0_20px_rgba(200,16,46,0.45)] flex items-center justify-center gap-2"
                   style={{ fontFamily: "'DM Sans', sans-serif" }}
                 >
                   🏏 Book a Ground
                 </Link>
-                {isAuthenticated ? (
+                
+                <div className="flex gap-3 w-full sm:w-auto">
+                  {isAuthenticated ? (
+                    <Link
+                      to={user?.role === 'superadmin' ? '/super-admin' : user?.role === 'admin' ? '/admin' : user?.role === 'manager' ? '/restaurant' : user?.role === 'receptionist' ? '/reception' : '/user'}
+                      className="flex-1 sm:flex-none justify-center flex items-center px-4 sm:px-8 py-3.5 rounded-full border-2 border-[#F5A623] text-[#F5A623] text-sm sm:text-base font-semibold transition-all duration-200 hover:bg-[#F5A623] hover:text-black hover:scale-[1.04]"
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      Dashboard
+                    </Link>
+                  ) : (
+                    <Link
+                      to="/login?mode=register"
+                      className="flex-1 sm:flex-none justify-center flex items-center px-4 sm:px-8 py-3.5 rounded-full border-2 border-[#F5A623] text-[#F5A623] text-sm sm:text-base font-semibold transition-all duration-200 hover:bg-[#F5A623] hover:text-black hover:scale-[1.04]"
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      Join Now
+                    </Link>
+                  )}
+                  
+                  {/* Mobile-only QR Button */}
                   <Link
-                    to={user?.role === 'superadmin' ? '/super-admin' : user?.role === 'admin' ? '/admin' : user?.role === 'manager' ? '/restaurant' : user?.role === 'receptionist' ? '/reception' : '/user'}
-                    className="px-8 py-3.5 rounded-full border-2 border-[#F5A623] text-[#F5A623] text-base font-semibold transition-all duration-200 hover:bg-[#F5A623] hover:text-black hover:scale-[1.04]"
+                    to={isAuthenticated ? "/user/scan" : "/login?redirectTo=/user/scan"}
+                    className="flex-1 justify-center flex sm:hidden items-center px-3 py-3.5 rounded-full border-2 border-white/20 bg-white/10 backdrop-blur-sm text-white text-sm font-semibold transition-all hover:bg-white/20 gap-2"
                     style={{ fontFamily: "'DM Sans', sans-serif" }}
                   >
-                    My Dashboard
+                    <ScanLine size={18} className="shrink-0" /> Check-In
                   </Link>
-                ) : (
-                  <Link
-                    to="/login?mode=register"
-                    className="px-8 py-3.5 rounded-full border-2 border-[#F5A623] text-[#F5A623] text-base font-semibold transition-all duration-200 hover:bg-[#F5A623] hover:text-black hover:scale-[1.04]"
-                    style={{ fontFamily: "'DM Sans', sans-serif" }}
-                  >
-                    Join Now
-                  </Link>
-                )}
+                </div>
               </div>
+              
+              {/* Desktop-only simple link */}
               <Link
                 to={isAuthenticated ? "/user/scan" : "/login?redirectTo=/user/scan"}
-                className="text-sm font-bold text-[#F5A623] hover:text-white flex items-center gap-2 transition-colors ml-2"
+                className="hidden sm:flex text-sm font-bold text-[#F5A623] hover:text-white items-center gap-2 transition-colors ml-2 mt-1"
                 style={{ fontFamily: "'DM Sans', sans-serif" }}
               >
                 <ScanLine size={18} /> Check-In via QR Code
@@ -207,31 +221,61 @@ export default function HeroSection() {
             initial={{ opacity: 0, x: 32 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.6 }}
-            className="w-full max-w-[400px] mt-8 md:mt-0 flex flex-col gap-3 max-h-[50vh] md:max-h-[65vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent"
+            className="w-full md:max-w-[400px] mt-8 md:mt-0 max-h-[50vh] md:max-h-[65vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent"
           >
-            {sports.length > 0 ? sports.filter(s => s.slug !== 'coaching' && s.name.toLowerCase() !== 'coaching').map((sport, idx) => (
-              <motion.div 
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.7 + idx * 0.1 }}
-                key={sport._id} 
-                className="bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex items-center justify-between hover:bg-black/50 hover:border-white/20 transition-all group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl shadow-inner shadow-white/5">
-                    {getSportIcon(sport.name)}
-                  </div>
-                  <div>
-                    <h3 className="text-white font-bold text-lg leading-tight group-hover:text-[#F5A623] transition-colors">{sport.name}</h3>
-                    <p className="text-white/50 text-[10px] uppercase tracking-wider font-bold">Play & Train</p>
-                  </div>
+            {sports.length > 0 ? (
+              <>
+                {/* Mobile View: 3x3 Grid */}
+                <div className="grid grid-cols-3 gap-2 md:hidden">
+                  {sports.filter(s => s.slug !== 'coaching' && s.name.toLowerCase() !== 'coaching').slice(0, 9).map((sport, idx) => (
+                    <Link 
+                      to={`/sports/${sport.slug}`}
+                      key={`mob-${sport._id}`} 
+                    >
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.4, delay: 0.7 + idx * 0.1 }}
+                        className="bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl p-2 sm:p-4 flex flex-col items-center justify-center text-center hover:bg-black/60 hover:border-[#C8102E] hover:shadow-[0_0_20px_rgba(200,16,46,0.2)] transition-all duration-300 group aspect-square"
+                      >
+                        <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-1.5 sm:mb-3 group-hover:scale-110 group-hover:bg-[#C8102E]/20 group-hover:text-[#C8102E] group-hover:border-[#C8102E]/50 transition-all duration-300 [&>svg]:w-4 [&>svg]:h-4 sm:[&>svg]:w-6 sm:[&>svg]:h-6">
+                          {getSportIcon(sport.name)}
+                        </div>
+                        <h3 className="text-white font-bold text-[10px] sm:text-[13px] leading-tight group-hover:text-[#F5A623] transition-colors line-clamp-1">{sport.name}</h3>
+                        <p className="text-white/40 text-[7px] sm:text-[9px] uppercase tracking-widest font-bold mt-1 group-hover:text-white/70">Play</p>
+                      </motion.div>
+                    </Link>
+                  ))}
                 </div>
-                <Link to={`/sports/${sport.slug}`} className="px-4 py-2 bg-white/10 hover:bg-[#C8102E] text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors border border-white/10 hover:border-[#C8102E] flex items-center gap-1 shrink-0">
-                  Book <ArrowRight size={14} />
-                </Link>
-              </motion.div>
-            )) : (
-              <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl p-6 text-center">
+
+                {/* Desktop View: Vertical List */}
+                <div className="hidden md:flex flex-col gap-3">
+                  {sports.filter(s => s.slug !== 'coaching' && s.name.toLowerCase() !== 'coaching').map((sport, idx) => (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: 0.7 + idx * 0.1 }}
+                      key={`desk-${sport._id}`} 
+                      className="bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex items-center justify-between hover:bg-black/50 hover:border-white/20 transition-all group"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl shadow-inner shadow-white/5">
+                          {getSportIcon(sport.name)}
+                        </div>
+                        <div>
+                          <h3 className="text-white font-bold text-lg leading-tight group-hover:text-[#F5A623] transition-colors">{sport.name}</h3>
+                          <p className="text-white/50 text-[10px] uppercase tracking-wider font-bold">Play & Train</p>
+                        </div>
+                      </div>
+                      <Link to={`/sports/${sport.slug}`} className="px-4 py-2 bg-white/10 hover:bg-[#C8102E] text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors border border-white/10 hover:border-[#C8102E] flex items-center gap-1 shrink-0">
+                        Book <ArrowRight size={14} />
+                      </Link>
+                    </motion.div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl p-6 text-center w-full">
                 <p className="text-white/60 text-sm font-bold uppercase tracking-widest">Loading Sports...</p>
               </div>
             )}

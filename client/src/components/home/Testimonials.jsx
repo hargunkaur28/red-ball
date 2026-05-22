@@ -3,6 +3,8 @@ import { Star } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Pagination } from 'swiper/modules';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import useAuthStore from '../../store/authStore';
 import api from '../../lib/axios';
 import 'swiper/css';
 import 'swiper/css/pagination';
@@ -36,6 +38,7 @@ const testimonials = [
 ];
 
 export default function Testimonials() {
+  const { isAuthenticated } = useAuthStore();
   const { data } = useQuery({
     queryKey: ['featured-reviews'],
     queryFn: () => api.get('/reviews/featured').then(r => r.data).catch(() => ({ reviews: [] })),
@@ -68,15 +71,13 @@ export default function Testimonials() {
                 What Our Red Ball Families Are Saying
               </h2>
             </div>
-            <a
-              href="https://g.page/review"
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              to={isAuthenticated ? "/user/reviews" : "/login?redirectTo=/user/reviews"}
               className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full border-2 border-white/30 text-white text-sm font-medium transition-all duration-200 hover:bg-white hover:text-black whitespace-nowrap"
               style={{ fontFamily: "'DM Sans', sans-serif" }}
             >
               Write a Review →
-            </a>
+            </Link>
           </div>
 
           {/* Swiper Carousel */}

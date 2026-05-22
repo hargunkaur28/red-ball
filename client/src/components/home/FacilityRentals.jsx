@@ -22,7 +22,7 @@ export default function FacilityRentals() {
   );
 
   return (
-    <section id="facilities" className="bg-[#0D0D0D] py-20 md:py-28 overflow-hidden">
+    <section id="sports" className="bg-[#0D0D0D] py-20 md:py-28 overflow-hidden">
       <div className="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12">
 
         {/* Header row */}

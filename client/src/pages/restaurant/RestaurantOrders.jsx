@@ -116,14 +116,23 @@ export default function RestaurantOrders() {
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black/5 text-sm"
           />
         </div>
-        <div className="relative">
-          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+        <div className="relative flex items-center">
+          <Calendar className="absolute left-3 text-gray-400 pointer-events-none" size={18} />
           <input 
             type="date" 
             value={filterDate}
             onChange={e => setFilterDate(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black/5 text-sm"
+            className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black/5 text-sm"
           />
+          {filterDate && (
+            <button 
+              onClick={() => setFilterDate('')}
+              className="absolute right-3 text-gray-400 hover:text-[#C8102E] transition-colors"
+              title="Clear Date (Show All Time)"
+            >
+              <XCircle size={16} />
+            </button>
+          )}
         </div>
         <div className="relative">
           <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -261,7 +270,7 @@ export default function RestaurantOrders() {
         {/* Table Footer */}
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
           <p className="text-xs text-gray-500 font-medium">
-            Showing {filteredOrders.length} orders for {new Date(filterDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+            Showing {filteredOrders.length} orders {filterDate ? `for ${new Date(filterDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}` : 'for all time'}
           </p>
           <button className="flex items-center gap-2 text-xs font-bold text-gray-600 hover:text-black">
             <Download size={14} />

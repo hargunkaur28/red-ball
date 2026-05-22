@@ -91,12 +91,32 @@ function ProtectedRoute({ children, roles }) {
   return children;
 }
 
+import socket, { connectSocket } from './lib/socket';
+
 // ── App ────────────────────────────────────────────────────────────
 export default function App() {
   const { checkAuth } = useAuthStore();
 
   useEffect(() => {
     checkAuth();
+
+    // Connect socket on app load
+    connectSocket();
+
+    // Global real-time listener: Whenever the backend emits ANY event,
+    // we invalidate all React Query cache to automatically fetch fresh data.
+    const handleGlobalEvent = (eventName) => {
+      // Ignore internal socket.io events
+      if (['connect', 'disconnect', 'connect_error'].includes(eventName)) return;
+      console.log(`📡 Global refresh triggered by event: ${eventName}`);
+      queryClient.invalidateQueries();
+    };
+
+    socket.onAny(handleGlobalEvent);
+
+    return () => {
+      socket.offAny(handleGlobalEvent);
+    };
   }, []);
 
   return (

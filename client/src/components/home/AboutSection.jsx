@@ -81,13 +81,7 @@ export default function AboutSection() {
                 world-class facilities are here for you.
               </p>
 
-              <Link
-                to="/login"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-full border-2 border-[#C8102E] text-[#C8102E] font-semibold transition-all duration-200 hover:bg-[#C8102E] hover:text-white hover:scale-[1.03]"
-                style={{ fontFamily: "'DM Sans', sans-serif" }}
-              >
-                Our Mission →
-              </Link>
+
 
               {/* Stats Row */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-8 border-t border-gray-100 mt-8">

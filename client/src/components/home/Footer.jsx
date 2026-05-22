@@ -13,12 +13,11 @@ const programs = [
 
 const quickLinks = [
   { label: 'About Us', href: '#about' },
-  { label: 'Gallery', href: '#gallery' },
   { label: 'Membership Plans', href: '#membership' },
-  { label: 'Book a Ground', to: '/login' },
+  { label: 'Book a Ground', to: '/book-slots' },
   { label: 'Contact', href: '#contact' },
-  { label: 'Privacy Policy', href: '#' },
-  { label: 'Terms & Conditions', href: '#' },
+  { label: 'Privacy Policy', href: '/privacy-policy' },
+  { label: 'Terms & Conditions', href: '/terms-conditions' },
 ];
 
 // Instagram SVG
@@ -68,38 +67,10 @@ export default function Footer() {
 
   return (
     <footer className="bg-[#0D0D0D]">
-      {/* Newsletter Bar */}
-      <div className="border-t-2 border-[#C8102E] bg-[#1A1A1A]">
-        <div className="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 py-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-white text-sm md:text-base text-center md:text-left" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-              Subscribe for exclusive offers, membership perks & academy news!
-            </p>
-            <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2.5 w-full md:w-auto">
-              <input
-                type="email"
-                placeholder="Your email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="px-5 py-2.5 rounded-full bg-[#0D0D0D] border border-white/10 text-white text-sm placeholder-white/30 focus:border-[#F5A623] focus:outline-none w-full sm:w-auto sm:flex-1 md:w-[260px]"
-                style={{ fontFamily: "'DM Sans', sans-serif" }}
-              />
-              <button
-                type="submit"
-                disabled={subLoading}
-                className="px-6 py-2.5 rounded-full bg-[#F5A623] text-[#0D0D0D] font-bold text-sm transition-all duration-200 hover:bg-[#E09410] hover:scale-[1.03] disabled:opacity-50 whitespace-nowrap w-full sm:w-auto shadow-md"
-                style={{ fontFamily: "'DM Sans', sans-serif" }}
-              >
-                {subLoading ? '...' : 'Subscribe'}
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
 
       {/* Footer Columns */}
       <div className="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 py-12 md:py-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-10 lg:gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8">
 
           {/* Col 1 — Brand */}
           <div className="lg:col-span-1">
@@ -193,22 +164,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Col 5 — Download App */}
-          <div>
-            <h4 className="text-white font-bold text-sm uppercase tracking-[2px] mb-5" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-              Download Our App
-            </h4>
-            <div className="space-y-3">
-              <a href="#" className="block w-[160px] h-[48px] rounded-lg bg-white/10 border border-white/10 flex items-center justify-center gap-2 text-white text-sm hover:bg-white/20 transition-colors" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3.609 1.814L13.792 12 3.609 22.186a.996.996 0 01-.609-.92V2.734a1 1 0 01.609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-1.9l2.188 1.267a1 1 0 010 1.732l-2.188 1.267-2.533-2.533 2.533-2.733zM5.864 3.387L16.8 9.72l-2.302 2.302L5.864 3.387z"/></svg>
-                Google Play
-              </a>
-              <a href="#" className="block w-[160px] h-[48px] rounded-lg bg-white/10 border border-white/10 flex items-center justify-center gap-2 text-white text-sm hover:bg-white/20 transition-colors" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
-                App Store
-              </a>
-            </div>
-          </div>
+
         </div>
       </div>
 

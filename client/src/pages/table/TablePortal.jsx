@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../lib/axios';
-import { QrCode, Camera, ArrowRight, Sparkles, AlertCircle, Utensils, MapPin, Minus, Plus, X, ShoppingBag, Clock } from 'lucide-react';
+import { QrCode, Camera, ArrowRight, Sparkles, AlertCircle, Utensils, MapPin, Minus, Plus, X, ShoppingBag, Clock, Search } from 'lucide-react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import useCartStore from '../../store/cartStore';
 import useAuthStore from '../../store/authStore';
@@ -71,6 +71,7 @@ export default function TablePortal({ embedded = false }) {
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [showCartNotif, setShowCartNotif] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const qc = useQueryClient();
 
@@ -336,7 +337,7 @@ export default function TablePortal({ embedded = false }) {
       {/* Header */}
       <header className={`${embedded ? 'relative mb-4 sm:mb-6 rounded-xl sm:rounded-2xl border border-white/5 bg-[#161616]' : 'fixed top-0 left-0 right-0 rounded-none bg-[#0A0D0D] border-b border-white/5'} flex flex-col sm:flex-row items-center justify-between z-40 px-3 sm:px-4 gap-4 sm:gap-0 py-3 sm:py-3`}>
         <div className="max-w-6xl mx-auto w-full flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0">
-        <div className="flex items-center gap-3">
+        <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
           <div className="w-12 h-12 bg-[#C8102E] text-white rounded-2xl flex items-center justify-center font-black text-xl tracking-tighter shadow-lg">
             RB
           </div>
@@ -348,7 +349,7 @@ export default function TablePortal({ embedded = false }) {
               WHERE GREAT FOOD MEETS GREAT GAMES
             </p>
           </div>
-        </div>
+        </Link>
         
         <div className="flex items-center gap-2 sm:gap-3 mt-2 sm:mt-0 flex-wrap sm:flex-nowrap justify-center sm:justify-end">
           <button 
@@ -376,7 +377,7 @@ export default function TablePortal({ embedded = false }) {
       </header>
 
       {/* Main Container */}
-      <main className={`max-w-6xl mx-auto w-full px-2 sm:px-4 z-10 grow my-auto py-4 sm:py-8 ${embedded ? 'mt-0' : 'mt-16 sm:mt-16'}`}>
+      <main className={`max-w-6xl mx-auto w-full px-2 sm:px-4 z-10 grow my-auto py-4 sm:py-8 ${embedded ? 'mt-0' : 'mt-28 sm:mt-16'}`}>
         
         {/* Hero Section */}
         <div className="mb-8">
@@ -391,9 +392,21 @@ export default function TablePortal({ embedded = false }) {
           </p>
         </div>
 
+        {/* Search Bar */}
+        <div className="mb-6 relative max-w-md">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <input 
+            type="text" 
+            placeholder="Search for a dish or category..." 
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full pl-12 pr-4 py-3 rounded-2xl bg-[#1A1A1A] border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-[#F5A623] focus:ring-1 focus:ring-[#F5A623] text-sm shadow-inner transition-all"
+          />
+        </div>
+
         {/* Category Tabs */}
         <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-6 scrollbar-hide">
-          {['All', ...new Set(menuItems.map(item => item.category))].map(cat => (
+          {['All', ...Array.from(new Set(menuItems.map(item => item.category))).sort((a, b) => a.localeCompare(b))].map(cat => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
@@ -412,6 +425,12 @@ export default function TablePortal({ embedded = false }) {
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4 lg:gap-6 w-full">
           {menuItems
             .filter(item => selectedCategory === 'All' || item.category === selectedCategory)
+            .filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()) || (item.category || '').toLowerCase().includes(searchQuery.toLowerCase()))
+            .sort((a, b) => {
+              const catCompare = (a.category || '').localeCompare(b.category || '');
+              if (catCompare !== 0) return catCompare;
+              return (a.name || '').localeCompare(b.name || '');
+            })
             .map(item => {
                   const inCart = items.find(i => i.menuItemId === item._id && (i.size === 'Regular' || i.size === item.sizes?.[0]?.label));
                   const qty = inCart ? inCart.quantity : 0;
