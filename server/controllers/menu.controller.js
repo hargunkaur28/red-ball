@@ -142,7 +142,7 @@ exports.createItem = async (req, res) => {
   try {
     const data = { ...req.body };
     if (req.file) {
-      data.image = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+      data.image = req.file.path;
     }
     if (typeof data.sizes === 'string') {
       try { data.sizes = JSON.parse(data.sizes); } catch(e){}
@@ -159,7 +159,7 @@ exports.updateItem = async (req, res) => {
   try {
     const data = { ...req.body };
     if (req.file) {
-      data.image = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+      data.image = req.file.path;
     }
     if (typeof data.sizes === 'string') {
       try { data.sizes = JSON.parse(data.sizes); } catch(e){}

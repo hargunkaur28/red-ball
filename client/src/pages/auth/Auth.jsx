@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import { toast } from 'sonner';
 
@@ -498,14 +498,14 @@ body { background: #080808; }
 `;
 
 export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [isLogin, setIsLogin] = useState(searchParams.get('mode') !== 'register');
   const [showPassword, setShowPassword] = useState(false);
   const [showDemo, setShowDemo] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
   const [errors, setErrors] = useState({});
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get('redirectTo');
   const { login, register, googleAuth, getRedirectPath } = useAuthStore();
 
@@ -648,7 +648,7 @@ export default function Auth() {
               />
             ))}
 
-            <div className="rb-logo">RB</div>
+            <Link to="/" className="rb-logo hover:scale-105 transition-transform duration-200" title="Back to Home">RB</Link>
 
             <div className="brand-content">
               <AnimatePresence mode="wait">

@@ -59,7 +59,7 @@ export default function FacilityRentals() {
 
           <Link
             to={isAuthenticated ? '/user/book-slots' : '/book-slots'}
-            className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full font-bold text-sm uppercase tracking-wider text-white transition-all duration-200 hover:gap-3 shrink-0 group"
+            className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full font-bold text-sm uppercase tracking-wider text-white transition-all duration-200 hover:gap-3 shrink-0 group"
             style={{
               background: '#C8102E',
               boxShadow: '0 6px 20px rgba(200,16,46,0.25)',
@@ -81,7 +81,7 @@ export default function FacilityRentals() {
             viewport={{ once: true, amount: 0.1 }}
             transition={{ duration: 0.6, delay: 0.1 }}
           >
-            <SportsCarousel sports={sports} linkPrefix="/sports" showArrows />
+            <SportsCarousel sports={sports} linkPrefix="/sports" showArrows isMarquee={true} />
           </motion.div>
         )}
 
@@ -117,7 +117,7 @@ export default function FacilityRentals() {
             </p>
           </div>
           <Link
-            to="/buy-membership"
+            to={isAuthenticated ? '/user/book-slots/all-services' : '/book-slots/all-services'}
             className="px-6 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wider transition-colors shrink-0 whitespace-nowrap"
             style={{
               background: 'rgba(245,166,35,0.1)',

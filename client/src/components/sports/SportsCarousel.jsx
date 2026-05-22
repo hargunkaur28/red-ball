@@ -1,22 +1,59 @@
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import SportCard from './SportCard';
 
 const SCROLL_AMOUNT = 320;
 
-export default function SportsCarousel({ sports = [], linkPrefix = '/sports', showArrows = true }) {
+export default function SportsCarousel({ sports = [], linkPrefix = '/sports', showArrows = true, isMarquee = false }) {
   const scrollRef = useRef(null);
+  const [isHovered, setIsHovered] = useState(false);
+  const scrollPosRef = useRef(0);
+
+  useEffect(() => {
+    if (!isMarquee) return;
+    let animationId;
+
+    const autoScroll = () => {
+      if (scrollRef.current && !isHovered) {
+        scrollPosRef.current += 1.0; // Speed of marquee
+        const { scrollWidth, clientWidth } = scrollRef.current;
+        
+        // Loop back smoothly if reached the end
+        if (scrollPosRef.current >= scrollWidth - clientWidth) {
+          scrollPosRef.current = 0;
+        }
+        scrollRef.current.scrollLeft = scrollPosRef.current;
+      } else if (scrollRef.current && isHovered) {
+        // Sync ref with actual scroll position when hovered so it resumes from where user scrolled
+        scrollPosRef.current = scrollRef.current.scrollLeft;
+      }
+      animationId = requestAnimationFrame(autoScroll);
+    };
+
+    animationId = requestAnimationFrame(autoScroll);
+    return () => cancelAnimationFrame(animationId);
+  }, [isHovered]);
 
   const scroll = (dir) => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollBy({ left: dir * SCROLL_AMOUNT, behavior: 'smooth' });
+    setTimeout(() => {
+      if (scrollRef.current) scrollPosRef.current = scrollRef.current.scrollLeft;
+    }, 500);
   };
 
   if (!sports.length) return null;
+  const displaySports = isMarquee ? [...sports, ...sports, ...sports] : sports;
 
   return (
-    <div className="relative group/carousel">
+    <div 
+      className="relative group/carousel"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onTouchStart={() => setIsHovered(true)}
+      onTouchEnd={() => setIsHovered(false)}
+    >
       {/* Left arrow */}
       {showArrows && (
         <button
@@ -33,7 +70,7 @@ export default function SportsCarousel({ sports = [], linkPrefix = '/sports', sh
         ref={scrollRef}
         className="flex gap-5 overflow-x-auto pb-4 pt-2 px-1"
         style={{
-          scrollSnapType: 'x mandatory',
+          scrollSnapType: isMarquee ? 'none' : 'x mandatory',
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
           WebkitOverflowScrolling: 'touch',
@@ -42,15 +79,15 @@ export default function SportsCarousel({ sports = [], linkPrefix = '/sports', sh
         <style>{`
           .sports-scroll::-webkit-scrollbar { display: none; }
         `}</style>
-        {sports.map((sport, i) => (
+        {displaySports.map((sport, i) => (
           <motion.div
-            key={sport._id}
+            key={`${sport._id}-${i}`}
             initial={{ opacity: 0, x: 30 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true, amount: 0.2 }}
-            transition={{ duration: 0.45, delay: i * 0.07, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.45, delay: isMarquee ? 0 : i * 0.07, ease: [0.22, 1, 0.36, 1] }}
             className="shrink-0 w-[85vw] max-w-[280px] sm:w-auto"
-            style={{ scrollSnapAlign: 'start' }}
+            style={{ scrollSnapAlign: isMarquee ? 'none' : 'start' }}
           >
             <SportCard sport={sport} linkPrefix={linkPrefix} />
           </motion.div>
