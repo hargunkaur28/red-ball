@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronDown, ArrowRight, ScanLine } from 'lucide-react';
+import { ChevronDown, ArrowRight, ScanLine, Dumbbell, Trophy, Feather, Target, Layers } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/axios';
 import useAuthStore from '../../store/authStore';
@@ -15,6 +15,16 @@ const heroImages = [
 ];
 
 export default function HeroSection() {
+  const getSportIcon = (name) => {
+    const n = name.toLowerCase();
+    if (n.includes('gym') || n.includes('fitness')) return <Dumbbell size={22} className="text-[#F5A623]" />;
+    if (n.includes('badminton')) return <Feather size={22} className="text-[#0EA5E9]" />;
+    if (n.includes('cricket')) return <Target size={22} className="text-[#C8102E]" />;
+    if (n.includes('pickleball')) return <Trophy size={22} className="text-[#10B981]" />;
+    if (n.includes('all')) return <Layers size={22} className="text-[#8B5CF6]" />;
+    return <Trophy size={22} className="text-[#F5A623]" />;
+  };
+
   const { isAuthenticated, user } = useAuthStore();
   const [wordIndex, setWordIndex] = useState(0);
   const [animClass, setAnimClass] = useState('word-enter');
@@ -209,7 +219,7 @@ export default function HeroSection() {
               >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl shadow-inner shadow-white/5">
-                    {sport.icon || '🏅'}
+                    {getSportIcon(sport.name)}
                   </div>
                   <div>
                     <h3 className="text-white font-bold text-lg leading-tight group-hover:text-[#F5A623] transition-colors">{sport.name}</h3>
