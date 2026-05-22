@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,22 +10,67 @@ import useAuthStore from '../../store/authStore';
 import { formatCurrency, calcGST } from '../../lib/utils';
 import { toast } from 'sonner';
 
-export default function TablePortal() {
+export default function TablePortal({ embedded = false }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [scanning, setScanning] = useState(false);
   const { items, addItem, updateQuantity, getSubtotal, clearCart } = useCartStore();
   const { user, isAuthenticated, googleAuth } = useAuthStore();
-  const googleButtonRef = useRef(null);
+  const googleButtonRef = useCallback((node) => {
+    if (!node) return;
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) return;
+
+    const renderGoogleButton = () => {
+      if (!window.google?.accounts?.id || !node) return;
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async ({ credential }) => {
+          if (!credential) return;
+          try {
+            await googleAuth(credential);
+            toast.success('Signed in with Google.');
+          } catch (err) {
+            toast.error(err.response?.data?.message || 'Google sign-in failed');
+          }
+        },
+      });
+      node.innerHTML = '';
+      window.google.accounts.id.renderButton(node, {
+        theme: 'outline',
+        size: 'large',
+        type: 'standard',
+        width: node.offsetWidth || 320,
+      });
+    };
+
+    if (window.google?.accounts?.id) {
+      renderGoogleButton();
+    } else {
+      const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+      if (existing) {
+        existing.addEventListener('load', renderGoogleButton);
+      } else {
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = renderGoogleButton;
+        document.body.appendChild(script);
+      }
+    }
+  }, [googleAuth]);
   
   const [orderType, setOrderType] = useState('pickup');
   const [customer, setCustomer] = useState({ name: '', phone: '', address: '', lat: '', lng: '' });
-  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [paymentMethod, setPaymentMethod] = useState('razorpay');
   const [selectedTable, setSelectedTable] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [scriptLoaded, setScriptLoaded] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [showCartNotif, setShowCartNotif] = useState(false);
 
   const qc = useQueryClient();
 
@@ -44,46 +89,7 @@ export default function TablePortal() {
     return () => document.body.removeChild(script);
   }, []);
 
-  useEffect(() => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (!clientId || !googleButtonRef.current) return;
 
-    const initializeGoogle = () => {
-      if (!window.google?.accounts?.id || !googleButtonRef.current) return;
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: async ({ credential }) => {
-          if (!credential) return;
-          try {
-            await googleAuth(credential);
-            toast.success('Signed in with Google.');
-          } catch (err) {
-            toast.error(err.response?.data?.message || 'Google sign-in failed');
-          }
-        },
-      });
-      googleButtonRef.current.innerHTML = '';
-      window.google.accounts.id.renderButton(googleButtonRef.current, {
-        theme: 'outline',
-        size: 'large',
-        type: 'standard',
-        width: googleButtonRef.current.offsetWidth || 320,
-      });
-    };
-
-    if (window.google?.accounts?.id) {
-      initializeGoogle();
-      return;
-    }
-
-    const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
-    const script = existing || document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    script.onload = initializeGoogle;
-    if (!existing) document.body.appendChild(script);
-  }, [googleAuth]);
 
   const { data: menuData } = useQuery({ 
     queryKey: ['menu'], 
@@ -253,7 +259,7 @@ export default function TablePortal() {
                 paymentMethod,
                 paymentStatus: 'paid', // Mark as paid!
                 tableId: orderType === 'table' ? selectedTable : undefined,
-                customerId: user?._id,
+                customerId: user?.id,
                 razorpayPaymentId: response.razorpay_payment_id,
                 razorpayOrderId: response.razorpay_order_id,
                 razorpaySignature: response.razorpay_signature,
@@ -308,7 +314,7 @@ export default function TablePortal() {
         paymentMethod,
         paymentStatus: 'pending',
         tableId: orderType === 'table' ? selectedTable : undefined,
-        customerId: user?._id,
+        customerId: user?.id,
       });
       
       clearCart();
@@ -322,13 +328,14 @@ export default function TablePortal() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0D0D0D] text-white flex flex-col justify-between p-6 md:p-12 relative overflow-hidden" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div className={`${embedded ? 'min-h-0 sm:min-h-[600px] rounded-xl sm:rounded-3xl mb-0 sm:mb-8 p-0 sm:p-4 md:p-6' : 'min-h-screen p-3 sm:p-6 md:p-12'} bg-[#0D0D0D] text-white flex flex-col justify-between relative overflow-hidden`} style={{ fontFamily: "'DM Sans', sans-serif" }}>
       {/* Background Lighting decor */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#C8102E]/15 rounded-full blur-[140px] pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#F5A623]/10 rounded-full blur-[150px] pointer-events-none" />
 
       {/* Header */}
-      <header className="max-w-6xl mx-auto w-full flex items-center justify-between z-10 mb-12 px-4">
+      <header className={`${embedded ? 'relative mb-4 sm:mb-6 rounded-xl sm:rounded-2xl border border-white/5 bg-[#161616]' : 'fixed top-0 left-0 right-0 rounded-none bg-[#0A0D0D] border-b border-white/5'} flex flex-col sm:flex-row items-center justify-between z-40 px-3 sm:px-4 gap-4 sm:gap-0 py-3 sm:py-3`}>
+        <div className="max-w-6xl mx-auto w-full flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-[#C8102E] text-white rounded-2xl flex items-center justify-center font-black text-xl tracking-tighter shadow-lg">
             RB
@@ -343,31 +350,33 @@ export default function TablePortal() {
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 mt-2 sm:mt-0 flex-wrap sm:flex-nowrap justify-center sm:justify-end">
           <button 
             onClick={() => setOrdersOpen(true)} 
-            className="p-2 sm:px-4 sm:py-2 rounded-xl bg-[#1A1A1A] hover:bg-[#252525] text-[#F5A623] text-[10px] sm:text-xs font-extrabold flex items-center gap-1.5 shadow-lg transition-all border border-white/5 uppercase tracking-wider relative"
+            className="p-1.5 sm:p-2 sm:px-4 sm:py-2 rounded-xl bg-[#1A1A1A] hover:bg-[#252525] text-[#F5A623] text-[9px] sm:text-xs font-extrabold flex items-center gap-1 sm:gap-1.5 shadow-lg transition-all border border-white/5 uppercase tracking-wider relative"
           >
-            <Clock size={16} />
             <span className="hidden sm:inline">My Orders</span>
+            <Clock size={14} className="sm:hidden" />
+            <Clock size={16} className="hidden sm:inline" />
           </button>
 
           <button 
             onClick={() => setCartOpen(true)} 
-            className="px-4 py-2 rounded-xl bg-[#C8102E] hover:bg-[#A00D24] text-white text-xs font-extrabold flex items-center gap-1.5 shadow-lg transition-all border border-white/10"
+            className="px-3 sm:px-4 py-2 rounded-xl bg-[#C8102E] hover:bg-[#A00D24] text-white text-[10px] sm:text-xs font-extrabold flex items-center gap-1 sm:gap-1.5 shadow-lg transition-all border border-white/10"
           >
             <ShoppingBag size={16} />
             <span>Cart ({items.length})</span>
           </button>
           
-          <button onClick={() => navigate('/')} className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-xs font-bold transition-all">
+          <button onClick={() => navigate('/')} className="px-3 sm:px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-[10px] sm:text-xs font-bold transition-all">
             ← Back Home
           </button>
+        </div>
         </div>
       </header>
 
       {/* Main Container */}
-      <main className="max-w-6xl mx-auto w-full px-4 z-10 grow my-auto py-8">
+      <main className={`max-w-6xl mx-auto w-full px-2 sm:px-4 z-10 grow my-auto py-4 sm:py-8 ${embedded ? 'mt-0' : 'mt-16 sm:mt-16'}`}>
         
         {/* Hero Section */}
         <div className="mb-8">
@@ -400,7 +409,7 @@ export default function TablePortal() {
         </div>
 
         {/* Menu Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4 lg:gap-6 w-full">
           {menuItems
             .filter(item => selectedCategory === 'All' || item.category === selectedCategory)
             .map(item => {
@@ -421,7 +430,7 @@ export default function TablePortal() {
                       {/* Clickable Area */}
                       <div className="flex-1 flex flex-col">
                         {/* Immersive Image Header */}
-                        <div className="relative h-48 overflow-hidden bg-gradient-to-br from-[#161616] to-[#2D1215]">
+                        <div className="relative aspect-square sm:h-48 overflow-hidden bg-gradient-to-br from-[#161616] to-[#2D1215] cursor-pointer sm:cursor-auto" onClick={() => setSelectedItem(item)}>
                           <img 
                             src={item.image} 
                             alt={item.name} 
@@ -468,18 +477,18 @@ export default function TablePortal() {
                           <div>
                             {/* Nutrition stats strip */}
                             {(item.protein || item.calories) && (
-                              <div className="text-[#F5A623] font-bold text-xs tracking-wider mb-2 flex items-center gap-2">
+                              <div className="hidden sm:flex text-[#F5A623] font-bold text-xs tracking-wider mb-2 items-center gap-2">
                                 {item.protein && <span>⚡ {item.protein}g Protein</span>}
                                 {item.protein && item.calories && <span>•</span>}
                                 {item.calories && <span>{item.calories} kcal</span>}
                               </div>
                             )}
 
-                            <h3 className="text-sm sm:text-lg font-bold text-white tracking-wide mb-1 line-clamp-1 group-hover:text-[#F5A623] transition-colors">
+                            <h3 className="text-sm sm:text-lg font-bold text-white tracking-wide mb-1 sm:line-clamp-1 group-hover:text-[#F5A623] transition-colors">
                               {item.name}
                             </h3>
 
-                            <p className="text-gray-200 text-xs leading-relaxed mb-3 min-h-[32px]">
+                            <p className="hidden sm:block text-gray-200 text-xs leading-relaxed mb-3 min-h-[32px]">
                               {item.description}
                             </p>
                           </div>
@@ -489,12 +498,12 @@ export default function TablePortal() {
                       {/* Quantity & CTA Action Bar */}
                       <div className="p-4 pt-0">
                         <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                          <div className="flex items-center gap-1 text-[11px] text-gray-500">
+                          <div className="hidden sm:flex items-center gap-1 text-[11px] text-gray-500">
                             <span>{item.preparationTime || 10} min prep</span>
                           </div>
 
                           {item.isAvailable && (
-                            <div>
+                            <div className="w-full sm:w-auto">
                               {qty > 0 ? (
                                 <div className="flex items-center gap-2 bg-black rounded-full p-1 border border-white/10 shadow-lg">
                                   <button 
@@ -515,9 +524,10 @@ export default function TablePortal() {
                                 <button 
                                   onClick={() => {
                                     addItem({ menuItemId: item._id, name: item.name, size: sizeLabel, price: price, quantity: 1 });
-                                    toast.success(`Added ${item.name} to cart`);
+                                    setShowCartNotif(true);
+                                    setTimeout(() => setShowCartNotif(false), 3000);
                                   }}
-                                  className="px-4 py-1.5 bg-[#C8102E] hover:bg-[#A60D25] text-white text-xs font-black tracking-widest uppercase rounded-full transition-colors"
+                                  className="w-full sm:px-4 px-4 py-1.5 bg-[#C8102E] hover:bg-[#A60D25] text-white text-xs font-black tracking-widest uppercase rounded-full transition-colors"
                                 >
                                   ADD +
                                 </button>
@@ -588,12 +598,12 @@ export default function TablePortal() {
                     <p className="text-xs text-white/50 mb-2 text-center">Sign in for a faster checkout</p>
                     
                     {import.meta.env.VITE_GOOGLE_CLIENT_ID ? (
-                      <div ref={googleButtonRef} className="w-full flex justify-center" />
+                      <div ref={googleButtonRef} className="w-full flex justify-center mt-3 mb-3" />
                     ) : (
                       <button 
                         type="button" 
                         onClick={() => toast.info('Google sign-in is not configured. Please set VITE_GOOGLE_CLIENT_ID in your .env file.')}
-                        className="w-full flex items-center justify-center gap-3 bg-white text-black font-medium py-2.5 px-4 rounded-xl hover:bg-white/90 transition-colors"
+                        className="w-full flex items-center justify-center gap-3 bg-white text-black font-medium py-2.5 px-4 rounded-xl hover:bg-white/90 transition-colors mt-3 mb-3"
                       >
                         <svg className="w-5 h-5" viewBox="0 0 24 24">
                           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -634,7 +644,6 @@ export default function TablePortal() {
                 )}
 
                 <select className="w-full bg-white/10 border border-[#F5A623]/40 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[#F5A623] shadow-[0_0_15px_rgba(245,166,35,0.15)] transition-all" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
-                  <option value="cash" className="bg-[#161616]">Cash / Pay at counter</option>
                   <option value="razorpay" className="bg-[#161616]">Pay Online (Razorpay)</option>
                 </select>
               </div>
@@ -731,8 +740,105 @@ export default function TablePortal() {
         )}
       </AnimatePresence>
 
+      {/* Item Details Modal for Mobile */}
+      <AnimatePresence>
+        {selectedItem && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 md:hidden" 
+              onClick={() => setSelectedItem(null)} 
+            />
+            <motion.div 
+              initial={{ y: '100%' }} 
+              animate={{ y: 0 }} 
+              exit={{ y: '100%' }} 
+              transition={{ type: "spring", damping: 26, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 z-50 bg-[#161616] rounded-t-3xl max-h-[80vh] overflow-y-auto shadow-2xl border-t border-white/10 md:hidden"
+            >
+              <div className="max-w-xl mx-auto p-6 text-white">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-bold">{selectedItem.name}</h2>
+                  <button onClick={() => setSelectedItem(null)} className="p-2 rounded-full bg-white/10 hover:bg-white/20">
+                    <X size={20} />
+                  </button>
+                </div>
+                
+                <div className="mb-4">
+                  <img src={selectedItem.image} alt={selectedItem.name} className="w-full aspect-square object-cover rounded-2xl mb-4" />
+                </div>
+
+                <div className="space-y-3 mb-6">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-3 py-1 rounded text-xs font-black tracking-wider text-white ${selectedItem.isVeg ? 'bg-green-600' : 'bg-red-600'}`}>
+                      {selectedItem.isVeg ? 'Veg' : 'Non-Veg'}
+                    </span>
+                    <span className="px-3 py-1 bg-[#C8102E] text-white rounded-full text-sm font-bold">
+                      {formatCurrency(selectedItem.sizes?.[0]?.price || selectedItem.price)}
+                    </span>
+                  </div>
+                  
+                  {(selectedItem.protein || selectedItem.calories) && (
+                    <div className="text-[#F5A623] font-bold text-sm flex items-center gap-2">
+                      {selectedItem.protein && <span>⚡ {selectedItem.protein}g Protein</span>}
+                      {selectedItem.protein && selectedItem.calories && <span>•</span>}
+                      {selectedItem.calories && <span>{selectedItem.calories} kcal</span>}
+                    </div>
+                  )}
+                  
+                  <p className="text-gray-300 text-sm leading-relaxed">
+                    {selectedItem.description}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Cart Notification */}
+      <AnimatePresence>
+        {showCartNotif && items.length > 0 && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ type: "spring", damping: 20, stiffness: 300 }}
+            className={`fixed ${embedded ? 'bottom-24 sm:bottom-6' : 'bottom-6'} left-1/2 transform -translate-x-1/2 z-40 bg-[#161616] border border-white/10 rounded-2xl shadow-2xl p-4 sm:p-5 max-w-[90vw] sm:max-w-sm w-full`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 flex-1">
+                <div className="w-12 h-12 bg-gradient-to-br from-[#C8102E] to-[#A60D25] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <ShoppingBag size={20} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white">Added to Cart</p>
+                  <p className="text-xs text-gray-400 truncate">{items.length} item{items.length !== 1 ? 's' : ''} • {formatCurrency(getSubtotal())}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => setCartOpen(true)}
+                  className="px-3 py-1.5 bg-[#C8102E] hover:bg-[#A60D25] text-white text-xs font-bold rounded-lg transition-all"
+                >
+                  Cart
+                </button>
+                <button
+                  onClick={() => setShowCartNotif(false)}
+                  className="p-1.5 hover:bg-white/10 rounded-lg transition-all"
+                >
+                  <X size={16} className="text-gray-400" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Footer info */}
-      <footer className="max-w-4xl mx-auto w-full text-center text-xs text-gray-600 border-t border-white/5 pt-6 z-10">
+      <footer className="max-w-6xl mx-auto w-full text-center text-[10px] sm:text-xs text-gray-600 border-t border-white/5 pt-4 sm:pt-6 z-10">
         Red Ball Cricket Academy © {new Date().getFullYear()} • Secure Digital Table Ordering System
       </footer>
     </div>

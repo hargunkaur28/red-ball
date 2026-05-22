@@ -6,6 +6,9 @@ const Attendance = require('../models/Attendance');
 const { calculateGST } = require('../utils/gstCalculator');
 const { getDurationMs } = require('../utils/dateUtils');
 const { verifyPaymentSignature } = require('../config/razorpay');
+const { DEFAULT_ALLOWED_DURATION_MINUTES } = require('../utils/sessionCalculator');
+const { invalidateEntitlementCache, calculateEntitlement, validateCheckIn } = require('../utils/entitlementEngine');
+const { getEffectiveConfig } = require('../utils/sessionCalculator');
 
 // GET /api/plans
 exports.getPlans = async (req, res) => {
@@ -51,11 +54,15 @@ exports.deletePlan = async (req, res) => {
 // GET /api/memberships/:studentId
 exports.getStudentMembership = async (req, res) => {
   try {
-    const membership = await Membership.findOne({ studentId: req.params.studentId })
+    const memberships = await Membership.find({ studentId: req.params.studentId })
       .populate('planId')
       .populate('paymentId')
       .sort({ createdAt: -1 });
-    res.json({ membership });
+    
+    res.json({ 
+      membership: memberships[0] || null, // For backward compatibility
+      memberships: memberships 
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error.' });
   }
@@ -95,6 +102,8 @@ exports.assignMembership = async (req, res) => {
       status: isPaidNow ? 'active' : 'pending',
       paymentId: payment._id,
     });
+
+    invalidateEntitlementCache(studentId);
 
     res.status(201).json({ membership, payment });
   } catch (error) {
@@ -168,6 +177,8 @@ exports.renewMembership = async (req, res) => {
       await membership.save();
     }
 
+    invalidateEntitlementCache(membership.studentId);
+
     const io = req.app.get('io');
     if (io) io.emit('dashboard:refresh');
 
@@ -186,6 +197,8 @@ exports.freezeMembership = async (req, res) => {
     membership.status = 'frozen';
     membership.frozenAt = new Date();
     await membership.save();
+
+    invalidateEntitlementCache(membership.studentId);
 
     res.json({ membership });
   } catch (error) {
@@ -208,6 +221,8 @@ exports.unfreezeMembership = async (req, res) => {
     membership.status = 'active';
     membership.frozenAt = null;
     await membership.save();
+
+    invalidateEntitlementCache(membership.studentId);
 
     res.json({ membership });
   } catch (error) {
@@ -261,28 +276,20 @@ exports.validateMembershipQR = async (req, res) => {
       });
     }
 
-    // Check if already checked in recently (e.g. within last 2 hours without checkout)
-    const recentAttendance = await Attendance.findOne({
+    const entitlement = await calculateEntitlement(membership.studentId._id);
+    const activeSessions = await Attendance.find({
       userId: membership.studentId._id,
-      date: {
-        $gte: new Date(new Date().setHours(0, 0, 0, 0)),
-      },
-      checkOutTime: null
-    }).sort({ createdAt: -1 });
-
-    if (recentAttendance) {
-      return res.status(400).json({
-        message: 'Already checked in today!',
-        membership,
-        alreadyCheckedIn: true
-      });
-    }
+      checkOutTime: null,
+      sessionStatus: 'Active'
+    }).sort({ checkInTime: -1 });
 
     res.json({
       valid: true,
       membership,
       student: membership.studentId,
-      plan: membership.planId
+      plan: membership.planId,
+      entitlement,
+      activeSessions
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error validating QR', error: error.message });
@@ -311,16 +318,29 @@ exports.checkInMembership = async (req, res) => {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(today);
-    endOfDay.setHours(23, 59, 59, 999);
-    const existing = await Attendance.findOne({
-      userId: membership.studentId._id,
-      date: { $gte: today, $lte: endOfDay },
-      checkOutTime: null,
-    });
-    if (existing) {
-      return res.status(409).json({ message: 'Already checked in. Duplicate scan blocked.', attendance: existing });
+
+    const entitlement = await calculateEntitlement(membership.studentId._id);
+    if (entitlement.entitlementType === 'none') {
+      return res.status(400).json({ message: 'No active entitlement found.' });
     }
+
+    // Determine sport to check into
+    const sportToUse = req.body.sport || (entitlement.allowedSports.length > 0 ? entitlement.allowedSports[0] : null);
+
+    if (sportToUse) {
+      const validation = await validateCheckIn(membership.studentId._id, sportToUse);
+      if (!validation.allowed) {
+        return res.status(409).json({ message: validation.reason, attendance: validation.activeSessions[0] });
+      }
+    } else {
+      // Fallback for weird edge cases
+      const activeSessions = await Attendance.find({ userId: membership.studentId._id, checkOutTime: null, sessionStatus: 'Active' });
+      if (entitlement.concurrentSessionLimit !== null && activeSessions.length >= entitlement.concurrentSessionLimit) {
+        return res.status(409).json({ message: 'Already checked in. Duplicate scan blocked.', attendance: activeSessions[0] });
+      }
+    }
+
+    const config = await getEffectiveConfig(sportToUse);
 
     // Create attendance record
     const attendance = await Attendance.create({
@@ -328,8 +348,16 @@ exports.checkInMembership = async (req, res) => {
       date: today,
       checkInTime: new Date(),
       status: 'present',
+      sessionStatus: 'Active',
+      allowedDurationMinutes: config.allowedDurationMinutes,
+      feeCollectionStatus: 'Not Applicable',
       checkInMethod: 'membership-id',
-      sport: membership.planId?.sportsIncluded?.join(', '),
+      sport: sportToUse || membership.planId?.sportsIncluded?.join(', '),
+      entitlementType: entitlement.entitlementType,
+      currentSessionConfig: config,
+      configVersionSnapshot: config.configVersion || 1,
+      sportNameSnapshot: sportToUse || membership.planId?.sportsIncluded?.join(', '),
+      membershipPlanSnapshot: membership.planId?.name,
       relatedBookingId: membership._id,
       relatedBookingType: 'membership',
     });

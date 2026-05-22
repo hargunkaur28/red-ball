@@ -162,7 +162,7 @@ export default function TableOrder() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [specialInstructions, setSpecialInstructions] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('cash'); // 'cash' (Pay at table) vs 'online' (Razorpay/UPI)
+  const [paymentMethod, setPaymentMethod] = useState('online'); // 'online' (Razorpay/UPI)
 
   useEffect(() => { setTableId(tableId); }, [tableId, setTableId]);
 
@@ -891,45 +891,7 @@ export default function TableOrder() {
 
                 {/* Payment Mode Selection */}
                 <div className="space-y-3 mb-6 border-t border-white/10 pt-5 text-left">
-                  <h3 className="font-black text-xs text-white uppercase tracking-widest">Choose Payment Mode</h3>
-                  
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('cash')}
-                      className={`p-4 rounded-2xl border-2 text-left transition-all ${
-                        paymentMethod === 'cash' 
-                          ? 'border-[#C8102E] bg-red-950/20 shadow-lg' 
-                          : 'border-white/10 bg-black/50 hover:bg-black'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-extrabold text-xs text-white">Pay at Table</span>
-                        <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'cash' ? 'border-[#C8102E] bg-[#C8102E]' : 'border-gray-600'}`}>
-                          {paymentMethod === 'cash' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-gray-400 leading-tight">Pay waiter via cash or card terminal.</p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('online')}
-                      className={`p-4 rounded-2xl border-2 text-left transition-all ${
-                        paymentMethod === 'online' 
-                          ? 'border-[#F5A623] bg-amber-950/20 shadow-lg' 
-                          : 'border-white/10 bg-black/50 hover:bg-black'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-extrabold text-xs text-white">UPI / Razorpay</span>
-                        <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'online' ? 'border-[#F5A623] bg-[#F5A623]' : 'border-gray-600'}`}>
-                          {paymentMethod === 'online' && <span className="w-1.5 h-1.5 rounded-full bg-black" />}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-gray-400 leading-tight">Instant checkout via GPay, PhonePe, Paytm.</p>
-                    </button>
-                  </div>
+                  <p className="text-[10px] text-[#F5A623] leading-tight font-bold uppercase tracking-widest">⚡ Secure Online Payment via Razorpay/UPI</p>
                 </div>
 
                 {/* Submit Order Button */}

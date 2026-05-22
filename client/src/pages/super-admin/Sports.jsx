@@ -1,0 +1,1014 @@
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Plus,
+  Pencil,
+  Power,
+  Archive,
+  X,
+  Trophy,
+  DollarSign,
+  Users,
+  Loader2,
+  AlertTriangle,
+  QrCode,
+  RefreshCw,
+  Download,
+  Settings
+} from 'lucide-react';
+import api from '../../lib/axios';
+import { formatCurrency } from '../../lib/utils';
+import { toast } from 'sonner';
+import PageHeader from '../../components/shared/PageHeader';
+
+// ---------------------------------------------------------------------------
+// Filter tabs
+// ---------------------------------------------------------------------------
+const FILTER_TABS = [
+  { key: 'active', label: 'Active' },
+  { key: 'archived', label: 'Archived' },
+  { key: 'all', label: 'All' },
+];
+
+// ---------------------------------------------------------------------------
+// Skeleton card for loading state
+// ---------------------------------------------------------------------------
+function SkeletonCard() {
+  return (
+    <div className="card overflow-hidden animate-pulse">
+      <div className="p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="skeleton h-7 w-40 rounded" />
+          <div className="skeleton h-6 w-16 rounded-full" />
+        </div>
+        <div className="skeleton h-4 w-56 rounded" />
+        <div className="skeleton h-4 w-32 rounded" />
+        <div className="flex gap-2 pt-2">
+          <div className="skeleton h-9 w-9 rounded-lg" />
+          <div className="skeleton h-9 w-9 rounded-lg" />
+          <div className="skeleton h-9 w-9 rounded-lg" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+export default function Sports() {
+  const qc = useQueryClient();
+  const [filter, setFilter] = useState('active');
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingSport, setEditingSport] = useState(null);
+  const [confirmModal, setConfirmModal] = useState(null); // { sportId, action, message, stats }
+  const [qrModal, setQrModal] = useState(null); // sport object with qrCodeDataUrl
+  const [sessionConfigModal, setSessionConfigModal] = useState(null); // sport object
+  const [regenerateConfirm, setRegenerateConfirm] = useState(false);
+
+  // ---- Fetch sports -------------------------------------------------------
+  const { data: sports = [], isLoading } = useQuery({
+    queryKey: ['sports', filter],
+    queryFn: async () => {
+      const params =
+        filter === 'all'
+          ? { includeArchived: true }
+          : filter === 'archived'
+          ? { includeArchived: true }
+          : {};
+      const res = await api.get('/sports', { params });
+      const list = res.data.sports ?? res.data;
+      if (filter === 'archived') return list.filter((s) => !!s.deletedAt);
+      if (filter === 'active') return list.filter((s) => !s.deletedAt);
+      return list;
+    },
+  });
+
+  // ---- Create mutation ----------------------------------------------------
+  const createMutation = useMutation({
+    mutationFn: (payload) => api.post('/sports', payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sports'] });
+      toast.success('Sport created successfully');
+      closeDrawer();
+    },
+    onError: (err) =>
+      toast.error(err.response?.data?.message || 'Failed to create sport'),
+  });
+
+  // ---- Update mutation ----------------------------------------------------
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => api.put(`/sports/${id}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sports'] });
+      toast.success('Sport updated successfully');
+      closeDrawer();
+    },
+    onError: (err) =>
+      toast.error(err.response?.data?.message || 'Failed to update sport'),
+  });
+
+  // ---- Toggle active mutation (optimistic) --------------------------------
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, forceDeactivate }) =>
+      api.patch(`/sports/${id}/toggle`, forceDeactivate ? { forceDeactivate: true } : {}),
+    onMutate: async ({ id }) => {
+      await qc.cancelQueries({ queryKey: ['sports'] });
+      const previousQueries = qc.getQueriesData({ queryKey: ['sports'] });
+      qc.setQueriesData({ queryKey: ['sports'] }, (old) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((s) =>
+          s._id === id ? { ...s, active: !s.active } : s
+        );
+      });
+      return { previousQueries };
+    },
+    onError: (err, variables, context) => {
+      // Rollback optimistic update
+      context?.previousQueries?.forEach(([key, data]) => {
+        qc.setQueryData(key, data);
+      });
+      // Check for confirmation-required error
+      if (err.response?.status === 409 && err.response?.data?.error === 'CONFIRMATION_REQUIRED') {
+        setConfirmModal({
+          sportId: variables.id,
+          action: 'toggle',
+          message: err.response.data.message,
+          stats: err.response.data.stats,
+        });
+        return;
+      }
+      toast.error(err.response?.data?.message || 'Failed to toggle sport');
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sports'] });
+      toast.success('Sport status updated');
+    },
+  });
+
+  // ---- Archive / soft-delete mutation -------------------------------------
+  const archiveMutation = useMutation({
+    mutationFn: ({ id, forceDeactivate }) =>
+      api.delete(`/sports/${id}${forceDeactivate ? '?forceDeactivate=true' : ''}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sports'] });
+      toast.success('Sport archived successfully');
+    },
+    onError: (err, variables) => {
+      if (err.response?.status === 409 && err.response?.data?.error === 'CONFIRMATION_REQUIRED') {
+        setConfirmModal({
+          sportId: variables.id,
+          action: 'archive',
+          message: err.response.data.message,
+          stats: err.response.data.stats,
+        });
+        return;
+      }
+      toast.error(err.response?.data?.message || 'Failed to archive sport');
+    },
+  });
+
+  // ---- Regenerate QR mutation ----------------------------------------------
+  const regenerateQRMutation = useMutation({
+    mutationFn: (id) => api.post(`/sports/${id}/regenerate-qr`),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['sports'] });
+      setQrModal(res.data.sport);
+      setRegenerateConfirm(false);
+      toast.success('QR code regenerated! Old QR codes are now invalid.');
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to regenerate QR'),
+  });
+
+  // ---- Helpers ------------------------------------------------------------
+  function closeDrawer() {
+    setDrawerOpen(false);
+    setTimeout(() => setEditingSport(null), 300);
+  }
+
+  function openCreate() {
+    setEditingSport(null);
+    setDrawerOpen(true);
+  }
+
+  function openEdit(sport) {
+    setEditingSport(sport);
+    setDrawerOpen(true);
+  }
+
+  function handleConfirmProceed() {
+    if (!confirmModal) return;
+    const { sportId, action } = confirmModal;
+    if (action === 'toggle') {
+      toggleMutation.mutate({ id: sportId, forceDeactivate: true });
+    } else if (action === 'archive') {
+      archiveMutation.mutate({ id: sportId, forceDeactivate: true });
+    }
+    setConfirmModal(null);
+  }
+
+  // ---- Drawer form submit -------------------------------------------------
+  function handleFormSubmit(e) {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const payload = {
+      name: fd.get('name'),
+      hourlyPrice: Number(fd.get('hourlyPrice')),
+      dayPrice: fd.get('dayPrice') ? Number(fd.get('dayPrice')) : null,
+      oneMonthPrice: fd.get('price1Month') ? Number(fd.get('price1Month')) : null,
+      threeMonthPrice: Number(fd.get('price3Month')),
+      sixMonthPrice: Number(fd.get('price6Month')),
+      twelveMonthPrice: Number(fd.get('price12Month')),
+      active: fd.get('isActive') === 'on',
+    };
+
+    if (editingSport) {
+      updateMutation.mutate({ id: editingSport._id, data: payload });
+    } else {
+      createMutation.mutate(payload);
+    }
+  }
+
+  // ---- Computed ------------------------------------------------------------
+  const isMutating = createMutation.isPending || updateMutation.isPending;
+
+  // ========================================================================
+  // RENDER
+  // ========================================================================
+  return (
+    <div className="pb-24">
+      {/* Page header */}
+      <PageHeader
+        title="Sports Management"
+        subtitle="Create, edit & manage all sports offered at the academy"
+        action={
+          <button onClick={openCreate} className="btn-primary gap-2 h-11">
+            <Plus size={18} />
+            Create Sport
+          </button>
+        }
+      />
+
+      {/* Filter toggle bar */}
+      <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-8">
+        {FILTER_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setFilter(tab.key)}
+            className={`px-5 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+              filter === tab.key
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3].map((i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      ) : sports.length === 0 ? (
+        <EmptyState filter={filter} onCreateClick={openCreate} />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <AnimatePresence mode="popLayout">
+            {sports.map((sport) => (
+              <SportCard
+                key={sport._id}
+                sport={sport}
+                onEdit={() => openEdit(sport)}
+                onToggle={() => toggleMutation.mutate({ id: sport._id })}
+                onArchive={() => archiveMutation.mutate({ id: sport._id })}
+                onViewQR={() => setQrModal(sport)}
+                onConfig={() => setSessionConfigModal(sport)}
+                isToggling={toggleMutation.isPending}
+                isArchiving={archiveMutation.isPending}
+              />
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* Drawer */}
+      <AnimatePresence>
+        {drawerOpen && (
+          <SportDrawer
+            sport={editingSport}
+            onClose={closeDrawer}
+            onSubmit={handleFormSubmit}
+            isPending={isMutating}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Confirm modal */}
+      <AnimatePresence>
+        {confirmModal && (
+          <ConfirmModal
+            data={confirmModal}
+            onCancel={() => setConfirmModal(null)}
+            onConfirm={handleConfirmProceed}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* QR Code Modal */}
+      <AnimatePresence>
+        {qrModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            onClick={() => { setQrModal(null); setRegenerateConfirm(false); }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-bold text-gray-900">{qrModal.name} — QR Code</h3>
+                <button onClick={() => { setQrModal(null); setRegenerateConfirm(false); }} className="p-1 hover:bg-gray-100 rounded-lg">
+                  <X size={20} />
+                </button>
+              </div>
+
+              {qrModal.qrCodeDataUrl ? (
+                <div className="text-center">
+                  <img src={qrModal.qrCodeDataUrl} alt={`${qrModal.name} QR`} className="w-56 h-56 mx-auto rounded-lg mb-4" />
+                  <p className="text-xs text-gray-400 mb-6">Scan to enter {qrModal.name}</p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = qrModal.qrCodeDataUrl;
+                        link.download = `${qrModal.name.replace(/\s+/g, '_')}_QR.png`;
+                        link.click();
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-bold hover:bg-gray-700 transition-colors"
+                    >
+                      <Download size={16} /> Download
+                    </button>
+                    {!regenerateConfirm ? (
+                      <button
+                        onClick={() => setRegenerateConfirm(true)}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-200 text-red-600 text-sm font-bold hover:bg-red-50 transition-colors"
+                      >
+                        <RefreshCw size={16} /> Regenerate
+                      </button>
+                    ) : (
+                      <div className="flex-1 text-center">
+                        <p className="text-xs text-red-600 font-semibold mb-2">Old QR codes will stop working!</p>
+                        <button
+                          onClick={() => regenerateQRMutation.mutate(qrModal._id)}
+                          disabled={regenerateQRMutation.isPending}
+                          className="w-full px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors disabled:opacity-50"
+                        >
+                          {regenerateQRMutation.isPending ? 'Regenerating...' : 'Confirm Regenerate'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-400 text-sm">QR code unavailable</div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Session Config Modal */}
+      <AnimatePresence>
+        {sessionConfigModal && (
+          <SessionConfigModal
+            sport={sessionConfigModal}
+            onClose={() => setSessionConfigModal(null)}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ===========================================================================
+// Sport Card
+// ===========================================================================
+function SportCard({ sport, onEdit, onToggle, onArchive, onViewQR, onConfig }) {
+  const isActive = sport.active && !sport.deletedAt;
+  const isArchived = !!sport.deletedAt;
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.25 }}
+      className="card overflow-hidden hover:shadow-lg transition-shadow duration-200 group"
+    >
+      <div className="p-6">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
+              <Trophy size={20} className="text-gray-500" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 leading-tight">
+                {sport.name}
+              </h3>
+            </div>
+          </div>
+          <span
+            className={`badge ${
+              isArchived
+                ? 'badge-danger'
+                : isActive
+                ? 'badge-success'
+                : 'badge-warning'
+            }`}
+          >
+            {isArchived ? 'Archived' : isActive ? 'Active' : 'Inactive'}
+          </span>
+        </div>
+
+        {/* Pricing Grid */}
+        <div className="my-4 space-y-2">
+          <div className="flex items-center justify-between border-b border-gray-100 pb-2 mb-2">
+            <div className="text-xs font-semibold text-gray-500 flex items-center gap-1 font-[Inter]">
+              <DollarSign size={14} className="text-gray-400 shrink-0" />
+              Plans & Packages
+            </div>
+            <div className="text-xs text-gray-400 font-medium">All tiers</div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {/* Box 1: Hourly */}
+            <div className="bg-gray-50 p-2 rounded-lg text-center border border-gray-100/50 flex flex-col justify-center min-h-[52px]">
+              <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5 leading-none">Hourly</div>
+              <div className="text-xs font-bold text-gray-800 mt-1">
+                {sport.hourlyPrice ? formatCurrency(sport.hourlyPrice) : '—'}
+              </div>
+            </div>
+
+            {/* Box 2: Day Pass */}
+            <div className="bg-gray-50 p-2 rounded-lg text-center border border-gray-100/50 flex flex-col justify-center min-h-[52px]">
+              <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5 leading-none">Day</div>
+              <div className="text-xs font-bold text-gray-800 mt-1">
+                {sport.dayPrice != null ? formatCurrency(sport.dayPrice) : '—'}
+              </div>
+            </div>
+
+            {/* Box 3: 1 Month */}
+            <div className="bg-gray-50 p-2 rounded-lg text-center border border-gray-100/50 flex flex-col justify-center min-h-[52px]">
+              <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5 leading-none">1 Month</div>
+              <div className="text-xs font-bold text-gray-800 mt-1">
+                {sport.oneMonthPrice != null ? formatCurrency(sport.oneMonthPrice) : '—'}
+              </div>
+            </div>
+
+            {/* Box 4: 3 Months */}
+            <div className="bg-gray-50 p-2 rounded-lg text-center border border-gray-100/50 flex flex-col justify-center min-h-[52px]">
+              <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5 leading-none">3 Months</div>
+              <div className="text-xs font-bold text-gray-800 mt-1">
+                {formatCurrency(sport.threeMonthPrice ?? 0)}
+              </div>
+            </div>
+
+            {/* Box 5: 6 Months */}
+            <div className="bg-gray-50 p-2 rounded-lg text-center border border-gray-100/50 flex flex-col justify-center min-h-[52px]">
+              <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5 leading-none">6 Months</div>
+              <div className="text-xs font-bold text-gray-800 mt-1">
+                {formatCurrency(sport.sixMonthPrice ?? 0)}
+              </div>
+            </div>
+
+            {/* Box 6: 12 Months */}
+            <div className="bg-gray-50 p-2 rounded-lg text-center border border-gray-100/50 flex flex-col justify-center min-h-[52px]">
+              <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5 leading-none">12 Months</div>
+              <div className="text-xs font-bold text-gray-800 mt-1">
+                {sport.twelveMonthPrice ? formatCurrency(sport.twelveMonthPrice) : '—'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Member count */}
+        <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-4 mt-2">
+          <Users size={13} className="text-gray-400 shrink-0" />
+          <span>
+            Active Subscriptions:{' '}
+            <span className="font-semibold text-gray-800">
+              {sport.memberCount ?? 0}
+            </span>
+          </span>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
+          <button
+            onClick={onEdit}
+            className="flex-1 min-w-[80px] flex items-center justify-center gap-1.5 p-2 rounded-lg bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors text-xs font-semibold"
+            title="Edit sport"
+          >
+            <Pencil size={14} /> Edit
+          </button>
+          <button
+            onClick={onToggle}
+            className={`flex-1 min-w-[80px] flex items-center justify-center gap-1.5 p-2 rounded-lg transition-colors text-xs font-semibold ${
+              isActive
+                ? 'bg-amber-50 text-amber-600 hover:bg-amber-100'
+                : 'bg-green-50 text-green-600 hover:bg-green-100'
+            }`}
+            title={isActive ? 'Deactivate' : 'Activate'}
+          >
+            <Power size={14} /> {isActive ? 'Disable' : 'Enable'}
+          </button>
+          <button
+            onClick={onViewQR}
+            className="flex-1 min-w-[80px] flex items-center justify-center gap-1.5 p-2 rounded-lg bg-violet-50 text-violet-600 hover:bg-violet-100 transition-colors text-xs font-semibold"
+            title="View QR Code"
+          >
+            <QrCode size={14} /> QR
+          </button>
+          <button
+            onClick={onConfig}
+            className="flex-1 min-w-[80px] flex items-center justify-center gap-1.5 p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-xs font-semibold"
+            title="Session Rules"
+          >
+            <Settings size={14} /> Rules
+          </button>
+          <button
+            onClick={onArchive}
+            className="flex-1 min-w-[80px] flex items-center justify-center gap-1.5 p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 transition-colors text-xs font-semibold"
+            title="Archive sport"
+          >
+            <Archive size={14} /> Archive
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ===========================================================================
+// Empty State
+// ===========================================================================
+function EmptyState({ filter, onCreateClick }) {
+  const isFiltered = filter !== 'active';
+
+  return (
+    <div className="flex flex-col items-center justify-center py-24 text-center">
+      <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-5">
+        <Trophy size={28} className="text-gray-400" />
+      </div>
+      <h3 className="text-lg font-semibold text-gray-800 mb-2">
+        {isFiltered && filter === 'archived'
+          ? 'No archived sports found'
+          : isFiltered
+          ? 'No sports match this filter'
+          : 'No sports created yet'}
+      </h3>
+      <p className="text-sm text-gray-500 max-w-sm mb-6">
+        {isFiltered
+          ? 'Try switching to a different filter to see sports.'
+          : 'Get started by creating your first sport. You can set pricing, manage memberships, and more.'}
+      </p>
+      {!isFiltered && (
+        <button onClick={onCreateClick} className="btn-primary gap-2">
+          <Plus size={18} /> Create Sport
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ===========================================================================
+// Slide-in Drawer
+// ===========================================================================
+function SportDrawer({ sport, onClose, onSubmit, isPending }) {
+  // Close on Escape
+  useEffect(() => {
+    function handleKey(e) {
+      if (e.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
+  const isEdit = !!sport;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      {/* Drawer panel */}
+      <motion.div
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+        className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-white shadow-2xl flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+          <h2 className="text-xl font-bold text-gray-900">
+            {isEdit ? 'Edit Sport' : 'Create Sport'}
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={onSubmit} className="flex-1 overflow-y-auto px-6 py-6">
+          <div className="space-y-5">
+            {/* Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Sport Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                name="name"
+                required
+                defaultValue={sport?.name}
+                className="input-field"
+                placeholder="e.g., Cricket"
+              />
+            </div>
+
+            {/* Hourly price */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Hourly Price <span className="text-red-500">*</span>
+              </label>
+              <input
+                name="hourlyPrice"
+                type="number"
+                min="0"
+                required
+                defaultValue={sport?.hourlyPrice}
+                className="input-field"
+                placeholder="₹"
+              />
+            </div>
+
+            {/* Day price */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Day Price
+              </label>
+              <input
+                name="dayPrice"
+                type="number"
+                min="0"
+                defaultValue={sport?.dayPrice ?? ''}
+                className="input-field"
+                placeholder="₹ (optional)"
+              />
+            </div>
+
+            {/* Monthly pricing grid */}
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-3">
+                Membership Pricing
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    1 Month
+                  </label>
+                  <input
+                    name="price1Month"
+                    type="number"
+                    min="0"
+                    defaultValue={sport?.oneMonthPrice ?? ''}
+                    className="input-field"
+                    placeholder="₹ (optional)"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    3 Months <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    name="price3Month"
+                    type="number"
+                    min="0"
+                    required
+                    defaultValue={sport?.threeMonthPrice}
+                    className="input-field"
+                    placeholder="₹"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    6 Months <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    name="price6Month"
+                    type="number"
+                    min="0"
+                    required
+                    defaultValue={sport?.sixMonthPrice}
+                    className="input-field"
+                    placeholder="₹"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    12 Months <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    name="price12Month"
+                    type="number"
+                    min="0"
+                    required
+                    defaultValue={sport?.twelveMonthPrice}
+                    className="input-field"
+                    placeholder="₹"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Active toggle */}
+            <div className="flex items-center justify-between py-3 border-t border-b border-gray-100">
+              <div>
+                <p className="text-sm font-medium text-gray-900">Active</p>
+                <p className="text-xs text-gray-500">
+                  Sport will be visible and available for bookings
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="isActive"
+                  defaultChecked={sport ? sport.active : true}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:ring-2 peer-focus:ring-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-900" />
+              </label>
+            </div>
+          </div>
+
+          {/* Submit / Cancel */}
+          <div className="flex items-center gap-3 pt-8">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-ghost flex-1 h-11"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isPending}
+              className="btn-primary flex-1 h-11 gap-2"
+            >
+              {isPending ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : isEdit ? (
+                'Save Changes'
+              ) : (
+                'Create Sport'
+              )}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </>
+  );
+}
+
+// ===========================================================================
+// Confirmation Modal
+// ===========================================================================
+function ConfirmModal({ data, onCancel, onConfirm }) {
+  return (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm"
+        onClick={onCancel}
+      />
+
+      {/* Modal */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="fixed inset-0 z-[61] flex items-center justify-center p-4"
+      >
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+          {/* Warning header */}
+          <div className="px-6 pt-6 pb-4 flex items-start gap-4">
+            <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+              <AlertTriangle size={24} className="text-amber-500" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 mb-1">
+                Confirmation Required
+              </h3>
+              <p className="text-sm text-gray-600">{data.message}</p>
+            </div>
+          </div>
+
+          {/* Stats */}
+          {data.stats && (
+            <div className="mx-6 p-4 bg-gray-50 rounded-xl mb-4">
+              <div className="grid grid-cols-2 gap-3">
+                {data.stats.activeMemberships != null && (
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-gray-900">
+                      {data.stats.activeMemberships}
+                    </p>
+                    <p className="text-xs text-gray-500">Active Memberships</p>
+                  </div>
+                )}
+                {data.stats.activeBookings != null && (
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-gray-900">
+                      {data.stats.activeBookings}
+                    </p>
+                    <p className="text-xs text-gray-500">Active Bookings</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex items-center gap-3 px-6 pb-6">
+            <button onClick={onCancel} className="btn-ghost flex-1 h-11">
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              className="flex-1 h-11 inline-flex items-center justify-center gap-2 bg-red-600 text-white font-medium rounded-3xl text-sm hover:bg-red-700 transition-colors cursor-pointer"
+            >
+              Proceed Anyway
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </>
+  );
+}
+
+// ===========================================================================
+// Session Config Modal
+// ===========================================================================
+function SessionConfigModal({ sport, onClose }) {
+  const qc = useQueryClient();
+
+  const { data: configs = [], isLoading } = useQuery({
+    queryKey: ['session-configs'],
+    queryFn: () => api.get('/session-config').then(r => r.data.data),
+  });
+
+  const sportConfig = configs.find(c => c.type === 'sport' && c.sportSlug === sport.slug) || {};
+  const globalConfig = configs.find(c => c.key === 'default') || {
+    allowedDurationMinutes: 75,
+    overtimeThresholdMinutes: 0,
+    lateFeePerMinuteOverride: 'sport hourly rate',
+    autoCheckoutAfterMinutes: 240,
+  };
+  const isEditing = !!sportConfig._id;
+
+  const updateMutation = useMutation({
+    mutationFn: (payload) => api.put('/session-config', payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['session-configs'] });
+      toast.success('Session configuration saved!');
+      onClose();
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to save configuration');
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`/session-config/${sportConfig._id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['session-configs'] });
+      toast.success('Sport specific overrides removed!');
+      onClose();
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to remove configuration');
+    }
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const payload = {
+      key: `sport_${sport.slug}`,
+      type: 'sport',
+      sportSlug: sport.slug,
+      allowedDurationMinutes: fd.get('allowedDurationMinutes') ? Number(fd.get('allowedDurationMinutes')) : null,
+      overtimeThresholdMinutes: fd.get('overtimeThresholdMinutes') ? Number(fd.get('overtimeThresholdMinutes')) : null,
+      lateFeePerMinuteOverride: fd.get('lateFeePerMinuteOverride') ? Number(fd.get('lateFeePerMinuteOverride')) : null,
+      autoCheckoutAfterMinutes: fd.get('autoCheckoutAfterMinutes') ? Number(fd.get('autoCheckoutAfterMinutes')) : null,
+    };
+    
+    Object.keys(payload).forEach(key => {
+      if (payload[key] === null) delete payload[key];
+    });
+
+    updateMutation.mutate(payload);
+  };
+
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.95, opacity: 0 }}
+          onClick={(e) => e.stopPropagation()}
+          className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-full"
+        >
+          <div className="flex items-center justify-between p-6 border-b border-gray-100">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">{sport.name} Session Rules</h2>
+              <p className="text-xs text-gray-500 mt-1">Configure specific overrides for this sport</p>
+            </div>
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
+              <X size={20} />
+            </button>
+          </div>
+
+          {isLoading ? (
+            <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-gray-400" /></div>
+          ) : (
+            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Allowed Session Duration (mins)</label>
+                  <input name="allowedDurationMinutes" type="number" min="5" defaultValue={sportConfig.allowedDurationMinutes || ''} placeholder={`Leave empty for global default (${globalConfig.allowedDurationMinutes} mins)`} className="input-field" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Overtime Grace Period (mins)</label>
+                  <input name="overtimeThresholdMinutes" type="number" min="0" defaultValue={sportConfig.overtimeThresholdMinutes ?? ''} placeholder={`Leave empty for global default (${globalConfig.overtimeThresholdMinutes} mins)`} className="input-field" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Late Fee / Minute (₹)</label>
+                  <input name="lateFeePerMinuteOverride" type="number" min="0" step="0.01" defaultValue={sportConfig.lateFeePerMinuteOverride || ''} placeholder={`Leave empty for global default (${globalConfig.lateFeePerMinuteOverride === 'sport hourly rate' ? 'sport hourly rate' : '₹' + globalConfig.lateFeePerMinuteOverride})`} className="input-field" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Auto-Checkout After (mins)</label>
+                  <input name="autoCheckoutAfterMinutes" type="number" min="30" defaultValue={sportConfig.autoCheckoutAfterMinutes || ''} placeholder={`Leave empty for global default (${globalConfig.autoCheckoutAfterMinutes} mins)`} className="input-field" />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 mt-8">
+                {isEditing && (
+                  <button type="button" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending} className="btn-ghost text-red-600 hover:bg-red-50 hover:text-red-700 px-4">
+                    {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : 'Remove Overrides'}
+                  </button>
+                )}
+                <div className="flex-1" />
+                <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
+                <button type="submit" disabled={updateMutation.isPending} className="btn-primary gap-2">
+                  {updateMutation.isPending && <Loader2 size={16} className="animate-spin" />} Save Rules
+                </button>
+              </div>
+            </form>
+          )}
+        </motion.div>
+      </motion.div>
+    </>
+  );
+}

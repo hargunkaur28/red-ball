@@ -12,6 +12,7 @@ import AdminLayout from './components/layout/AdminLayout';
 import UserLayout from './components/layout/UserLayout';
 import RestaurantLayout from './components/layout/RestaurantLayout';
 import ReceptionLayout from './components/layout/ReceptionLayout';
+import SuperAdminLayout from './components/layout/SuperAdminLayout';
 
 // Auth (loaded eagerly — it's the entry point)
 import Auth from './pages/auth/Auth';
@@ -37,6 +38,13 @@ const QRCheckIn = lazy(() => import('./pages/admin/QRCheckIn'));
 const ScheduleBlocking = lazy(() => import('./pages/admin/ScheduleBlocking'));
 const Reviews = lazy(() => import('./pages/admin/Reviews'));
 
+// Super Admin
+const SADashboard = lazy(() => import('./pages/super-admin/Dashboard'));
+const SASports = lazy(() => import('./pages/super-admin/Sports'));
+const SAMemberships = lazy(() => import('./pages/super-admin/Memberships'));
+const SASessionOvertime = lazy(() => import('./pages/super-admin/SessionOvertime'));
+const SAOneTime = lazy(() => import('./pages/super-admin/OneTime'));
+
 // User
 const UserDashboard = lazy(() => import('./pages/user/Dashboard'));
 const UserMembership = lazy(() => import('./pages/user/Membership'));
@@ -45,6 +53,7 @@ const FoodOrdering = lazy(() => import('./pages/user/FoodOrdering'));
 const OrderHistory = lazy(() => import('./pages/user/OrderHistory'));
 const Profile = lazy(() => import('./pages/user/Profile'));
 const UserReviews = lazy(() => import('./pages/user/Reviews'));
+const ScanQR = lazy(() => import('./pages/user/ScanQR'));
 
 // Restaurant
 const RestaurantDashboard = lazy(() => import('./pages/restaurant/Dashboard'));
@@ -60,6 +69,8 @@ const ReceptionDashboard = lazy(() => import('./pages/reception/Dashboard'));
 const TableOrder = lazy(() => import('./pages/table/TableOrder'));
 const TablePortal = lazy(() => import('./pages/table/TablePortal'));
 const OneTimeBookingPortal = lazy(() => import('./pages/OneTimeBookingPortal'));
+const EntryPortal = lazy(() => import('./pages/EntryPortal'));
+const SportsQRCodes = lazy(() => import('./pages/admin/SportsQRCodes'));
 
 // ── Auth Guard ─────────────────────────────────────────────────────
 function ProtectedRoute({ children, roles }) {
@@ -69,7 +80,10 @@ function ProtectedRoute({ children, roles }) {
       <div className="w-8 h-8 border-2 border-[#EAEAEA] border-t-[#111111] rounded-full animate-spin" />
     </div>
   );
-  if (!isAuthenticated) return <Navigate to="/login" />;
+  if (!isAuthenticated) {
+    const redirectTo = encodeURIComponent(window.location.pathname + window.location.search);
+    return <Navigate to={`/login?redirectTo=${redirectTo}`} />;
+  }
   if (roles && !roles.includes(user?.role)) return <Navigate to="/login" />;
   return children;
 }
@@ -93,6 +107,8 @@ export default function App() {
               <Route path="/table-portal" element={<TablePortal />} />
               <Route path="/table/:tableId" element={<TableOrder />} />
               <Route path="/one-time-booking" element={<OneTimeBookingPortal />} />
+              <Route path="/book-slots" element={<OneTimeBookingPortal />} />
+              <Route path="/entry/:qrSlug" element={<EntryPortal />} />
 
               {/* Admin Panel */}
               <Route path="/admin" element={
@@ -118,16 +134,32 @@ export default function App() {
                 <Route path="qr-checkin" element={<QRCheckIn />} />
                 <Route path="schedule-blocking" element={<ScheduleBlocking />} />
                 <Route path="reviews" element={<Reviews />} />
+                <Route path="sports-qrs" element={<SportsQRCodes />} />
+              </Route>
+
+              {/* Super Admin Panel */}
+              <Route path="/super-admin" element={
+                <ProtectedRoute roles={['superadmin']}><SuperAdminLayout /></ProtectedRoute>
+              }>
+                <Route index element={<SADashboard />} />
+                <Route path="sports" element={<SASports />} />
+                <Route path="memberships" element={<SAMemberships />} />
+                <Route path="session-overtime" element={<SASessionOvertime />} />
+                <Route path="one-time" element={<SAOneTime />} />
+                <Route path="settings" element={<Settings />} />
               </Route>
 
               {/* User/Student Panel */}
               <Route path="/user" element={
-                <ProtectedRoute roles={['student', 'customer']}><UserLayout /></ProtectedRoute>
+                <ProtectedRoute roles={['user']}><UserLayout /></ProtectedRoute>
               }>
                 <Route index element={<UserDashboard />} />
+                <Route path="dashboard" element={<UserDashboard />} />
+                <Route path="scan" element={<ScanQR />} />
                 <Route path="membership" element={<UserMembership />} />
-                <Route path="book-slots" element={<BookSlots />} />
-                <Route path="food" element={<FoodOrdering />} />
+                <Route path="book-slots" element={<OneTimeBookingPortal embedded />} />
+                <Route path="one-time-booking" element={<OneTimeBookingPortal embedded />} />
+                <Route path="table-portal" element={<TablePortal embedded />} />
                 <Route path="orders" element={<OrderHistory />} />
                 <Route path="reviews" element={<UserReviews />} />
                 <Route path="profile" element={<Profile />} />
@@ -159,6 +191,7 @@ export default function App() {
                 <Route path="manage-bookings" element={<ManageBookings />} />
                 <Route path="qr-checkin" element={<QRCheckIn />} />
                 <Route path="schedule-blocking" element={<ScheduleBlocking />} />
+                <Route path="sports-qrs" element={<SportsQRCodes />} />
               </Route>
 
               {/* Redirect root */}

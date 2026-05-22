@@ -26,8 +26,11 @@ const membershipPlanSchema = new mongoose.Schema({
   },
   sportsIncluded: [{
     type: String,
-    enum: ['cricket', 'swimming', 'gym', 'turf', 'badminton', 'football', 'pickleball', 'coaching', 'all-services', 'yoga'],
   }],
+  isAllServices: {
+    type: Boolean,
+    default: false,
+  },
   price: {
     type: Number,
     required: [true, 'Price is required'],
@@ -37,6 +40,10 @@ const membershipPlanSchema = new mongoose.Schema({
     default: 18,
   },
   isActive: {
+    type: Boolean,
+    default: true,
+  },
+  autoSync: {
     type: Boolean,
     default: true,
   },

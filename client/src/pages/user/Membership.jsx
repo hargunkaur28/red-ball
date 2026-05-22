@@ -1,25 +1,68 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
 import api from '../../lib/axios';
 import useAuthStore from '../../store/authStore';
-import PageHeader from '../../components/shared/PageHeader';
 import { formatCurrency } from '../../lib/utils';
 import { toast } from 'sonner';
-import { Trophy, Calendar, CreditCard, Clock, AlertTriangle, CheckCircle, Download, RefreshCw, QrCode, Share, Check } from 'lucide-react';
-import { QRCodeCanvas } from 'qrcode.react';
-import html2canvas from 'html2canvas';
-import { useRef } from 'react';
+import { Trophy, Clock, AlertTriangle, CheckCircle, Download, RefreshCw, Check } from 'lucide-react';
+
+const emptyDash = '-';
+
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return emptyDash;
+  return new Date(dateStr).toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
+const statusStyles = {
+  active: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300',
+  pending: 'border-amber-400/20 bg-amber-500/10 text-amber-300',
+  frozen: 'border-sky-400/20 bg-sky-500/10 text-sky-300',
+  expiring_soon: 'border-orange-400/20 bg-orange-500/10 text-orange-300',
+  expired: 'border-red-400/20 bg-red-500/10 text-red-300',
+};
+
+const sessionStyles = {
+  Active: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300',
+  Completed: 'border-sky-400/20 bg-sky-500/10 text-sky-300',
+  Overtime: 'border-red-400/20 bg-red-500/10 text-red-300',
+};
+
+function Surface({ children, className = '' }) {
+  return (
+    <div className={`rounded-[28px] border border-[#222A2A] bg-[#111515] shadow-2xl shadow-black/25 ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+function DetailRow({ label, value, valueClass = 'text-white' }) {
+  return (
+    <div className="flex items-center justify-between gap-4 text-sm">
+      <span className="text-white/45">{label}</span>
+      <span className={`text-right font-semibold ${valueClass}`}>{value || emptyDash}</span>
+    </div>
+  );
+}
 
 export default function Membership() {
   const { user } = useAuthStore();
   const qc = useQueryClient();
-  const cardRef = useRef(null);
-  const premiumCardRef = useRef(null);
 
   const { data } = useQuery({
     queryKey: ['my-membership'],
     queryFn: () => api.get(`/memberships/${user.id}`).then(r => r.data),
+    enabled: !!user?.id,
+  });
+
+  const { data: attendanceData, isLoading: isAttendanceLoading } = useQuery({
+    queryKey: ['my-attendance', user?.id],
+    queryFn: () => api.get(`/attendance/user/${user.id}`).then(r => r.data),
     enabled: !!user?.id,
   });
 
@@ -32,395 +75,237 @@ export default function Membership() {
     onError: (e) => toast.error(e.response?.data?.message || 'Renewal failed'),
   });
 
-  const handleDownload = async () => {
-    if (!premiumCardRef.current) return;
-    try {
-      const canvas = await html2canvas(premiumCardRef.current, { 
-        scale: 4, 
-        backgroundColor: null, 
-        useCORS: true,
-        logging: false,
-        allowTaint: true
-      });
-      const link = document.createElement('a');
-      const safeName = user?.name || 'Member';
-      link.download = `RBA_Membership_${safeName.replace(/\s+/g, '_')}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-      toast.success('Membership Card downloaded!');
-    } catch (err) {
-      console.error("html2canvas error:", err);
-      toast.error('Failed to generate pass: ' + err.message);
-    }
-  };
-
-  const m = data?.membership;
-  const plan = m?.planId;
-  const payment = m?.paymentId;
-  const msLeft = m?.endDate ? Math.max(0, new Date(m.endDate) - new Date()) : 0;
-  const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
-  
-  let timeLeftDisplay = '';
-  if (msLeft > 24 * 60 * 60 * 1000) timeLeftDisplay = `${Math.ceil(msLeft / (24 * 60 * 60 * 1000))} days`;
-  else if (msLeft > 60 * 60 * 1000) timeLeftDisplay = `${Math.ceil(msLeft / (60 * 60 * 1000))} hours`;
-  else if (msLeft > 0) timeLeftDisplay = `${Math.ceil(msLeft / (60 * 1000))} mins`;
-  else timeLeftDisplay = '0 mins';
-
-  const isExpired = m?.status === 'expired' || msLeft <= 0;
-  const isPending = m?.status === 'pending';
-  
-  let currentStatus = m?.status;
-  if (currentStatus === 'active' && msLeft <= 7 * 24 * 60 * 60 * 1000) {
-    if (plan?.durationUnit === 'minutes' && msLeft <= 2 * 60 * 1000) currentStatus = 'expiring_soon';
-    else if (plan?.durationUnit === 'hours' && msLeft <= 10 * 60 * 1000) currentStatus = 'expiring_soon';
-    else if (['days', 'months', 'years'].includes(plan?.durationUnit) && msLeft <= 7 * 24 * 60 * 60 * 1000) currentStatus = 'expiring_soon';
-  }
+  const activeMemberships = data?.memberships || (data?.membership ? [data.membership] : []);
 
   return (
-    <div>
-      <PageHeader title="My Membership" subtitle="View and manage your membership" />
+    <div className="space-y-8">
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[0.32em] text-[#df1526]">Red Ball Academy</p>
+        <h1 className="mt-3 text-3xl font-black tracking-tight text-white sm:text-4xl">My Membership</h1>
+        <p className="mt-2 text-sm text-white/50">View and manage your membership</p>
+      </div>
 
-      {m ? (
-        <div className="space-y-6">
-          {/* Membership Status Card */}
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className={`rounded-2xl border-2 p-6 ${
-              m.status === 'active' ? 'border-green-200 bg-green-50' :
-              m.status === 'pending' ? 'border-amber-200 bg-amber-50' :
-              m.status === 'frozen' ? 'border-blue-200 bg-blue-50' :
-              'border-red-200 bg-red-50'
-            }`}
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  {currentStatus === 'active' || currentStatus === 'frozen' ? <CheckCircle size={20} className="text-green-600" /> :
-                   currentStatus === 'pending' ? <Clock size={20} className="text-amber-600" /> :
-                   currentStatus === 'expiring_soon' ? <AlertTriangle size={20} className="text-orange-600" /> :
-                   <CheckCircle size={20} className="text-red-600" />}
-                  <span className="text-sm font-bold uppercase text-[#111]">{currentStatus.replace('_', ' ')}</span>
-                </div>
-                <h2 className="text-3xl font-bold font-serif text-[#111] tracking-tight">{plan?.name || 'No Plan'}</h2>
-                <p className="text-sm text-[#666] mt-1 capitalize">{plan?.durationValue ? `${plan.durationValue} ${plan.durationUnit}` : plan?.duration || `${plan?.durationDays || 30} days`}</p>
-              </div>
-              {!isPending && !isExpired && (
-                <div className="text-right">
-                  <p className="text-4xl font-bold text-[#111]">{timeLeftDisplay.split(' ')[0]}</p>
-                  <p className="text-xs text-[#888]">{timeLeftDisplay.split(' ')[1]} remaining</p>
-                </div>
-              )}
-            </div>
+      {activeMemberships.length > 0 ? (
+        activeMemberships.map((membership) => {
+          const plan = membership.planId;
+          const payment = membership.paymentId;
+          const msLeft = membership?.endDate ? Math.max(0, new Date(membership.endDate) - new Date()) : 0;
+          const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
 
-            {/* Progress bar */}
-            {m.status === 'active' && (
-              <div className="mt-4">
-                <div className="w-full bg-black/5 rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-green-500 rounded-full h-2 transition-all"
-                    style={{ 
-                      width: `${Math.min(100, Math.max(0, (daysLeft / (
-                        plan?.durationUnit === 'months' ? plan.durationValue * 30 :
-                        plan?.durationUnit === 'years' ? plan.durationValue * 365 :
-                        plan?.durationUnit === 'days' ? plan.durationValue :
-                        (plan?.durationDays || 30)
-                      )) * 100))}%` 
-                    }}
-                  />
-                </div>
-              </div>
-            )}
+          let timeLeftDisplay = '';
+          if (msLeft > 24 * 60 * 60 * 1000) timeLeftDisplay = `${Math.ceil(msLeft / (24 * 60 * 60 * 1000))} days`;
+          else if (msLeft > 60 * 60 * 1000) timeLeftDisplay = `${Math.ceil(msLeft / (60 * 60 * 1000))} hours`;
+          else if (msLeft > 0) timeLeftDisplay = `${Math.ceil(msLeft / (60 * 1000))} mins`;
+          else timeLeftDisplay = '0 mins';
 
-            {isPending && (
-              <div className="mt-4 p-3 bg-white/50 rounded-xl">
-                <p className="text-sm font-medium text-amber-800 flex items-center gap-2">
-                  <Check size={16} className="shrink-0" /> 
-                  Your membership is pending payment. Please visit reception to complete payment.
-                </p>
-              </div>
-            )}
-          </motion.div>
+          const isExpired = membership?.status === 'expired' || msLeft <= 0;
+          const isPending = membership?.status === 'pending';
 
-          {/* Digital Membership Pass (Apple Wallet Style) */}
-          <div className="flex flex-col md:flex-row gap-6 items-start">
-            
-            {/* The Pass */}
-            <div className="w-full md:w-auto relative group">
-              <div 
-                ref={cardRef} 
-                className={`relative w-full md:w-[340px] rounded-[32px] overflow-hidden shadow-2xl p-6 text-white ${
-                  m.status === 'active' ? 'bg-gradient-to-b from-[#111] via-[#1a1a1a] to-[#222]' :
-                  'bg-gradient-to-b from-[#444] via-[#555] to-[#666] grayscale'
-                }`}
-                style={{ fontFamily: "'DM Sans', sans-serif" }}
+          let currentStatus = membership?.status;
+          if (currentStatus === 'active' && msLeft <= 7 * 24 * 60 * 60 * 1000) {
+            if (plan?.durationUnit === 'minutes' && msLeft <= 2 * 60 * 1000) currentStatus = 'expiring_soon';
+            else if (plan?.durationUnit === 'hours' && msLeft <= 10 * 60 * 1000) currentStatus = 'expiring_soon';
+            else if (['days', 'months', 'years'].includes(plan?.durationUnit) && msLeft <= 7 * 24 * 60 * 60 * 1000) currentStatus = 'expiring_soon';
+          }
+
+          if (!plan) return null;
+
+          const totalPlanDays =
+            plan?.durationUnit === 'months' ? plan.durationValue * 30 :
+            plan?.durationUnit === 'years' ? plan.durationValue * 365 :
+            plan?.durationUnit === 'days' ? plan.durationValue :
+            (plan?.durationDays || 30);
+
+          return (
+            <div key={membership._id} className="space-y-6 border-b border-white/10 pb-10 last:border-b-0 last:pb-0">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`rounded-[28px] border p-6 ${statusStyles[currentStatus] || statusStyles.expired}`}
               >
-                {/* Shine effect */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-[rgba(255,255,255,0)] via-[rgba(255,255,255,0.1)] to-[rgba(255,255,255,0)] opacity-0 group-hover:opacity-100 transition-opacity duration-1000 transform -translate-x-full group-hover:translate-x-full" />
-                
-                {/* Header */}
-                <div className="flex justify-between items-center mb-6">
-                  <div className="w-10 h-10 bg-[#C8102E] rounded-xl flex items-center justify-center font-black text-xl tracking-tighter shadow-[0_4px_15px_rgba(127,29,29,0.5)]">
-                    RB
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-[#888] font-bold">Entry Pass</p>
-                    <p className="text-sm font-bold tracking-wider" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>RED BALL ACADEMY</p>
-                  </div>
-                </div>
-
-                {/* Member Info */}
-                <div className="mb-6">
-                  <h3 className="text-2xl font-black capitalize tracking-tight leading-none mb-1">{user.name}</h3>
-                  <p className="text-xs text-[#888] uppercase tracking-wider font-bold">{plan?.name || 'Membership'}</p>
-                </div>
-
-                {/* QR Section */}
-                <div className="bg-white p-4 rounded-3xl mx-auto w-48 h-48 flex items-center justify-center shadow-inner mb-6 relative">
-                  <QRCodeCanvas 
-                    value={`MEMBERSHIP_${m._id}`} 
-                    size={160} 
-                    level="H" 
-                    includeMargin={false}
-                  />
-                  {m.status !== 'active' && (
-                    <div className="absolute inset-0 bg-[rgba(255,255,255,0.8)] rounded-3xl flex items-center justify-center">
-                      <span className="bg-[#DC2626] text-white text-[10px] font-black uppercase px-3 py-1 rounded-full tracking-widest shadow-[0_4px_6px_rgba(0,0,0,0.1)]">
-                        {m.status}
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="mb-3 flex items-center gap-2">
+                      {currentStatus === 'active' || currentStatus === 'frozen' ? <CheckCircle size={20} /> :
+                        currentStatus === 'pending' ? <Clock size={20} /> :
+                        currentStatus === 'expiring_soon' ? <AlertTriangle size={20} /> :
+                        <CheckCircle size={20} />}
+                      <span className="text-xs font-black uppercase tracking-[0.18em]">
+                        Membership Status: {currentStatus?.replace('_', ' ') || 'unknown'}
                       </span>
+                    </div>
+                    <h2 className="text-3xl font-black tracking-tight text-white">{plan?.name || 'No Plan'}</h2>
+                    <p className="mt-1 text-sm capitalize text-white/52">
+                      {plan?.durationValue ? `${plan.durationValue} ${plan.durationUnit}` : plan?.duration || `${plan?.durationDays || 30} days`}
+                    </p>
+                  </div>
+
+                  {!isPending && !isExpired && (
+                    <div className="rounded-3xl border border-white/10 bg-black/18 px-6 py-4 text-left sm:text-right">
+                      <p className="text-3xl font-black text-white sm:text-4xl">{timeLeftDisplay.split(' ')[0]}</p>
+                      <p className="text-xs uppercase tracking-[0.18em] text-white/42">{timeLeftDisplay.split(' ')[1]} remaining</p>
                     </div>
                   )}
                 </div>
 
-                {/* Details Grid */}
-                <div className="bg-[rgba(255,255,255,0.05)] rounded-2xl p-4 border border-[rgba(255,255,255,0.1)] grid grid-cols-2 gap-y-4 gap-x-2">
-                  <div>
-                    <p className="text-[9px] uppercase tracking-wider text-[#888] font-bold mb-0.5">Valid Thru</p>
-                    <p className="text-xs font-bold text-[#EAEAEA]">{m.endDate ? new Date(m.endDate).toLocaleDateString('en-IN') : 'N/A'}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[9px] uppercase tracking-wider text-[#888] font-bold mb-0.5">Status</p>
-                    <p className={`text-xs font-bold capitalize ${m.status === 'active' ? 'text-[#4ADE80]' : 'text-[#F87171]'}`}>{m.status}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <p className="text-[9px] uppercase tracking-wider text-[#888] font-bold mb-0.5">Access</p>
-                    <p className="text-xs font-bold text-[#EAEAEA] capitalize truncate">
-                      {plan?.sportsIncluded?.join(', ') || 'Facility'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Card Actions */}
-            <div className="flex flex-col gap-3 w-full md:w-auto mt-2 md:mt-0">
-              <div className="card p-5 border border-[#EAEAEA] shadow-sm max-w-sm">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
-                    <QrCode size={20} />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-[#111]">Digital Access</h4>
-                    <p className="text-xs text-[#666]">Scan at reception or attendance desk to instantly check-in.</p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <button onClick={handleDownload} className="btn-primary w-full py-2.5 text-sm flex justify-center gap-2">
-                    <Download size={16} /> Save to Phone
-                  </button>
-                  <button onClick={() => {
-                    if (navigator.share) {
-                      navigator.share({
-                        title: 'My Red Ball Membership',
-                        text: `Hey, this is my Red Ball Academy access pass.`,
-                        url: window.location.href,
-                      });
-                    } else {
-                      handleDownload();
-                    }
-                  }} className="btn-ghost border border-[#EAEAEA] w-full py-2.5 text-sm flex justify-center gap-2">
-                    <Share size={16} /> Share Pass
-                  </button>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Plan Details */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="card">
-              <h3 className="text-sm font-medium text-[#666] mb-4">Plan Details</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#888]">Plan Name</span>
-                  <span className="text-[#111] font-medium">{plan?.name || '—'}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#888]">Duration</span>
-                  <span className="text-[#111]">{plan?.durationValue ? `${plan.durationValue} ${plan.durationUnit}` : `${plan?.durationDays} days`}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#888]">Price</span>
-                  <span className="text-[#111]">{formatCurrency(plan?.price || 0)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#888]">Start Date</span>
-                  <span className="text-[#111]">{m.startDate ? new Date(m.startDate).toLocaleDateString('en-IN') : '—'}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#888]">Expiry</span>
-                  <span className={`font-semibold ${isExpired || currentStatus === 'expiring_soon' ? 'text-red-600' : 'text-[#111]'}`}>
-                    {m.endDate ? new Date(m.endDate).toLocaleString('en-IN') : '—'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="card">
-              <h3 className="text-sm font-medium text-[#666] mb-4">Sports Access</h3>
-              <div className="flex flex-wrap gap-2 mb-6">
-                {plan?.sportsIncluded?.map(sport => (
-                  <span key={sport} className="px-3 py-1.5 rounded-lg bg-[#F7F7F7] border border-[#EAEAEA] text-sm capitalize font-medium">
-                    {sport}
-                  </span>
-                )) || <p className="text-sm text-[#888]">No sports assigned</p>}
-              </div>
-
-              {/* Invoice Download */}
-              {payment && (
-                <div className="border-t border-[#EAEAEA] pt-4">
-                  <h4 className="text-xs font-semibold text-[#999] uppercase mb-2">Last Payment</h4>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-[#111]">{payment.invoiceNumber}</p>
-                      <p className="text-xs text-[#888]">{formatCurrency(payment.totalAmount)} • {payment.status}</p>
-                    </div>
-                    <button
-                      onClick={() => window.open(`/api/payments/${payment._id}/invoice/print`, '_blank')}
-                      className="btn-ghost text-xs gap-1"
-                    >
-                      <Download size={14} /> Invoice
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Renewal History */}
-          {m.renewalHistory?.length > 0 && (
-            <div className="card">
-              <h3 className="text-sm font-medium text-[#666] mb-4">Renewal History</h3>
-              <div className="space-y-2">
-                {m.renewalHistory.map((r, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-[#F7F7F7] border border-[#EAEAEA]">
-                    <span className="text-sm text-[#111]">{new Date(r.date).toLocaleDateString('en-IN')}</span>
-                    <span className="text-xs text-[#888]">Renewed</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Renew Button */}
-          {(isExpired || currentStatus === 'expiring_soon') && m.status !== 'pending' && (
-            <div className="card bg-[#F7F7F7] text-center py-6">
-              <p className="text-sm text-[#666] mb-4">
-                {isExpired ? 'Your membership has expired.' : `Your membership expires in ${timeLeftDisplay}.`}
-              </p>
-              <button
-                onClick={() => renewMutation.mutate({ id: m._id, paymentMode: 'cash' })}
-                disabled={renewMutation.isPending}
-                className="btn-primary px-8 py-3 text-base"
-              >
-                <RefreshCw size={18} className="inline mr-2" />
-                {renewMutation.isPending ? 'Renewing...' : 'Renew Membership'}
-              </button>
-              <p className="text-xs text-[#999] mt-2">Visit reception for payment</p>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="card text-center py-12">
-          <Trophy size={48} className="mx-auto mb-4 text-[#CCC]" />
-          <h3 className="text-lg font-semibold text-[#111] mb-2">No Membership Found</h3>
-          <p className="text-sm text-[#888]">Visit the academy reception to sign up for a membership plan.</p>
-        </div>
-      )}
-
-      {/* HIDDEN PREMIUM PHYSICAL CARD FOR DOWNLOAD ONLY */}
-      {m && (
-        <div className="fixed -left-[2000px] top-0 pointer-events-none">
-          <div 
-            ref={premiumCardRef}
-            className="w-[600px] h-[360px] rounded-[32px] relative overflow-hidden text-white bg-[#111]"
-            style={{ 
-              backgroundImage: 'url(/membership-card-bg.png)',
-              backgroundSize: 'cover',
-              backgroundPosition: 'center'
-            }}
-          >
-            {/* Card Content Shell */}
-            <div className="absolute inset-0 p-10 flex flex-col justify-between">
-              
-              {/* Header */}
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-[#C8102E] rounded-2xl flex items-center justify-center font-black text-3xl tracking-tighter shadow-[0_10px_20px_rgba(0,0,0,0.4)]">
-                    RB
-                  </div>
-                  <div>
-                    <h1 className="text-2xl font-black tracking-tighter leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>RED BALL ACADEMY</h1>
-                    <p className="text-[11px] uppercase tracking-[0.4em] text-[#EF4444] font-bold mt-1">OFFICIAL MEMBER CARD</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-[rgba(255,255,255,0.4)] font-bold">MEMBER ID</p>
-                  <p className="text-sm font-mono text-[rgba(255,255,255,0.7)]">#{m._id.slice(-8).toUpperCase()}</p>
-                </div>
-              </div>
-
-              {/* Main Info Section */}
-              <div className="flex justify-between items-end">
-                <div className="space-y-6">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-[rgba(255,255,255,0.4)] font-bold mb-2">NAME</p>
-                    <h2 className="text-4xl font-black capitalize tracking-tight leading-none">{user.name}</h2>
-                  </div>
-                  
-                  <div className="flex gap-12">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-[rgba(255,255,255,0.4)] font-bold mb-1">PLAN</p>
-                      <p className="text-lg font-black text-[#FFD700] uppercase tracking-wider">{plan?.name || 'Standard'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-[rgba(255,255,255,0.4)] font-bold mb-1">EXPIRY</p>
-                      <p className="text-lg font-black text-white uppercase tracking-wider">{m.endDate ? new Date(m.endDate).toLocaleDateString('en-IN') : '—'}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* QR and Security */}
-                <div className="flex flex-col items-center gap-4">
-                   {/* Security Chip Simulation */}
-                   <div className="w-12 h-10 rounded-lg bg-gradient-to-br from-[#FEF08A] via-[#EAB308] to-[#A16207] opacity-60 self-end mr-2" />
-                   
-                   <div className="bg-white p-3 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-4 border-[rgba(220,38,38,0.1)]">
-                    <QRCodeCanvas 
-                      value={`MEMBERSHIP_${m._id}`} 
-                      size={110} 
-                      level="H" 
+                {membership.status === 'active' && (
+                  <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-emerald-400 transition-all"
+                      style={{ width: `${Math.min(100, Math.max(0, (daysLeft / totalPlanDays) * 100))}%` }}
                     />
                   </div>
-                </div>
+                )}
+
+                {isPending && (
+                  <div className="mt-5 flex gap-2 rounded-2xl border border-amber-300/15 bg-black/16 p-4 text-sm font-semibold text-amber-200">
+                    <Check size={16} className="mt-0.5 shrink-0" />
+                    Your membership is pending payment. Please visit reception to complete payment.
+                  </div>
+                )}
+              </motion.div>
+
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                <Surface className="p-6">
+                  <h3 className="mb-5 text-sm font-black uppercase tracking-[0.18em] text-white/42">Plan Details</h3>
+                  <div className="space-y-4">
+                    <DetailRow label="Plan Name" value={plan?.name} />
+                    <DetailRow label="Duration" value={plan?.durationValue ? `${plan.durationValue} ${plan.durationUnit}` : `${plan?.durationDays} days`} />
+                    <DetailRow label="Price" value={formatCurrency(plan?.price || 0)} />
+                    <DetailRow label="Start Date" value={membership.startDate ? new Date(membership.startDate).toLocaleDateString('en-IN') : emptyDash} />
+                    <DetailRow
+                      label="Expiry"
+                      value={membership.endDate ? new Date(membership.endDate).toLocaleString('en-IN') : emptyDash}
+                      valueClass={isExpired || currentStatus === 'expiring_soon' ? 'text-red-300' : 'text-white'}
+                    />
+                  </div>
+                </Surface>
+
+                <Surface className="p-6">
+                  <h3 className="mb-5 text-sm font-black uppercase tracking-[0.18em] text-white/42">Sports Access</h3>
+                  <div className="mb-6 flex flex-wrap gap-2">
+                    {plan?.sportsIncluded?.length ? plan.sportsIncluded.map(sport => (
+                      <span key={sport} className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-sm font-semibold capitalize text-white/72">
+                        {sport}
+                      </span>
+                    )) : <p className="text-sm text-white/45">No sports assigned</p>}
+                  </div>
+
+                  {payment && (
+                    <div className="border-t border-white/10 pt-5">
+                      <h4 className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-white/34">Last Payment</h4>
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-semibold text-white">{payment.invoiceNumber}</p>
+                          <p className="text-xs text-white/45">{formatCurrency(payment.totalAmount)} - {payment.status}</p>
+                        </div>
+                        <button
+                          onClick={() => window.open(`/api/payments/${payment._id}/invoice/print`, '_blank')}
+                          className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-xs font-black text-white transition hover:bg-white/10"
+                        >
+                          <Download size={14} /> Invoice
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </Surface>
               </div>
 
-            </div>
+              {membership.renewalHistory?.length > 0 && (
+                <Surface className="p-6">
+                  <h3 className="mb-5 text-sm font-black uppercase tracking-[0.18em] text-white/42">Renewal History</h3>
+                  <div className="space-y-2">
+                    {membership.renewalHistory.map((renewal, index) => (
+                      <div key={index} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                        <span className="text-sm font-semibold text-white">{new Date(renewal.date).toLocaleDateString('en-IN')}</span>
+                        <span className="text-xs uppercase tracking-[0.16em] text-white/42">Renewed</span>
+                      </div>
+                    ))}
+                  </div>
+                </Surface>
+              )}
 
-            {/* Bottom Branding Bar */}
-            <div className="absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-r from-[#DC2626] via-[#7F1D1D] to-[#DC2626]" />
-          </div>
-        </div>
+              {(isExpired || currentStatus === 'expiring_soon') && membership.status !== 'pending' && (
+                <Surface className="p-6 text-center">
+                  <p className="mb-4 text-sm text-white/58">
+                    {isExpired ? 'Your membership has expired.' : `Your membership expires in ${timeLeftDisplay}.`}
+                  </p>
+                  <button
+                    onClick={() => renewMutation.mutate({ id: membership._id, paymentMode: 'cash' })}
+                    disabled={renewMutation.isPending}
+                    className="rounded-full bg-white px-7 py-3 text-sm font-black text-black transition hover:bg-[#df1526] hover:text-white disabled:opacity-60"
+                  >
+                    <RefreshCw size={18} className="mr-2 inline" />
+                    {renewMutation.isPending ? 'Renewing...' : 'Renew Membership'}
+                  </button>
+                  <p className="mt-3 text-xs text-white/35">Visit reception for payment</p>
+                </Surface>
+              )}
+            </div>
+          );
+        })
+      ) : (
+        <Surface className="p-12 text-center">
+          <Trophy size={52} className="mx-auto mb-5 text-white/24" />
+          <h3 className="mb-2 text-xl font-black text-white">No Membership Found</h3>
+          <p className="text-sm text-white/50">Visit the academy reception to sign up for a membership plan.</p>
+        </Surface>
       )}
+
+      <Surface className="overflow-hidden">
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
+          <h3 className="text-sm font-black uppercase tracking-[0.18em] text-white/45">Recent Check-ins & Check-outs</h3>
+          <span className="text-xs text-white/35">Last 10 sessions</span>
+        </div>
+
+        {isAttendanceLoading ? (
+          <div className="py-14 text-center text-sm text-white/45">Loading activity history...</div>
+        ) : !attendanceData?.attendance || attendanceData.attendance.length === 0 ? (
+          <div className="py-14 text-center text-sm text-white/45">No check-in history found yet.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-white/10 text-xs uppercase tracking-[0.18em] text-white/38">
+                  <th className="px-6 py-4 font-semibold">Sport</th>
+                  <th className="px-6 py-4 font-semibold">Check-In</th>
+                  <th className="px-6 py-4 font-semibold">Check-Out</th>
+                  <th className="px-6 py-4 font-semibold">Duration</th>
+                  <th className="px-6 py-4 font-semibold">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {attendanceData.attendance.slice(0, 10).map((record) => {
+                  const duration = record.checkOutTime
+                    ? `${record.actualDurationMinutes || Math.round((new Date(record.checkOutTime) - new Date(record.checkInTime)) / 60000)} mins`
+                    : emptyDash;
+
+                  return (
+                    <tr key={record._id} className="border-b border-white/7 last:border-b-0">
+                      <td className="px-6 py-4 font-semibold capitalize text-white">{record.sport}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-white/58">{formatDateTime(record.checkInTime)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-white/58">
+                        {record.checkOutTime ? formatDateTime(record.checkOutTime) : (
+                          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-300">
+                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" />
+                            Active
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-white/58">{duration}</td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-block rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${sessionStyles[record.sessionStatus] || 'border-white/10 bg-white/[0.05] text-white/55'}`}>
+                          {record.sessionStatus || 'Completed'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Surface>
     </div>
   );
 }

@@ -174,7 +174,7 @@ export default function Navbar() {
           <div className="flex items-center gap-3">
             {isAuthenticated ? (
               <Link
-                to="/user"
+                to="/table-portal"
                 className={`hidden md:inline-flex px-5 py-2 rounded-full border-2 text-sm font-medium transition-all duration-200 ${
                   isLightSection 
                     ? 'border-[#C8102E] text-[#C8102E] hover:bg-[#C8102E] hover:text-white' 
@@ -182,7 +182,7 @@ export default function Navbar() {
                 }`}
                 style={{ fontFamily: "'DM Sans', sans-serif" }}
               >
-                Portal
+                Restaurant Menu
               </Link>
             ) : (
               <Link
@@ -198,7 +198,7 @@ export default function Navbar() {
               </Link>
             )}
             <Link
-              to="/login"
+              to="/book-slots"
               className="hidden md:inline-flex px-6 py-2.5 rounded-full bg-[#C8102E] text-white text-sm font-semibold transition-all duration-200 hover:bg-[#8B0B1E] hover:shadow-[0_0_16px_rgba(200,16,46,0.5)] hover:scale-[1.03]"
               style={{ fontFamily: "'DM Sans', sans-serif" }}
             >
@@ -276,11 +276,11 @@ export default function Navbar() {
         <div className="p-6 space-y-3">
           {isAuthenticated ? (
             <Link
-              to="/user"
+              to="/table-portal"
               onClick={() => setDrawerOpen(false)}
               className="block text-center py-3 rounded-full border-2 border-[#F5A623] text-[#F5A623] font-medium transition-all hover:bg-[#F5A623] hover:text-black"
             >
-              Portal
+              Restaurant Menu
             </Link>
           ) : (
             <Link
@@ -292,7 +292,7 @@ export default function Navbar() {
             </Link>
           )}
           <Link
-            to="/login"
+            to="/book-slots"
             onClick={() => setDrawerOpen(false)}
             className="block text-center py-3 rounded-full bg-[#C8102E] text-white font-semibold transition-all hover:bg-[#8B0B1E]"
           >

@@ -216,6 +216,111 @@ async function deductInventoryForOrder(order) {
   }
 }
 
+// PUT /api/orders/:id/prep-time
+exports.setPrepTime = async (req, res) => {
+  try {
+    const { estimatedPrepMinutes } = req.body;
+    if (!estimatedPrepMinutes || estimatedPrepMinutes < 1) {
+      return res.status(400).json({ message: 'Valid prep time (minutes) is required.' });
+    }
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found.' });
+
+    order.estimatedPrepMinutes = estimatedPrepMinutes;
+    order.estimatedReadyAt = new Date(Date.now() + estimatedPrepMinutes * 60000);
+    await order.save();
+
+    const io = req.app.get('io');
+    if (io) {
+      const payload = { orderId: order._id, estimatedPrepMinutes, estimatedReadyAt: order.estimatedReadyAt };
+      io.to(`order-${order._id}`).emit('restaurant:orderUpdated', payload);
+      io.to('restaurant-managers').emit('restaurant:orderUpdated', payload);
+    }
+
+    res.json({ order });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.' });
+  }
+};
+
+// PUT /api/orders/:id/items/:itemId/cancel
+exports.cancelItem = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found.' });
+
+    const item = order.items.id(req.params.itemId);
+    if (!item) return res.status(404).json({ message: 'Item not found.' });
+    if (item.status === 'cancelled') return res.status(400).json({ message: 'Item already cancelled.' });
+
+    item.status = 'cancelled';
+    item.cancelledAt = new Date();
+    item.cancelledBy = req.user.role;
+
+    // Mark refund pending for paid online orders
+    if (['online', 'upi', 'card'].includes(order.paymentMethod) && order.paymentStatus === 'paid') {
+      item.refundStatus = 'pending';
+    }
+
+    await order.save();
+
+    const populated = await Order.findById(order._id)
+      .populate('tableId', 'label tableNumber section')
+      .populate('customerId', 'name phone');
+
+    const io = req.app.get('io');
+    if (io) {
+      const payload = { orderId: order._id, itemId: req.params.itemId, order: populated };
+      io.to('restaurant-managers').emit('restaurant:itemCancelled', payload);
+      io.to(`order-${order._id}`).emit('restaurant:itemCancelled', payload);
+      io.emit('order:status-update');
+    }
+
+    res.json({ order: populated });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.', error: error.message });
+  }
+};
+
+// PUT /api/orders/:id/items/:itemId/refund
+exports.refundItem = async (req, res) => {
+  try {
+    const { note } = req.body;
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found.' });
+
+    const item = order.items.id(req.params.itemId);
+    if (!item) return res.status(404).json({ message: 'Item not found.' });
+    if (item.refundStatus !== 'pending') {
+      return res.status(400).json({ message: 'Item is not pending refund.' });
+    }
+
+    item.refundStatus = 'refunded';
+    item.status = 'refunded';
+    item.refundedAt = new Date();
+    item.refundNote = note || 'Manual refund by manager';
+    item.refundedBy = req.user.userId;
+
+    await order.save();
+
+    const populated = await Order.findById(order._id)
+      .populate('tableId', 'label tableNumber section')
+      .populate('customerId', 'name phone');
+
+    const io = req.app.get('io');
+    if (io) {
+      const payload = { orderId: order._id, itemId: req.params.itemId, order: populated };
+      io.to('restaurant-managers').emit('restaurant:itemRefunded', payload);
+      io.to(`order-${order._id}`).emit('restaurant:itemRefunded', payload);
+      io.emit('order:status-update');
+    }
+
+    res.json({ order: populated });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.', error: error.message });
+  }
+};
+
 // POST /api/orders/create-razorpay-order
 exports.createRazorpayOrder = async (req, res) => {
   try {

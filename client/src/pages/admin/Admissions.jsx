@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 const emptyForm = {
   name: '', email: '', phone: '', gender: '', address: '',
   emergencyContact: '', sportsIncluded: [], planId: '',
-  paymentMode: 'cash', notes: '',
+  paymentMode: 'upi', notes: '',
 };
 
 export default function Admissions() {
@@ -78,11 +78,11 @@ export default function Admissions() {
     },
   });
 
-  // Handle form submit — cash goes direct, UPI opens Razorpay
+  // Handle form submit — UPI opens Razorpay
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (form.paymentMode === 'cash' || !form.planId) {
+    if (!form.planId) {
       createMutation.mutate(form);
       return;
     }
@@ -434,8 +434,8 @@ export default function Admissions() {
                 {form.planId && (
                   <>
                     <p className="text-xs font-semibold text-[#999] uppercase tracking-wider pt-2">Payment Method</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {['cash', 'upi'].map(mode => (
+                    <div className="grid grid-cols-1 gap-2">
+                      {['upi'].map(mode => (
                         <button key={mode} type="button"
                           onClick={() => setForm({ ...form, paymentMode: mode })}
                           className={`py-2.5 rounded-lg text-sm font-medium capitalize transition-all ${form.paymentMode === mode ? 'bg-black text-white' : 'btn-ghost'

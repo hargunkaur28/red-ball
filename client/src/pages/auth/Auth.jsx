@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import { toast } from 'sonner';
 
@@ -382,7 +382,7 @@ body { background: #080808; }
   align-items: center;
   justify-content: center;
   gap: 10px;
-  margin-top: 10px;
+  margin-top: 22px !important;
   transition: border-color 0.2s, background 0.2s;
 }
 .google-btn:hover { border-color: rgba(200,16,46,0.35); background: rgba(255,255,255,0.08); }
@@ -393,6 +393,15 @@ body { background: #080808; }
   border-radius: 50%;
   background: conic-gradient(from -45deg, #4285f4 0 25%, #34a853 0 50%, #fbbc05 0 75%, #ea4335 0);
   display: inline-block;
+}
+
+.google-signin-wrapper {
+  margin-top: 22px !important;
+  min-height: 40px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .spinner {
@@ -495,16 +504,18 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
   const [errors, setErrors] = useState({});
-  const googleButtonRef = useRef(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get('redirectTo');
   const { login, register, googleAuth, getRedirectPath } = useAuthStore();
 
-  useEffect(() => {
+  const googleButtonRef = useCallback((node) => {
+    if (!node) return;
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (!clientId || !googleButtonRef.current) return;
+    if (!clientId) return;
 
-    const initializeGoogle = () => {
-      if (!window.google?.accounts?.id || !googleButtonRef.current) return;
+    const renderGoogleButton = () => {
+      if (!window.google?.accounts?.id || !node) return;
       window.google.accounts.id.initialize({
         client_id: clientId,
         callback: async ({ credential }) => {
@@ -513,7 +524,7 @@ export default function Auth() {
           try {
             await googleAuth(credential);
             toast.success('Signed in with Google.');
-            navigate(getRedirectPath());
+            navigate(redirectTo || getRedirectPath());
           } catch (err) {
             toast.error(err.response?.data?.message || 'Google sign-in failed');
           } finally {
@@ -521,28 +532,31 @@ export default function Auth() {
           }
         },
       });
-      googleButtonRef.current.innerHTML = '';
-      window.google.accounts.id.renderButton(googleButtonRef.current, {
+      node.innerHTML = '';
+      window.google.accounts.id.renderButton(node, {
         theme: 'outline',
         size: 'large',
         type: 'standard',
-        width: googleButtonRef.current.offsetWidth || 320,
+        width: node.offsetWidth || 320,
       });
     };
 
     if (window.google?.accounts?.id) {
-      initializeGoogle();
-      return;
+      renderGoogleButton();
+    } else {
+      const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+      if (existing) {
+        existing.addEventListener('load', renderGoogleButton);
+      } else {
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = renderGoogleButton;
+        document.body.appendChild(script);
+      }
     }
-
-    const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
-    const script = existing || document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    script.onload = initializeGoogle;
-    if (!existing) document.body.appendChild(script);
-  }, [getRedirectPath, googleAuth, navigate]);
+  }, [googleAuth, navigate, getRedirectPath, redirectTo]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -581,7 +595,7 @@ export default function Auth() {
         await register({ name: formData.name, email: formData.email, phone: formData.phone, password: formData.password });
         toast.success('Account created! Welcome to Red Ball Academy.');
       }
-      navigate(getRedirectPath());
+      navigate(redirectTo || getRedirectPath());
     } catch (err) {
       toast.error(err.response?.data?.message || 'Authentication failed');
     } finally {
@@ -742,7 +756,9 @@ export default function Auth() {
                   </button>
 
                   {import.meta.env.VITE_GOOGLE_CLIENT_ID ? (
-                    <div ref={googleButtonRef} className="google-btn" />
+                    <div className="google-signin-wrapper">
+                      <div ref={googleButtonRef} />
+                    </div>
                   ) : (
                     <button type="button" className="google-btn" disabled title="Set VITE_GOOGLE_CLIENT_ID to enable Google auth">
                       <span className="google-mark" /> Google Sign-In Unconfigured

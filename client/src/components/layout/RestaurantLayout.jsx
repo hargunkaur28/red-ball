@@ -6,6 +6,8 @@ import useAuthStore from '../../store/authStore';
 import { getInitials } from '../../lib/utils';
 import ErrorBoundary from '../shared/ErrorBoundary';
 import MobileNavbar from './MobileNavbar';
+import { useQueryClient } from '@tanstack/react-query';
+import socket from '../../lib/socket';
 
 const menuItems = [
   { path: '/restaurant', label: 'Dashboard', icon: <LayoutDashboard size={18} />, end: true },
@@ -21,7 +23,32 @@ export default function RestaurantLayout() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const qc = useQueryClient();
+
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
+
+  useEffect(() => {
+    const onRefresh = () => {
+      console.log('Restaurant Real-time refresh triggered!');
+      qc.invalidateQueries();
+    };
+    
+    // Listen for global and restaurant specific socket events
+    socket.emit('join-managers');
+    socket.on('dashboard:refresh', onRefresh);
+    socket.on('order:new', onRefresh);
+    socket.on('order:updated', onRefresh);
+    socket.on('order:cancelled', onRefresh);
+    socket.on('menu:updated', onRefresh);
+    
+    return () => {
+      socket.off('dashboard:refresh', onRefresh);
+      socket.off('order:new', onRefresh);
+      socket.off('order:updated', onRefresh);
+      socket.off('order:cancelled', onRefresh);
+      socket.off('menu:updated', onRefresh);
+    };
+  }, [qc]);
   useEffect(() => {
     const onResize = () => { if (window.innerWidth >= 1024) setMobileOpen(false); };
     window.addEventListener('resize', onResize);

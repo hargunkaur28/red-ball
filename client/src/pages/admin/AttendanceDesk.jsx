@@ -62,8 +62,9 @@ export default function AttendanceDesk() {
   const [historyStatus, setHistoryStatus] = useState('ALL');
   const [historySport, setHistorySport] = useState('ALL');
 
-  const sportOptions = ['cricket', 'football', 'badminton', 'swimming', 'gym', 'turf'];
-  const groundOptions = ['Court A', 'Court B', 'Turf 1', 'Main Ground', 'Swimming Pool', 'Gym Area'];
+const sportOptions = ['cricket', 'football', 'badminton', 'swimming', 'gym', 'turf'];
+const groundOptions = ['Court A', 'Court B', 'Turf 1', 'Main Ground', 'Swimming Pool', 'Gym Area'];
+const money = (amount = 0) => `₹${Number(amount || 0).toLocaleString('en-IN')}`;
 
   // Queries
   const { data: todayData, isLoading: isLoadingToday } = useQuery({
@@ -121,6 +122,15 @@ export default function AttendanceDesk() {
       toast.success('Check-out & stay duration recorded!');
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Check-out failed'),
+  });
+
+  const feeMutation = useMutation({
+    mutationFn: ({ id, status }) => api.put(`/attendance/${id}/fee-collection`, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['attendance:today'] });
+      toast.success('Late fee status updated.');
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Failed to update late fee'),
   });
 
   // Computations
@@ -211,7 +221,7 @@ export default function AttendanceDesk() {
     if (!checkInTime) return { label: 'Idle', color: 'bg-gray-100 text-gray-700' };
     const minutes = Math.floor((new Date() - new Date(checkInTime)) / (1000 * 60));
     if (minutes < 60) return { label: `Active (${minutes}m)`, color: 'bg-green-100 text-green-700 border border-green-200 animate-pulse' };
-    if (minutes < 90) return { label: `Near Ending (${minutes}m)`, color: 'bg-amber-100 text-amber-700 border border-amber-200' };
+    if (minutes < 75) return { label: `Near Ending (${minutes}m)`, color: 'bg-amber-100 text-amber-700 border border-amber-200' };
     return { label: `Overdue (${minutes}m)`, color: 'bg-red-100 text-red-700 border border-red-200' };
   };
 
@@ -325,12 +335,14 @@ export default function AttendanceDesk() {
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="card border border-purple-100 bg-purple-50/50 shadow-sm hover:shadow-md transition-all">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-purple-700">Avg Stay Duration</p>
-                <p className="text-4xl font-extrabold text-[#111111] mt-1">85 min</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-purple-700">Late Amount to Collect</p>
+                <p className="text-4xl font-extrabold text-[#111111] mt-1">
+                  {money(attendanceList.reduce((sum, a) => a.feeCollectionStatus === 'Pending Collection' ? sum + (a.lateAmount || 0) : sum, 0))}
+                </p>
               </div>
               <Clock size={26} className="text-purple-600" />
             </div>
-            <p className="text-xs text-purple-600 font-semibold mt-3">Across completed checkouts</p>
+            <p className="text-xs text-purple-600 font-semibold mt-3">Manual reception collection queue</p>
           </motion.div>
         </div>
 
@@ -546,6 +558,8 @@ export default function AttendanceDesk() {
                   {activePlayers.map((player) => {
                     const liveStatus = getLiveStatus(player.checkInTime);
                     const checkInTimeStr = new Date(player.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const elapsed = Math.floor((new Date() - new Date(player.checkInTime)) / 60000);
+                    const remaining = Math.max(0, (player.allowedDurationMinutes || 75) - elapsed);
 
                     return (
                       <motion.div
@@ -563,6 +577,9 @@ export default function AttendanceDesk() {
                             </span>
                             <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${liveStatus.color}`}>
                               {liveStatus.label}
+                            </span>
+                            <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-100 font-bold px-2 py-0.5 rounded-full uppercase">
+                              {remaining > 0 ? `${remaining}m left` : `${Math.max(0, elapsed - (player.allowedDurationMinutes || 75))}m overtime`}
                             </span>
                           </div>
 
@@ -600,8 +617,13 @@ export default function AttendanceDesk() {
                         )}
                       </div>
                       <span className="font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded text-[10px]">
-                        Stay: {p.duration || 60} mins
+                        Stay: {p.actualDurationMinutes || p.duration || 60} mins
                       </span>
+                      {(p.lateAmount || 0) > 0 && (
+                        <span className="font-semibold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded text-[10px] ml-2">
+                          Late: {money(p.lateAmount)} • {p.feeCollectionStatus}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -771,6 +793,10 @@ export default function AttendanceDesk() {
                     <th className="p-3">Check-in Time</th>
                     <th className="p-3">Check-out Time</th>
                     <th className="p-3">Stay Duration</th>
+                    <th className="p-3">Allowed</th>
+                    <th className="p-3">Overtime</th>
+                    <th className="p-3">Late Amount</th>
+                    <th className="p-3">Collection</th>
                     <th className="p-3">Method</th>
                     <th className="p-3">Status</th>
                   </tr>
@@ -778,7 +804,7 @@ export default function AttendanceDesk() {
                 <tbody className="divide-y divide-[#EAEAEA] text-xs">
                   {attendanceList.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="text-center py-8 text-[#888888]">No attendance history records match your filters.</td>
+                      <td colSpan={11} className="text-center py-8 text-[#888888]">No attendance history records match your filters.</td>
                     </tr>
                   ) : (
                     attendanceList
@@ -802,7 +828,28 @@ export default function AttendanceDesk() {
                           <td className="p-3 font-semibold">
                             {record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
                           </td>
-                          <td className="p-3 font-bold text-black">{record.duration ? `${record.duration} min` : 'Ongoing'}</td>
+                          <td className="p-3 font-bold text-black">{record.actualDurationMinutes || record.duration ? `${record.actualDurationMinutes || record.duration} min` : 'Ongoing'}</td>
+                          <td className="p-3 text-[#666666]">{record.allowedDurationMinutes || 75} min</td>
+                          <td className="p-3 font-semibold text-[#111111]">{record.overtimeMinutes || 0} min</td>
+                          <td className="p-3 font-bold text-red-700">{record.lateAmount ? money(record.lateAmount) : '—'}</td>
+                          <td className="p-3">
+                            {(record.lateAmount || 0) > 0 ? (
+                              <div className="flex flex-col gap-1">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                                  record.feeCollectionStatus === 'Paid' ? 'bg-green-100 text-green-700' :
+                                  record.feeCollectionStatus === 'Waived' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+                                }`}>
+                                  {record.feeCollectionStatus || 'Pending Collection'}
+                                </span>
+                                {record.feeCollectionStatus === 'Pending Collection' && (
+                                  <div className="flex gap-1">
+                                    <button onClick={() => feeMutation.mutate({ id: record._id, status: 'Paid' })} className="text-[10px] font-bold text-green-700 hover:underline">Paid</button>
+                                    <button onClick={() => feeMutation.mutate({ id: record._id, status: 'Waived' })} className="text-[10px] font-bold text-blue-700 hover:underline">Waive</button>
+                                  </div>
+                                )}
+                              </div>
+                            ) : '—'}
+                          </td>
                           <td className="p-3">
                             <span className="bg-gray-100 text-gray-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
                               {record.checkInMethod || 'Manual'}

@@ -34,6 +34,9 @@ exports.verifyPaymentSignature = (orderId, paymentId, signature) => {
 
 // Create Razorpay order
 exports.createRazorpayOrder = async (options) => {
+  if (!razorpayConfig.key_id || !razorpayConfig.key_secret) {
+    throw new Error('Razorpay keys are missing. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET on the server.');
+  }
   return new Promise((resolve, reject) => {
     razorpayInstance.orders.create(options, (err, order) => {
       if (err) reject(err);

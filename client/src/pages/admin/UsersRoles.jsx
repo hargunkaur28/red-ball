@@ -23,7 +23,7 @@ export default function UsersRoles() {
     { key: 'actions', label: '', render: r => <button className="btn-ghost text-xs" onClick={() => toggleMutation.mutate(r._id)}>{r.isActive ? 'Deactivate' : 'Activate'}</button> },
   ];
 
-  const roles = ['', 'superadmin', 'admin', 'manager', 'receptionist', 'student', 'customer'];
+  const roles = ['', 'superadmin', 'admin', 'manager', 'receptionist', 'user'];
 
   return (
     <div>

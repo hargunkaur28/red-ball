@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 export default function Payments() {
   const [tab, setTab] = useState('');
   const [collectModal, setCollectModal] = useState(null);
-  const [collectForm, setCollectForm] = useState({ amountPaid: 0, paymentMode: 'cash' });
+  const [collectForm, setCollectForm] = useState({ amountPaid: 0, paymentMode: 'razorpay' });
   const [razorpayLoading, setRazorpayLoading] = useState(false);
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const qc = useQueryClient();
@@ -64,20 +64,11 @@ export default function Payments() {
   const handleCollectClick = (payment) => {
     setCollectModal(payment);
     const due = payment.remainingAmount !== undefined ? payment.remainingAmount : payment.totalAmount;
-    setCollectForm({ amountPaid: Math.ceil(due), paymentMode: 'cash' });
+    setCollectForm({ amountPaid: Math.ceil(due), paymentMode: 'razorpay' });
   };
 
   const handleCollectionSubmit = async (e) => {
     e.preventDefault();
-
-    if (collectForm.paymentMode === 'cash') {
-      markPaidMutation.mutate({
-        id: collectModal._id,
-        paymentMode: 'cash',
-        amountPaid: parseFloat(collectForm.amountPaid)
-      });
-      return;
-    }
 
     // Razorpay UPI flow
     if (!scriptLoaded || !window.Razorpay) {
@@ -271,7 +262,6 @@ export default function Payments() {
                     <label className="block text-sm text-[#666] mb-1">Payment Mode</label>
                     <div className="grid grid-cols-2 gap-2">
                       {[
-                        { value: 'cash', label: 'Cash' },
                         { value: 'razorpay', label: 'UPI (Razorpay)' },
                       ].map(({ value, label }) => (
                         <button key={value} type="button"

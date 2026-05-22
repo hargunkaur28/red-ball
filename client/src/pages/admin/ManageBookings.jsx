@@ -35,7 +35,7 @@ export default function ManageBookings() {
   });
 
   const collectPaymentMutation = useMutation({
-    mutationFn: ({ paymentId, amount }) => api.post(`/payments/${paymentId}/mark-paid`, { paymentMode: 'cash', amountPaid: amount }),
+    mutationFn: ({ paymentId, amount }) => api.post(`/payments/${paymentId}/mark-paid`, { paymentMode: 'upi', amountPaid: amount }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['bookings'] });
       toast.success('Payment collected and booking confirmed!');

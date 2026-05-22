@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 export default function StudentMemberships() {
   const [tab, setTab] = useState('');
   const [renewModal, setRenewModal] = useState(null);
-  const [renewForm, setRenewForm] = useState({ amountPaid: '', paymentMode: 'cash' });
+  const [renewForm, setRenewForm] = useState({ amountPaid: '', paymentMode: 'razorpay' });
   const [razorpayLoading, setRazorpayLoading] = useState(false);
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const qc = useQueryClient();
@@ -50,19 +50,11 @@ export default function StudentMemberships() {
   const handleRenewClick = (m) => {
     const gst = calcGST(m.planId?.price || 0, m.planId?.gstPercent || 18);
     setRenewModal({ ...m, gst });
-    setRenewForm({ amountPaid: gst.totalAmount, paymentMode: 'cash' });
+    setRenewForm({ amountPaid: gst.totalAmount, paymentMode: 'razorpay' });
   };
 
   const handleRenewalSubmit = async (e) => {
     e.preventDefault();
-
-    if (renewForm.paymentMode === 'cash') {
-      renewMutation.mutate({
-        id: renewModal._id,
-        payload: { paymentMode: 'cash', amountPaid: parseFloat(renewForm.amountPaid) }
-      });
-      return;
-    }
 
     // Razorpay UPI flow
     if (!scriptLoaded || !window.Razorpay) {
@@ -142,7 +134,7 @@ export default function StudentMemberships() {
       )
     },
     { key: 'plan', label: 'Plan', render: r => <span className="font-medium text-[#111]">{r.planId?.name || '—'}</span> },
-    { key: 'status', label: 'Status', render: r => getStatusBadge(r.status) },
+    { key: 'status', label: 'Membership Status', render: r => getStatusBadge(r.status) },
     {
       key: 'expiry', label: 'Expiry Date', render: r => (
         <span className={`text-sm ${r.status === 'expired' ? 'text-red-600 font-bold' : 'text-[#111]'}`}>
@@ -225,7 +217,6 @@ export default function StudentMemberships() {
                     <label className="block text-sm text-[#666] mb-1">Payment Mode</label>
                     <div className="grid grid-cols-2 gap-2">
                       {[
-                        { value: 'cash', label: 'Cash' },
                         { value: 'razorpay', label: 'UPI (Razorpay)' },
                       ].map(({ value, label }) => (
                         <button key={value} type="button"

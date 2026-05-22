@@ -59,15 +59,48 @@ const useAuthStore = create((set, get) => ({
     }
   },
 
+  pendingEntryIntent: (() => {
+    try {
+      const stored = localStorage.getItem('pendingEntryIntent');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  })(),
+
+  setPendingEntryIntent: (intent) => {
+    if (intent) {
+      localStorage.setItem('pendingEntryIntent', JSON.stringify(intent));
+    } else {
+      localStorage.removeItem('pendingEntryIntent');
+    }
+    set({ pendingEntryIntent: intent });
+  },
+
+  clearPendingEntryIntent: () => {
+    localStorage.removeItem('pendingEntryIntent');
+    set({ pendingEntryIntent: null });
+  },
+
   getRedirectPath: () => {
-    const { user } = get();
+    const { user, pendingEntryIntent } = get();
     if (!user) return '/login';
+
+    if (pendingEntryIntent && user.role === 'user') {
+      const { flow, sportSlug, planId } = pendingEntryIntent;
+      if (flow === 'one-time-access' && sportSlug) {
+        return `/one-time-booking?sport=${sportSlug}`;
+      } else if (flow === 'membership') {
+        return planId ? `/user/membership?planId=${planId}` : '/user/membership';
+      }
+    }
+
     switch (user.role) {
-      case 'superadmin': case 'admin': return '/admin';
+      case 'superadmin': return '/super-admin';
+      case 'admin': return '/admin';
       case 'manager': return '/restaurant';
       case 'receptionist': return '/reception';
-      case 'student': return '/user';
-      case 'customer': return '/user';
+      case 'user': return '/user';
       default: return '/login';
     }
   },

@@ -29,6 +29,7 @@ export default function QuickActions() {
     { id: 'restaurant', label: 'Restaurant Orders', icon: <Utensils size={24} />, path: `${basePath}/restaurant`, color: 'border-pink-500', bg: 'bg-pink-50' },
     { id: 'attendance', label: 'Attendance Desk', icon: <ClipboardCheck size={24} />, path: `${basePath}/attendance-desk`, color: 'border-cyan-500', bg: 'bg-cyan-50' },
     { id: 'tables', label: 'Generate QR Table', icon: <Grid size={24} />, path: `${basePath}/tables`, color: 'border-teal-500', bg: 'bg-teal-50' },
+    { id: 'sports-qrs', label: 'Sports QR Codes', icon: <QrCode size={24} />, path: `${basePath}/sports-qrs`, color: 'border-violet-500', bg: 'bg-violet-50' },
   ].filter(a => {
     // Hide some actions if in reception if they don't exist
     if (basePath === '/reception') {

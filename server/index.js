@@ -16,6 +16,7 @@ const admissionRoutes = require('./routes/admission.routes');
 const membershipRoutes = require('./routes/membership.routes');
 const paymentRoutes = require('./routes/payment.routes');
 const onetimeplayRoutes = require('./routes/onetimeplay.routes');
+const oneTimeAccessRoutes = require('./routes/oneTimeAccess.routes');
 const slotRoutes = require('./routes/slot.routes');
 const operationRoutes = require('./routes/operation.routes');
 const attendanceRoutes = require('./routes/attendance.routes');
@@ -28,10 +29,15 @@ const serviceRoutes = require('./routes/service.routes');
 const blockedScheduleRoutes = require('./routes/blockedSchedule.routes');
 const bookingRoutes = require('./routes/booking.routes');
 const reviewRoutes = require('./routes/review.routes');
+const sportRoutes = require('./routes/sport.routes');
+const superadminRoutes = require('./routes/superadmin.routes');
+const kitchenRoutes = require('./routes/kitchen.routes');
 
 // Import cron jobs
 const startExpiryReminder = require('./jobs/expiryReminder.job');
 const startLowStockAlert = require('./jobs/lowStockAlert.job');
+const startAutoCheckout = require('./jobs/autoCheckout.job');
+const startExpireOneTimeAccess = require('./jobs/expireOneTimeAccess.job');
 const startTestExpiryCheckerModule = require('./jobs/testExpiryChecker.job');
 const { stopTestExpiryChecker } = startTestExpiryCheckerModule;
 const startTestExpiryChecker = startTestExpiryCheckerModule;
@@ -67,6 +73,10 @@ io.on('connection', (socket) => {
     socket.join(`order-${orderId}`);
   });
 
+  socket.on('join-kitchen-updates', () => {
+    socket.join('kitchen-updates');
+  });
+
   socket.on('order:accept', async ({ orderId }) => {
     io.to('restaurant-managers').emit('order:updated', { orderId, status: 'preparing' });
     io.to(`order-${orderId}`).emit('order:status', { orderId, status: 'preparing' });
@@ -99,7 +109,12 @@ app.use(cors({
 }));
 app.use(compression());
 app.use(morgan('dev'));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 app.use(require('cookie-parser')());
 
@@ -113,6 +128,7 @@ app.use('/api/admissions', admissionRoutes);
 app.use('/api', membershipRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/onetimeplay', onetimeplayRoutes);
+app.use('/api/onetimeaccess', oneTimeAccessRoutes);
 app.use('/api/slots', slotRoutes);
 app.use('/api/operations', operationRoutes);
 app.use('/api/attendance', attendanceRoutes);
@@ -125,6 +141,9 @@ app.use('/api/services', serviceRoutes);
 app.use('/api/blocked-schedules', blockedScheduleRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/sports', sportRoutes);
+app.use('/api/super-admin', superadminRoutes);
+app.use('/api/kitchen', kitchenRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -190,10 +209,29 @@ const startServer = async () => {
   const seedTestPlans = require('./jobs/seedTestPlans');
   await seedTestPlans(existingAdmin?._id);
 
+  // Seed sports
+  const seedSports = require('./jobs/seedSports');
+  await seedSports();
+
   // Start cron jobs
   startExpiryReminder();
   startLowStockAlert();
+  startAutoCheckout(io);
+  startExpireOneTimeAccess(io);
   startTestExpiryChecker(io);
+
+  // --- TEMP SCRIPT ---
+  try {
+    const fs = require('fs');
+    const Attendance = require('./models/Attendance');
+    const User = require('./models/User');
+    const hargun = await User.findOne({ email: 'hargun@gmail.com' });
+    if (hargun) {
+      const atts = await Attendance.find({ userId: hargun._id }).sort({ checkInTime: -1 }).limit(2).lean();
+      fs.writeFileSync('d:\\red-ball\\server\\check-output.txt', JSON.stringify(atts, null, 2));
+    }
+  } catch (err) {}
+  // ---
 
   server.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);

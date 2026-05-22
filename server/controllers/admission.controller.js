@@ -82,11 +82,11 @@ exports.create = async (req, res) => {
       user = await User.create({
         name, email, phone, gender, address,
         password: password || 'RedBall@123',
-        role: 'student',
+        role: 'user',
       });
     } else {
-      // Upgrade existing user to student
-      user.role = 'student';
+      // Upgrade existing user to member-facing app access
+      user.role = 'user';
       if (phone) user.phone = phone;
       if (gender) user.gender = gender;
       if (address) user.address = address;

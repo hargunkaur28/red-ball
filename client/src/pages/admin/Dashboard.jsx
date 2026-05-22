@@ -131,6 +131,24 @@ export default function AdminDashboard() {
         </motion.div>
       )}
 
+      {overview?.pendingLateFees > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 px-4 py-3 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={16} className="text-red-600" />
+            <span className="text-sm text-red-800 font-medium">
+              Late Amount to Collect: {formatCurrency(overview.pendingLateFeeAmount)} from {overview.pendingLateFees} session(s)
+            </span>
+          </div>
+          <Link to="/admin/attendance-desk" className="text-sm text-red-700 font-semibold hover:underline">
+            Review Sessions →
+          </Link>
+        </motion.div>
+      )}
+
       {/* Stat Cards — Always reflect realtime system state */}
       <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
         <StatCard title="Total Members" value={overview?.totalMembers || 0} icon={<Users size={20} />} />
@@ -138,6 +156,7 @@ export default function AdminDashboard() {
         <StatCard title="Expiring Soon" value={overview?.expiringSoon || 0} icon={<Clock size={20} />} accent />
         <StatCard title="Today Revenue" value={formatCurrency(overview?.todayRevenue || 0)} icon={<IndianRupee size={20} />} />
         <StatCard title="Pending Fees" value={overview?.pendingFees || 0} icon={<AlertTriangle size={20} />} accent />
+        <StatCard title="Late Fees" value={formatCurrency(overview?.pendingLateFeeAmount || 0)} icon={<Clock size={20} />} accent />
         <StatCard title="Pending Orders" value={overview?.pendingOrders || 0} icon={<Utensils size={20} />} />
       </motion.div>
 

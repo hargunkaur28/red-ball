@@ -6,6 +6,7 @@ const User = require('../models/User');
 const OneTimePlay = require('../models/OneTimePlay');
 const Slot = require('../models/Slot');
 const SlotBooking = require('../models/SlotBooking');
+const Attendance = require('../models/Attendance');
 
 // GET /api/analytics/overview — Dashboard summary cards
 exports.getOverview = async (req, res) => {
@@ -26,7 +27,7 @@ exports.getOverview = async (req, res) => {
       totalAdmissions,
       todayAdmissions,
     ] = await Promise.all([
-      User.countDocuments({ role: 'student', isActive: true }),
+      User.countDocuments({ role: 'user', isActive: true }),
       Membership.countDocuments({ status: 'active' }),
       Membership.countDocuments({ status: 'active', endDate: { $lte: sevenDays, $gte: new Date() } }),
       Payment.countDocuments({ 
@@ -72,12 +73,19 @@ exports.getOverview = async (req, res) => {
       },
     ]);
 
+    const lateFeeSummary = await Attendance.aggregate([
+      { $match: { feeCollectionStatus: 'Pending Collection', lateAmount: { $gt: 0 } } },
+      { $group: { _id: null, total: { $sum: '$lateAmount' }, count: { $sum: 1 } } },
+    ]);
+
     res.json({
       totalMembers,
       activeMemberships,
       expiringSoon,
       pendingFees,
       pendingFeesAmount: pendingFeesAmount[0]?.total || 0,
+      pendingLateFees: lateFeeSummary[0]?.count || 0,
+      pendingLateFeeAmount: lateFeeSummary[0]?.total || 0,
       todayRevenue: todayRevenue[0]?.total || 0,
       pendingOrders,
       totalAdmissions,

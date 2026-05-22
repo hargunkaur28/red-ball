@@ -81,7 +81,7 @@ exports.register = async (req, res) => {
       email,
       phone,
       password,
-      role: 'customer',
+      role: 'user',
     });
 
     const accessToken = generateAccessToken(user._id);
@@ -167,7 +167,7 @@ exports.logout = async (req, res) => {
 // POST /api/auth/google
 exports.googleAuth = async (req, res) => {
   try {
-    const { credential, role = 'customer' } = req.body;
+    const { credential, role = 'user' } = req.body;
     if (!credential) {
       return res.status(400).json({ message: 'Google credential is required.' });
     }
@@ -187,7 +187,7 @@ exports.googleAuth = async (req, res) => {
 
     let user = await User.findOne({ email: profile.email });
     if (!user) {
-      const requestedRole = ['student', 'customer'].includes(role) ? role : 'customer';
+      const requestedRole = role === 'user' ? role : 'user';
       user = await User.create({
         name: profile.name || profile.email.split('@')[0],
         email: profile.email,

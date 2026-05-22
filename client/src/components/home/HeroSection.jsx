@@ -1,7 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ArrowRight, ScanLine } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import api from '../../lib/axios';
+import useAuthStore from '../../store/authStore';
 
 const cyclingWords = ['Passionately', 'Relentlessly', 'Confidently', 'Fearlessly', 'Proudly', 'Purposefully'];
 
@@ -12,9 +15,17 @@ const heroImages = [
 ];
 
 export default function HeroSection() {
+  const { isAuthenticated, user } = useAuthStore();
   const [wordIndex, setWordIndex] = useState(0);
   const [animClass, setAnimClass] = useState('word-enter');
   const [bgIndex, setBgIndex] = useState(0);
+
+  // Fetch public sports
+  const { data: sportsData } = useQuery({
+    queryKey: ['public-sports'],
+    queryFn: () => api.get('/sports/public').then((r) => r.data),
+  });
+  const sports = sportsData?.sports || [];
 
   // Cycling word animation
   useEffect(() => {
@@ -67,9 +78,9 @@ export default function HeroSection() {
       />
 
       {/* Hero Content */}
-      <div className="relative z-20 h-full flex items-center pt-24 md:pt-0">
-        <div className="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 w-full">
-          <div className="max-w-[700px]">
+      <div className="relative z-20 h-full flex items-center pt-24 md:pt-0 pb-16 md:pb-0 overflow-y-auto md:overflow-visible">
+        <div className="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 w-full flex flex-col md:flex-row items-center justify-between gap-12 h-full py-20 md:py-0">
+          <div className="max-w-[700px] flex-shrink-0 mt-16 md:mt-0">
 
             {/* Eyebrow */}
             <motion.p
@@ -143,24 +154,78 @@ export default function HeroSection() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.5 }}
-              className="flex flex-wrap gap-4"
+              className="flex flex-col items-start gap-5"
             >
+              <div className="flex flex-wrap gap-4">
+                <Link
+                  to="/book-slots"
+                  className="px-8 py-3.5 rounded-full bg-[#C8102E] text-white text-base font-semibold transition-all duration-200 hover:bg-[#8B0B1E] hover:scale-[1.04] hover:shadow-[0_0_20px_rgba(200,16,46,0.45)] flex items-center gap-2"
+                  style={{ fontFamily: "'DM Sans', sans-serif" }}
+                >
+                  🏏 Book a Ground
+                </Link>
+                {isAuthenticated ? (
+                  <Link
+                    to={user?.role === 'superadmin' ? '/super-admin' : user?.role === 'admin' ? '/admin' : user?.role === 'manager' ? '/restaurant' : user?.role === 'receptionist' ? '/reception' : '/user'}
+                    className="px-8 py-3.5 rounded-full border-2 border-[#F5A623] text-[#F5A623] text-base font-semibold transition-all duration-200 hover:bg-[#F5A623] hover:text-black hover:scale-[1.04]"
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  >
+                    My Dashboard
+                  </Link>
+                ) : (
+                  <a
+                    href="#membership"
+                    className="px-8 py-3.5 rounded-full border-2 border-[#F5A623] text-[#F5A623] text-base font-semibold transition-all duration-200 hover:bg-[#F5A623] hover:text-black hover:scale-[1.04]"
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                  >
+                    Join Now
+                  </a>
+                )}
+              </div>
               <Link
-                to="/login"
-                className="px-8 py-3.5 rounded-full bg-[#C8102E] text-white text-base font-semibold transition-all duration-200 hover:bg-[#8B0B1E] hover:scale-[1.04] hover:shadow-[0_0_20px_rgba(200,16,46,0.45)] flex items-center gap-2"
+                to={isAuthenticated ? "/user/scan" : "/login"}
+                className="text-sm font-bold text-[#F5A623] hover:text-white flex items-center gap-2 transition-colors ml-2"
                 style={{ fontFamily: "'DM Sans', sans-serif" }}
               >
-                🏏 Book a Ground
+                <ScanLine size={18} /> Check-In via QR Code
               </Link>
-              <a
-                href="#membership"
-                className="px-8 py-3.5 rounded-full border-2 border-[#F5A623] text-[#F5A623] text-base font-semibold transition-all duration-200 hover:bg-[#F5A623] hover:text-black hover:scale-[1.04]"
-                style={{ fontFamily: "'DM Sans', sans-serif" }}
-              >
-                Join Now
-              </a>
             </motion.div>
           </div>
+
+          {/* Right side: Sports List */}
+          <motion.div 
+            initial={{ opacity: 0, x: 32 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+            className="w-full max-w-[400px] mt-8 md:mt-0 flex flex-col gap-3 max-h-[50vh] md:max-h-[65vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent"
+          >
+            {sports.length > 0 ? sports.filter(s => s.slug !== 'coaching' && s.name.toLowerCase() !== 'coaching').map((sport, idx) => (
+              <motion.div 
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.7 + idx * 0.1 }}
+                key={sport._id} 
+                className="bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex items-center justify-between hover:bg-black/50 hover:border-white/20 transition-all group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl shadow-inner shadow-white/5">
+                    {sport.icon || '🏅'}
+                  </div>
+                  <div>
+                    <h3 className="text-white font-bold text-lg leading-tight group-hover:text-[#F5A623] transition-colors">{sport.name}</h3>
+                    <p className="text-white/50 text-[10px] uppercase tracking-wider font-bold">Play & Train</p>
+                  </div>
+                </div>
+                <Link to={`/entry/${sport.slug}`} className="px-4 py-2 bg-white/10 hover:bg-[#C8102E] text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors border border-white/10 hover:border-[#C8102E] flex items-center gap-1 shrink-0">
+                  Book <ArrowRight size={14} />
+                </Link>
+              </motion.div>
+            )) : (
+              <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl p-6 text-center">
+                <p className="text-white/60 text-sm font-bold uppercase tracking-widest">Loading Sports...</p>
+              </div>
+            )}
+          </motion.div>
         </div>
       </div>
 

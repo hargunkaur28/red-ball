@@ -1,5 +1,6 @@
 const OneTimePlay = require('../models/OneTimePlay');
 const Payment = require('../models/Payment');
+const Attendance = require('../models/Attendance');
 const { calculateGST } = require('../utils/gstCalculator');
 const razorpayConfig = require('../config/razorpay');
 
@@ -23,19 +24,39 @@ exports.getAll = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(50);
 
+    const attendanceRecords = await Attendance.find({
+      relatedBookingType: 'one-time-play',
+      relatedBookingId: { $in: plays.map((play) => play._id) }
+    }).lean();
+    const attendanceByPlay = new Map(attendanceRecords.map((record) => [String(record.relatedBookingId), record]));
+    const enrichedPlays = plays.map((play) => {
+      const obj = play.toObject();
+      const attendance = attendanceByPlay.get(String(play._id));
+      return {
+        ...obj,
+        session: attendance ? {
+          allowedDurationMinutes: attendance.allowedDurationMinutes,
+          actualDurationMinutes: attendance.actualDurationMinutes || attendance.duration,
+          overtimeMinutes: attendance.overtimeMinutes || 0,
+          lateAmount: attendance.lateAmount || 0,
+          feeCollectionStatus: attendance.feeCollectionStatus || 'Not Applicable',
+        } : null,
+      };
+    });
+
     // Calculate today's total dynamically using UTC to avoid timezone issues
     const now = new Date();
     const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
     const todayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
 
-    const todayTotal = plays
+    const todayTotal = enrichedPlays
       .filter(p => {
         const pDate = new Date(p.createdAt);
         return pDate >= todayStart && pDate <= todayEnd;
       })
       .reduce((sum, p) => sum + p.totalAmount, 0);
 
-    res.json({ plays, todayTotal });
+    res.json({ plays: enrichedPlays, todayTotal });
   } catch (error) {
     res.status(500).json({ message: 'Server error.' });
   }

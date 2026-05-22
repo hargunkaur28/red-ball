@@ -63,7 +63,7 @@ export default function RestaurantOrders() {
 
   const filteredOrders = orders.filter(o => {
     // Only show cash orders or paid online orders
-    const isValidPayment = o.paymentMethod === 'cash' || o.paymentStatus === 'paid';
+    const isValidPayment = ['cash', 'upi', 'online'].includes(o.paymentMethod) || o.paymentStatus === 'paid';
     if (!isValidPayment) return false;
 
     const query = searchQuery.toLowerCase();

@@ -33,6 +33,8 @@ const orderSchema = new mongoose.Schema({
   deliveryLocation: {
     lat: Number,
     lng: Number,
+    address: String,
+    mapsUrl: String,
   },
   items: [{
     menuItemId: {
@@ -48,7 +50,31 @@ const orderSchema = new mongoose.Schema({
     },
     price: Number,
     kitchenNote: String,
+    status: {
+      type: String,
+      enum: ['pending', 'preparing', 'ready', 'delivered', 'cancelled', 'refunded'],
+      default: 'pending',
+    },
+    refundStatus: {
+      type: String,
+      enum: ['not-required', 'pending', 'refunded'],
+      default: 'not-required',
+    },
+    cancelledAt: Date,
+    cancelledBy: String,
+    refundedAt: Date,
+    refundNote: String,
+    refundedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
   }],
+  estimatedPrepMinutes: {
+    type: Number,
+  },
+  estimatedReadyAt: {
+    type: Date,
+  },
   subtotal: {
     type: Number,
     required: true,
