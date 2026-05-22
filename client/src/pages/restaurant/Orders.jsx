@@ -51,6 +51,9 @@ export default function RestaurantOrders() {
   const [viewMode, setViewMode] = useState('card');
   const [prepInputs, setPrepInputs] = useState({});   // orderId → open state
   const [prepValues, setPrepValues] = useState({});   // orderId → minutes value
+  const [prepCustom, setPrepCustom] = useState({});   // orderId → custom string input
+  const [cancelDialog, setCancelDialog] = useState(null); // { orderId, itemId, itemName }
+  const [cancelRemark, setCancelRemark] = useState('');
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(Date.now()), 30000);
@@ -116,8 +119,13 @@ export default function RestaurantOrders() {
   });
 
   const cancelItemMutation = useMutation({
-    mutationFn: ({ orderId, itemId }) => api.put(`/orders/${orderId}/items/${itemId}/cancel`, {}),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['restaurant-orders'] }); toast.success('Item cancelled.'); },
+    mutationFn: ({ orderId, itemId, reason }) => api.put(`/orders/${orderId}/items/${itemId}/cancel`, { reason }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['restaurant-orders'] });
+      setCancelDialog(null);
+      setCancelRemark('');
+      toast.success('Item cancelled.');
+    },
     onError: (e) => toast.error(e.response?.data?.message || 'Failed to cancel item.'),
   });
 
@@ -225,23 +233,39 @@ export default function RestaurantOrders() {
                   {PREP_OPTIONS.map(m => (
                     <button
                       key={m}
-                      onClick={() => setPrepValues(p => ({ ...p, [order._id]: m }))}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-black transition-all border ${prepValues[order._id] === m ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-amber-200 text-amber-700 hover:bg-amber-100'}`}
+                      onClick={() => { setPrepValues(p => ({ ...p, [order._id]: m })); setPrepCustom(p => ({ ...p, [order._id]: '' })); }}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-black transition-all border ${prepValues[order._id] === m && !prepCustom[order._id] ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white border-amber-200 text-amber-700 hover:bg-amber-100'}`}
                     >
                       {m}m
                     </button>
                   ))}
                 </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min="1"
+                    max="180"
+                    placeholder="Custom"
+                    value={prepCustom[order._id] || ''}
+                    onChange={e => { setPrepCustom(p => ({ ...p, [order._id]: e.target.value })); setPrepValues(p => ({ ...p, [order._id]: null })); }}
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-amber-200 bg-white text-[11px] font-bold text-amber-800 placeholder:text-amber-300 outline-none focus:border-amber-500"
+                  />
+                  <span className="text-[11px] text-amber-600 font-bold shrink-0">min</span>
+                </div>
                 <div className="flex gap-2">
                   <button
-                    disabled={!prepValues[order._id] || prepTimeMutation.isPending}
-                    onClick={() => prepTimeMutation.mutate({ id: order._id, minutes: prepValues[order._id] })}
+                    disabled={(!prepValues[order._id] && !prepCustom[order._id]) || prepTimeMutation.isPending}
+                    onClick={() => {
+                      const mins = prepCustom[order._id] ? Number(prepCustom[order._id]) : prepValues[order._id];
+                      if (!mins || mins < 1) return;
+                      prepTimeMutation.mutate({ id: order._id, minutes: mins });
+                    }}
                     className="flex-1 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black rounded-lg disabled:opacity-50 transition-all"
                   >
                     Confirm
                   </button>
                   <button
-                    onClick={() => setPrepInputs(p => ({ ...p, [order._id]: false }))}
+                    onClick={() => { setPrepInputs(p => ({ ...p, [order._id]: false })); setPrepCustom(p => ({ ...p, [order._id]: '' })); }}
                     className="px-3 py-1.5 bg-gray-100 text-gray-600 text-[11px] font-black rounded-lg hover:bg-gray-200 transition-all"
                   >
                     Cancel
@@ -319,8 +343,7 @@ export default function RestaurantOrders() {
                   <span className="font-mono text-gray-500 text-[11px]">{formatCurrency(item.price * item.quantity)}</span>
                   {canCancel && (
                     <button
-                      onClick={() => cancelItemMutation.mutate({ orderId: order._id, itemId: item._id })}
-                      disabled={cancelItemMutation.isPending}
+                      onClick={() => { setCancelDialog({ orderId: order._id, itemId: item._id, itemName: item.name }); setCancelRemark(''); }}
                       title="Cancel this item"
                       className="p-0.5 rounded-md text-red-400 hover:bg-red-100 hover:text-red-600 transition-all"
                     >
@@ -562,6 +585,60 @@ export default function RestaurantOrders() {
           </div>
         </div>
       )}
+
+      {/* Item Cancel Dialog */}
+      <AnimatePresence>
+        {cancelDialog && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+              onClick={() => { setCancelDialog(null); setCancelRemark(''); }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 24 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 24 }}
+              className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-white rounded-2xl shadow-2xl p-5"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-black text-base text-gray-900 flex items-center gap-2">
+                  <Ban size={16} className="text-red-500" /> Cancel Item
+                </h3>
+                <button onClick={() => { setCancelDialog(null); setCancelRemark(''); }} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-all">
+                  <X size={16} />
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 mb-4">
+                Cancelling <span className="font-black text-red-600">{cancelDialog.itemName}</span>. Add a reason (optional).
+              </p>
+              <textarea
+                autoFocus
+                rows={3}
+                placeholder="e.g. Item unavailable, Customer requested, Out of stock…"
+                value={cancelRemark}
+                onChange={e => setCancelRemark(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-red-400 focus:bg-white resize-none transition-all placeholder:text-gray-400"
+              />
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={() => cancelItemMutation.mutate({ orderId: cancelDialog.orderId, itemId: cancelDialog.itemId, reason: cancelRemark.trim() || undefined })}
+                  disabled={cancelItemMutation.isPending}
+                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-black transition-all disabled:opacity-60"
+                >
+                  {cancelItemMutation.isPending ? 'Cancelling…' : 'Confirm Cancel'}
+                </button>
+                <button
+                  onClick={() => { setCancelDialog(null); setCancelRemark(''); }}
+                  className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-sm font-bold transition-all"
+                >
+                  Back
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

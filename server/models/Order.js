@@ -62,6 +62,7 @@ const orderSchema = new mongoose.Schema({
     },
     cancelledAt: Date,
     cancelledBy: String,
+    cancelReason: String,
     refundedAt: Date,
     refundNote: String,
     refundedBy: {

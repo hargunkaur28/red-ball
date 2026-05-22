@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, CheckCircle, XCircle, RefreshCw, AlertCircle, ShoppingBag, Utensils, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, RefreshCw, AlertCircle, ShoppingBag, Utensils, ChevronDown, ChevronUp, MapPin, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../lib/axios';
 import socket, { connectSocket } from '../../lib/socket';
@@ -123,6 +123,9 @@ function OrderItem({ item, orderStatus, estimatedPrepMinutes, estimatedReadyAt }
             {refundText}
           </p>
         )}
+        {item.cancelReason && (
+          <p className="text-[10px] text-white/35 italic">Reason: {item.cancelReason}</p>
+        )}
       </div>
     </div>
   );
@@ -205,15 +208,38 @@ function OrderCard({ order }) {
                 ))}
               </div>
 
+              {/* Delivery address */}
+              {order.orderType === 'delivery' && order.deliveryAddress && (
+                <div className="flex items-start gap-2 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
+                  <MapPin size={14} className="text-[#df1526] mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-0.5">Delivery Address</p>
+                    <p className="text-xs text-white/60 leading-relaxed">{order.deliveryAddress}</p>
+                  </div>
+                  {(order.deliveryLocation?.mapsUrl || order.deliveryLocation?.lat) && (
+                    <a
+                      href={order.deliveryLocation.mapsUrl || `https://maps.google.com/?q=${order.deliveryLocation.lat},${order.deliveryLocation.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 inline-flex items-center gap-1 text-[10px] font-black text-blue-400 hover:text-blue-300 transition-colors"
+                    >
+                      <ExternalLink size={11} /> Maps
+                    </a>
+                  )}
+                </div>
+              )}
+
               {/* Order Meta info */}
-              <div className="mt-6 pt-5 border-t border-white/5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="mt-2 pt-5 border-t border-white/5 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs text-white/40 mb-1">Payment Status</p>
                   <p className="text-sm font-semibold text-white capitalize">{order.paymentStatus}</p>
                 </div>
                 <div>
                   <p className="text-xs text-white/40 mb-1">Order Type</p>
-                  <p className="text-sm font-semibold text-white capitalize">{order.orderType}</p>
+                  <p className="text-sm font-semibold text-white capitalize">
+                    {order.orderType === 'delivery' ? '🛵 Delivery' : order.orderType === 'pickup' ? '🏃 Pickup' : '🍽️ Dine-in'}
+                  </p>
                 </div>
               </div>
             </div>

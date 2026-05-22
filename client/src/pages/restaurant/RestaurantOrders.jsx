@@ -178,7 +178,7 @@ export default function RestaurantOrders() {
                         <div className="p-2 rounded-lg bg-gray-100 text-gray-500 group-hover:bg-black group-hover:text-white transition-colors">
                           <Receipt size={14} />
                         </div>
-                        <span className="text-xs font-mono font-bold">#{order._id.slice(-6).toUpperCase()}</span>
+                        <span className="text-xs font-mono font-bold">{order.orderNumber || `#${order._id.slice(-6).toUpperCase()}`}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -189,7 +189,13 @@ export default function RestaurantOrders() {
                         </div>
                         <div className="flex items-center gap-1.5 text-[10px] text-black font-black uppercase tracking-tighter">
                           <Utensils size={10} className="text-[#C8102E]" />
-                          <span>{order.tableId?.label || 'T-Unknown'}</span>
+                          <span>
+                            {order.orderType === 'delivery'
+                              ? '🛵 Delivery'
+                              : order.orderType === 'pickup'
+                              ? '🏃 Pickup'
+                              : order.tableId?.label || 'T-Unknown'}
+                          </span>
                         </div>
                       </div>
                     </td>
@@ -270,7 +276,7 @@ export default function RestaurantOrders() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
               <div>
-                <h3 className="font-black text-lg">Order #{selectedOrder._id.slice(-6).toUpperCase()}</h3>
+                <h3 className="font-black text-lg">{selectedOrder.orderNumber || `#${selectedOrder._id.slice(-6).toUpperCase()}`}</h3>
                 <p className="text-xs text-gray-500 font-medium">{new Date(selectedOrder.createdAt).toLocaleString()}</p>
               </div>
               <button 
@@ -290,9 +296,34 @@ export default function RestaurantOrders() {
                   <p className="text-xs text-gray-500">{selectedOrder.customerPhone || 'N/A'}</p>
                 </div>
                 <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                  <p className="text-[10px] uppercase font-black text-gray-400 mb-1">Table</p>
-                  <p className="text-sm font-bold text-[#C8102E]">{selectedOrder.tableId?.label || 'Takeaway'}</p>
-                  <p className="text-xs text-gray-500">{selectedOrder.tableId?.section || 'Main'}</p>
+                  <p className="text-[10px] uppercase font-black text-gray-400 mb-1">
+                    {selectedOrder.orderType === 'delivery' ? 'Delivery' : selectedOrder.orderType === 'pickup' ? 'Pickup' : 'Table'}
+                  </p>
+                  <p className="text-sm font-bold text-[#C8102E]">
+                    {selectedOrder.orderType === 'delivery'
+                      ? '🛵 Delivery Order'
+                      : selectedOrder.orderType === 'pickup'
+                      ? '🏃 Pickup Order'
+                      : selectedOrder.tableId?.label || 'Dine-in'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {selectedOrder.orderType === 'delivery'
+                      ? selectedOrder.deliveryAddress || 'Address not provided'
+                      : selectedOrder.orderType === 'pickup'
+                      ? 'Counter pickup'
+                      : selectedOrder.tableId?.section || 'Main'}
+                  </p>
+                  {selectedOrder.orderType === 'delivery' &&
+                    (selectedOrder.deliveryLocation?.mapsUrl || selectedOrder.deliveryLocation?.lat) && (
+                    <a
+                      href={selectedOrder.deliveryLocation.mapsUrl || `https://maps.google.com/?q=${selectedOrder.deliveryLocation.lat},${selectedOrder.deliveryLocation.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[10px] font-black text-blue-600 hover:underline mt-1"
+                    >
+                      📍 Open in Maps
+                    </a>
+                  )}
                 </div>
               </div>
 

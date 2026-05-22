@@ -246,6 +246,7 @@ exports.setPrepTime = async (req, res) => {
 // PUT /api/orders/:id/items/:itemId/cancel
 exports.cancelItem = async (req, res) => {
   try {
+    const { reason } = req.body;
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ message: 'Order not found.' });
 
@@ -256,6 +257,7 @@ exports.cancelItem = async (req, res) => {
     item.status = 'cancelled';
     item.cancelledAt = new Date();
     item.cancelledBy = req.user.role;
+    if (reason) item.cancelReason = reason;
 
     // Mark refund pending for paid online orders
     if (['online', 'upi', 'card'].includes(order.paymentMethod) && order.paymentStatus === 'paid') {
