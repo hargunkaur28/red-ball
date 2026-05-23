@@ -82,6 +82,20 @@ const useAuthStore = create((set, get) => ({
     set({ pendingEntryIntent: null });
   },
 
+  updateProfile: async (formData) => {
+    const { data } = await api.put('/auth/profile', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    set({ user: data.user });
+    return data;
+  },
+
+  changePassword: async (passwordData) => {
+    const { data } = await api.put('/auth/change-password', passwordData);
+    return data;
+  },
+
+
   getRedirectPath: () => {
     const { user, pendingEntryIntent } = get();
     if (!user) return '/login';

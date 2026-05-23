@@ -91,7 +91,11 @@ export default function UserLayout() {
       </nav>
       <div className="border-t border-white/10 p-3 shrink-0">
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-9 h-9 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-xs font-bold text-white">{getInitials(user?.name)}</div>
+          {user?.photo ? (
+            <img src={user.photo} alt={user.name} className="w-9 h-9 rounded-full object-cover border border-white/10 shrink-0" />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-xs font-bold text-white shrink-0">{getInitials(user?.name)}</div>
+          )}
           <div className="overflow-hidden"><p className="text-sm font-medium text-white truncate">{user?.name}</p><p className="text-xs text-white/40">{user?.role}</p></div>
         </div>
         <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-white/70 hover:bg-white/10 hover:text-white transition-all"><LogOut size={14} /> Logout</button>

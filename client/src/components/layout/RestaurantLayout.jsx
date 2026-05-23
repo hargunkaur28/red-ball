@@ -81,7 +81,11 @@ export default function RestaurantLayout() {
       </nav>
       <div className="border-t border-[#EAEAEA] p-3 shrink-0">
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-9 h-9 rounded-full bg-black flex items-center justify-center text-xs font-bold text-white">{getInitials(user?.name)}</div>
+          {user?.photo ? (
+            <img src={user.photo} alt={user.name} className="w-9 h-9 rounded-full object-cover border border-black/10 shrink-0" />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-black flex items-center justify-center text-xs font-bold text-white shrink-0">{getInitials(user?.name)}</div>
+          )}
           <div className="overflow-hidden"><p className="text-sm font-medium text-[#111111] truncate">{user?.name}</p><p className="text-xs text-[#888888]">Manager</p></div>
         </div>
         <button onClick={handleLogout} className="w-full btn-ghost text-xs gap-2"><LogOut size={14} /> Logout</button>

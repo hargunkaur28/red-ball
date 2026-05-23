@@ -4,9 +4,9 @@ import { MapPin, Phone, Mail, Clock } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
 const hours = [
-  { day: 'Monday – Friday', time: '6:00 AM – 10:00 PM' },
-  { day: 'Saturday', time: '6:00 AM – 11:00 PM' },
-  { day: 'Sunday', time: '7:00 AM – 9:00 PM' },
+  { day: 'Monday – Friday', time: '6:00 AM – 8:00 PM' },
+  { day: 'Saturday', time: '6:00 AM – 6:00 PM' },
+  { day: 'Sunday', time: '8:00 AM – 4:00 PM' },
 ];
 
 export default function ContactSection() {
@@ -72,21 +72,19 @@ export default function ContactSection() {
                 <div className="flex items-start gap-3">
                   <MapPin size={20} className="text-[#C8102E] shrink-0 mt-1" />
                   <p className="text-[#9CA3AF] text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                    123 Sports Avenue, Sector 15, New Delhi, Delhi 110001
+                    Sector 22-D, Jhajjar Road, near Village-Maina Rohtak, Haryana 124001
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <Phone size={20} className="text-[#C8102E] shrink-0" />
                   <div className="flex items-center gap-3 text-sm text-[#9CA3AF]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                    <a href="tel:+919876543210" className="hover:text-white transition-colors">+91 98765 43210</a>
-                    <span>|</span>
-                    <a href="tel:+919876543211" className="hover:text-white transition-colors">+91 98765 43211</a>
+                    <a href="tel:+919350076653" className="hover:text-white transition-colors">+91 93500 76653</a>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <Mail size={20} className="text-[#C8102E] shrink-0" />
-                  <a href="mailto:info@redballacademy.com" className="text-sm text-[#9CA3AF] hover:text-white transition-colors" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                    info@redballacademy.com
+                  <a href="mailto:redballcricketground@gmail.com" className="text-sm text-[#9CA3AF] hover:text-white transition-colors" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                    redballcricketground@gmail.com
                   </a>
                 </div>
               </div>
@@ -153,7 +151,7 @@ export default function ContactSection() {
             {/* Right Column — Google Map */}
             <div className="rounded-xl overflow-hidden h-full min-h-[500px] border border-white/[0.08]">
               <iframe
-                src="https://maps.google.com/maps?q=New+Delhi+Sports+Academy&output=embed"
+                src="https://maps.google.com/maps?q=Red+Ball+Cricket+Ground+Rohtak&output=embed"
                 width="100%"
                 height="100%"
                 style={{ border: 0, borderRadius: '12px', minHeight: '500px' }}

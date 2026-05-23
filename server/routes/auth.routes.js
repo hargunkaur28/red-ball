@@ -4,6 +4,7 @@ const { body } = require('express-validator');
 const validate = require('../middleware/validate.middleware');
 const auth = require('../middleware/auth.middleware');
 const authController = require('../controllers/auth.controller');
+const upload = require('../middleware/upload.middleware');
 
 router.post('/login', [
   body('email').isEmail().withMessage('Valid email required'),
@@ -32,4 +33,12 @@ router.post('/reset-password', [
 
 router.get('/me', auth, authController.getMe);
 
+router.put('/profile', auth, upload.single('photo'), authController.updateProfile);
+
+router.put('/change-password', auth, [
+  body('currentPassword').notEmpty().withMessage('Current password required'),
+  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
+], validate, authController.changePassword);
+
 module.exports = router;
+

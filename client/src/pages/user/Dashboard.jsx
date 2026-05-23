@@ -6,7 +6,7 @@ import api from '../../lib/axios';
 import useAuthStore from '../../store/authStore';
 import { formatCurrency } from '../../lib/utils';
 import socket from '../../lib/socket';
-import { Trophy, Calendar, Utensils, Clock, AlertTriangle, CheckCircle, QrCode, TimerReset } from 'lucide-react';
+import { Trophy, Calendar, Utensils, Clock, AlertTriangle, CheckCircle, QrCode, TimerReset, User } from 'lucide-react';
 import { toast } from 'sonner';
 
 const formatSessionClock = (milliseconds) => {
@@ -447,31 +447,40 @@ export default function UserDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 gap-4 mb-8">
         <Link to="/user/membership">
-          <motion.div whileHover={{ scale: 1.02 }} className="ota-card flex items-center gap-4 cursor-pointer p-5 hover:border-white/15 transition-all">
-            <Trophy size={28} strokeWidth={1.5} className="text-[#df1526]" />
+          <motion.div whileHover={{ scale: 1.02 }} className="ota-card flex items-center gap-4 cursor-pointer p-5 hover:border-white/15 transition-all h-full">
+            <Trophy size={28} strokeWidth={1.5} className="text-[#df1526] shrink-0" />
             <div>
-              <h3 className="font-bold text-white">Membership</h3>
-              <p className="text-xs text-white/45">View plan, sports & invoices</p>
+              <h3 className="font-bold text-white text-sm sm:text-base">Membership</h3>
+              <p className="text-[10px] sm:text-xs text-white/45">View plan, sports & invoices</p>
             </div>
           </motion.div>
         </Link>
         <Link to="/user/table-portal">
-          <motion.div whileHover={{ scale: 1.02 }} className="ota-card flex items-center gap-4 cursor-pointer p-5 hover:border-white/15 transition-all">
-            <Utensils size={28} strokeWidth={1.5} className="text-[#df1526]" />
+          <motion.div whileHover={{ scale: 1.02 }} className="ota-card flex items-center gap-4 cursor-pointer p-5 hover:border-white/15 transition-all h-full">
+            <Utensils size={28} strokeWidth={1.5} className="text-[#df1526] shrink-0" />
             <div>
-              <h3 className="font-bold text-white">Order Food</h3>
-              <p className="text-xs text-white/45">Browse menu & place orders</p>
+              <h3 className="font-bold text-white text-sm sm:text-base">Order Food</h3>
+              <p className="text-[10px] sm:text-xs text-white/45">Browse menu & place orders</p>
             </div>
           </motion.div>
         </Link>
         <Link to="/user/orders">
-          <motion.div whileHover={{ scale: 1.02 }} className="ota-card flex items-center gap-4 cursor-pointer p-5 hover:border-white/15 transition-all">
-            <Calendar size={28} strokeWidth={1.5} className="text-[#df1526]" />
+          <motion.div whileHover={{ scale: 1.02 }} className="ota-card flex items-center gap-4 cursor-pointer p-5 hover:border-white/15 transition-all h-full">
+            <Calendar size={28} strokeWidth={1.5} className="text-[#df1526] shrink-0" />
             <div>
-              <h3 className="font-bold text-white">Order History</h3>
-              <p className="text-xs text-white/45">{orders?.orders?.length || 0} orders</p>
+              <h3 className="font-bold text-white text-sm sm:text-base">Order History</h3>
+              <p className="text-[10px] sm:text-xs text-white/45">{orders?.orders?.length || 0} orders</p>
+            </div>
+          </motion.div>
+        </Link>
+        <Link to="/user/profile">
+          <motion.div whileHover={{ scale: 1.02 }} className="ota-card flex items-center gap-4 cursor-pointer p-5 hover:border-white/15 transition-all h-full">
+            <User size={28} strokeWidth={1.5} className="text-[#df1526] shrink-0" />
+            <div>
+              <h3 className="font-bold text-white text-sm sm:text-base">Profile</h3>
+              <p className="text-[10px] sm:text-xs text-white/45">Manage photo & password</p>
             </div>
           </motion.div>
         </Link>

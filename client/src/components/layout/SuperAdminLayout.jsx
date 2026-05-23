@@ -105,9 +105,13 @@ export default function SuperAdminLayout() {
       {/* User Section */}
       <div className="border-t border-[#EAEAEA] p-4 shrink-0">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#C8102E] to-[#8B0B1E] flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-md">
-            {getInitials(user?.name)}
-          </div>
+          {user?.photo ? (
+            <img src={user.photo} alt={user.name} className="w-10 h-10 rounded-full object-cover border border-[#EAEAEA] shrink-0 shadow-md" />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#C8102E] to-[#8B0B1E] flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-md">
+              {getInitials(user?.name)}
+            </div>
+          )}
           <div className="overflow-hidden flex-1">
             <p className="text-sm font-semibold text-[#111111] truncate">{user?.name}</p>
             <p className="text-[11px] text-[#999999] truncate capitalize">{user?.role?.replace('superadmin', 'Super Admin')}</p>
@@ -173,9 +177,13 @@ export default function SuperAdminLayout() {
             <button className="w-9 h-9 rounded-lg bg-[#F0F0F0] border border-[#EAEAEA] flex items-center justify-center text-[#666666] hover:text-[#111111] relative transition-colors">
               <Bell size={18} />
             </button>
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#C8102E] to-[#8B0B1E] flex items-center justify-center text-white text-xs font-bold">
-              {getInitials(user?.name)}
-            </div>
+            {user?.photo ? (
+              <img src={user.photo} alt={user.name} className="w-9 h-9 rounded-full object-cover border border-[#EAEAEA]" />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#C8102E] to-[#8B0B1E] flex items-center justify-center text-white text-xs font-bold">
+                {getInitials(user?.name)}
+              </div>
+            )}
           </div>
         </header>
 

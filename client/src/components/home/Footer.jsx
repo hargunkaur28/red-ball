@@ -96,7 +96,7 @@ export default function Footer() {
                  className="social-icon text-[#9CA3AF] hover:text-[#C8102E] hover:scale-[1.2] transition-all duration-200">
                 <FacebookIcon />
               </a>
-              <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer"
+              <a href="https://wa.me/919350076653" target="_blank" rel="noopener noreferrer"
                  className="social-icon text-[#9CA3AF] hover:text-[#C8102E] hover:scale-[1.2] transition-all duration-200">
                 <WhatsAppIcon />
               </a>
@@ -148,16 +148,13 @@ export default function Footer() {
             </h4>
             <ul className="space-y-2.5 text-sm text-[#9CA3AF]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
               <li>
-                <a href="tel:+919876543210" className="hover:text-white transition-colors">+91 98765 43210</a>
+                <a href="tel:+919350076653" className="hover:text-white transition-colors">+91 93500 76653</a>
               </li>
               <li>
-                <a href="tel:+919876543211" className="hover:text-white transition-colors">+91 98765 43211</a>
-              </li>
-              <li>
-                <a href="mailto:info@redballacademy.com" className="hover:text-white transition-colors">info@redballacademy.com</a>
+                <a href="mailto:redballcricketground@gmail.com" className="hover:text-white transition-colors">redballcricketground@gmail.com</a>
               </li>
               <li className="pt-1 leading-relaxed">
-                123 Sports Avenue, Sector 15, New Delhi, Delhi 110001
+                Sector 22-D, Jhajjar Road, near Village-Maina Rohtak, Haryana 124001
               </li>
             </ul>
           </div>
