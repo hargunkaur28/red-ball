@@ -178,7 +178,7 @@ export default function HeroSection() {
                 <div className="flex gap-3 w-full sm:w-auto">
                   {isAuthenticated ? (
                     <Link
-                      to={user?.role === 'superadmin' ? '/super-admin' : user?.role === 'admin' ? '/admin' : user?.role === 'manager' ? '/restaurant' : user?.role === 'receptionist' ? '/reception' : '/user'}
+                      to={user?.role === 'superadmin' ? '/super-admin' : user?.role === 'manager' ? '/restaurant' : '/user'}
                       className="flex-1 sm:flex-none justify-center flex items-center px-4 sm:px-8 py-3.5 rounded-full border-2 border-[#F5A623] text-[#F5A623] text-sm sm:text-base font-semibold transition-all duration-200 hover:bg-[#F5A623] hover:text-black hover:scale-[1.04]"
                       style={{ fontFamily: "'DM Sans', sans-serif" }}
                     >

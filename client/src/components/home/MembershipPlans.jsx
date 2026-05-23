@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Check, Unlock, Tag, MessageCircle, CalendarDays } from 'lucide-react';
+import useAuthStore from '../../store/authStore';
 
 const legacyPlans = [
   {
@@ -75,6 +76,7 @@ const cardVariants = {
 };
 
 export default function MembershipPlans() {
+  const { isAuthenticated } = useAuthStore();
   const [activePlan, setActivePlan] = useState('18,000');
 
   return (
@@ -165,7 +167,7 @@ export default function MembershipPlans() {
  
                 {/* CTA */}
                 <Link
-                  to="/book-slots"
+                  to={isAuthenticated ? '/user/buy-memberships' : '/buy-membership'}
                   className={`block w-full text-center py-3.5 rounded-full font-semibold transition-all duration-200 hover:scale-[1.03] ${
                     isActive
                       ? 'bg-[#F5A623] text-[#0D0D0D] hover:bg-[#E09410]'

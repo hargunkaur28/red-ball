@@ -8,7 +8,7 @@ const programs = [
   { label: 'Badminton', href: '#sports' },
   { label: 'Football', href: '#sports' },
   { label: 'Gym & Fitness', href: '#sports' },
-  { label: 'Facility Rentals', href: '#facilities' },
+  { label: 'Facility Rentals', href: '#sports' },
 ];
 
 const quickLinks = [
@@ -16,8 +16,6 @@ const quickLinks = [
   { label: 'Membership Plans', href: '#membership' },
   { label: 'Book a Ground', to: '/book-slots' },
   { label: 'Contact', href: '#contact' },
-  { label: 'Privacy Policy', href: '/privacy-policy' },
-  { label: 'Terms & Conditions', href: '/terms-conditions' },
 ];
 
 // Instagram SVG

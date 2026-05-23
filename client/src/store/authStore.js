@@ -97,9 +97,7 @@ const useAuthStore = create((set, get) => ({
 
     switch (user.role) {
       case 'superadmin': return '/super-admin';
-      case 'admin': return '/admin';
       case 'manager': return '/restaurant';
-      case 'receptionist': return '/reception';
       case 'user': return '/user';
       default: return '/login';
     }

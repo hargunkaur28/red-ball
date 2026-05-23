@@ -457,7 +457,7 @@ export default function UserDashboard() {
             </div>
           </motion.div>
         </Link>
-        <Link to="/user/food">
+        <Link to="/user/table-portal">
           <motion.div whileHover={{ scale: 1.02 }} className="ota-card flex items-center gap-4 cursor-pointer p-5 hover:border-white/15 transition-all">
             <Utensils size={28} strokeWidth={1.5} className="text-[#df1526]" />
             <div>

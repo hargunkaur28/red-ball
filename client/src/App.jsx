@@ -8,10 +8,8 @@ import ErrorBoundary from './components/shared/ErrorBoundary';
 import RouteLoader from './components/shared/RouteLoader';
 
 // Layouts (loaded eagerly — they're the app shell)
-import AdminLayout from './components/layout/AdminLayout';
 import UserLayout from './components/layout/UserLayout';
 import RestaurantLayout from './components/layout/RestaurantLayout';
-import ReceptionLayout from './components/layout/ReceptionLayout';
 import SuperAdminLayout from './components/layout/SuperAdminLayout';
 
 // Auth (loaded eagerly — it's the entry point)
@@ -20,23 +18,7 @@ import Home from './pages/Home';
 
 // ── Lazy-loaded Pages ──────────────────────────────────────────────
 // Admin
-const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
-const Admissions = lazy(() => import('./pages/admin/Admissions'));
-const MembershipPlans = lazy(() => import('./pages/admin/MembershipPlans'));
-const StudentMemberships = lazy(() => import('./pages/admin/StudentMemberships'));
-const OneTimePlay = lazy(() => import('./pages/admin/OneTimePlay'));
-const Slots = lazy(() => import('./pages/admin/Slots'));
-const Payments = lazy(() => import('./pages/admin/Payments'));
-const Analytics = lazy(() => import('./pages/admin/Analytics'));
-const UsersRoles = lazy(() => import('./pages/admin/UsersRoles'));
 const Settings = lazy(() => import('./pages/admin/Settings'));
-const OperationalDashboard = lazy(() => import('./pages/admin/OperationalDashboard'));
-const AttendanceDesk = lazy(() => import('./pages/admin/AttendanceDesk'));
-const ManageServices = lazy(() => import('./pages/admin/ManageServices'));
-const ManageBookings = lazy(() => import('./pages/admin/ManageBookings'));
-const QRCheckIn = lazy(() => import('./pages/admin/QRCheckIn'));
-const ScheduleBlocking = lazy(() => import('./pages/admin/ScheduleBlocking'));
-const Reviews = lazy(() => import('./pages/admin/Reviews'));
 
 // Super Admin
 const SADashboard = lazy(() => import('./pages/super-admin/Dashboard'));
@@ -48,8 +30,6 @@ const SAOneTime = lazy(() => import('./pages/super-admin/OneTime'));
 // User
 const UserDashboard = lazy(() => import('./pages/user/Dashboard'));
 const UserMembership = lazy(() => import('./pages/user/Membership'));
-const BookSlots = lazy(() => import('./pages/BookSlots'));
-const FoodOrdering = lazy(() => import('./pages/user/FoodOrdering'));
 const OrderHistory = lazy(() => import('./pages/user/OrderHistory'));
 const Profile = lazy(() => import('./pages/user/Profile'));
 const UserReviews = lazy(() => import('./pages/user/Reviews'));
@@ -62,15 +42,11 @@ const RestaurantOrderHistory = lazy(() => import('./pages/restaurant/RestaurantO
 const RestaurantMenu = lazy(() => import('./pages/restaurant/Menu'));
 const RestaurantTables = lazy(() => import('./pages/restaurant/Tables'));
 
-// Reception
-const ReceptionDashboard = lazy(() => import('./pages/reception/Dashboard'));
-
 // Public
 const TableOrder = lazy(() => import('./pages/table/TableOrder'));
 const TablePortal = lazy(() => import('./pages/table/TablePortal'));
 const OneTimeBookingPortal = lazy(() => import('./pages/OneTimeBookingPortal'));
 const EntryPortal = lazy(() => import('./pages/EntryPortal'));
-const SportsQRCodes = lazy(() => import('./pages/admin/SportsQRCodes'));
 const MembershipPortal = lazy(() => import('./pages/MembershipPortal'));
 const BookSlotsMarketplace = lazy(() => import('./pages/BookSlotsMarketplace'));
 const SportDetailPage = lazy(() => import('./pages/SportDetailPage'));
@@ -135,33 +111,6 @@ export default function App() {
               <Route path="/buy-membership" element={<MembershipPortal />} />
               <Route path="/entry/:qrSlug" element={<EntryPortal />} />
 
-              {/* Admin Panel */}
-              <Route path="/admin" element={
-                <ProtectedRoute roles={['superadmin', 'admin']}><AdminLayout /></ProtectedRoute>
-              }>
-                <Route index element={<AdminDashboard />} />
-                <Route path="admissions" element={<Admissions />} />
-                <Route path="memberships" element={<StudentMemberships />} />
-                <Route path="plans" element={<MembershipPlans />} />
-                <Route path="one-time-play" element={<OneTimePlay />} />
-                <Route path="slots" element={<Slots />} />
-                <Route path="payments" element={<Payments />} />
-                <Route path="restaurant" element={<LiveOrders />} />
-                <Route path="history" element={<RestaurantOrderHistory />} />
-                <Route path="tables" element={<RestaurantTables />} />
-                <Route path="analytics" element={<Analytics />} />
-                <Route path="operations" element={<OperationalDashboard />} />
-                <Route path="attendance-desk" element={<AttendanceDesk />} />
-                <Route path="users" element={<UsersRoles />} />
-                <Route path="settings" element={<Settings />} />
-                <Route path="manage-services" element={<ManageServices />} />
-                <Route path="manage-bookings" element={<ManageBookings />} />
-                <Route path="qr-checkin" element={<QRCheckIn />} />
-                <Route path="schedule-blocking" element={<ScheduleBlocking />} />
-                <Route path="reviews" element={<Reviews />} />
-                <Route path="sports-qrs" element={<SportsQRCodes />} />
-              </Route>
-
               {/* Super Admin Panel */}
               <Route path="/super-admin" element={
                 <ProtectedRoute roles={['superadmin']}><SuperAdminLayout /></ProtectedRoute>
@@ -194,31 +143,13 @@ export default function App() {
 
               {/* Restaurant Manager Panel */}
               <Route path="/restaurant" element={
-                <ProtectedRoute roles={['manager', 'superadmin', 'admin']}><RestaurantLayout /></ProtectedRoute>
+                <ProtectedRoute roles={['manager', 'superadmin']}><RestaurantLayout /></ProtectedRoute>
               }>
                 <Route index element={<RestaurantDashboard />} />
                 <Route path="orders" element={<LiveOrders />} />
                 <Route path="history" element={<RestaurantOrderHistory />} />
                 <Route path="menu" element={<RestaurantMenu />} />
                 <Route path="tables" element={<RestaurantTables />} />
-              </Route>
-
-              {/* Reception Panel */}
-              <Route path="/reception" element={
-                <ProtectedRoute roles={['receptionist', 'superadmin', 'admin']}><ReceptionLayout /></ProtectedRoute>
-              }>
-                <Route index element={<ReceptionDashboard />} />
-                <Route path="admissions" element={<Admissions />} />
-                <Route path="memberships" element={<StudentMemberships />} />
-                <Route path="one-time-play" element={<OneTimePlay />} />
-                <Route path="book-slots" element={<BookSlots />} />
-                <Route path="operations" element={<OperationalDashboard />} />
-                <Route path="attendance-desk" element={<AttendanceDesk />} />
-                <Route path="payments" element={<Payments />} />
-                <Route path="manage-bookings" element={<ManageBookings />} />
-                <Route path="qr-checkin" element={<QRCheckIn />} />
-                <Route path="schedule-blocking" element={<ScheduleBlocking />} />
-                <Route path="sports-qrs" element={<SportsQRCodes />} />
               </Route>
 
               {/* Redirect root */}

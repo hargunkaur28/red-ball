@@ -1,12 +1,13 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutGrid, Calendar, Clock, Settings as SettingsIcon } from 'lucide-react';
+import { ClipboardList, Grid, History, LayoutGrid, Utensils } from 'lucide-react';
 
 export default function MobileNavbar() {
   const tabs = [
-    { path: '/admin', label: 'Dashboard', icon: <LayoutGrid size={24} />, end: true },
-    { path: '/admin/manage-bookings', label: 'Bookings', icon: <Calendar size={24} /> },
-    { path: '/admin/schedule-blocking', label: 'Schedule', icon: <Clock size={24} /> },
-    { path: '/admin/settings', label: 'Settings', icon: <SettingsIcon size={24} /> },
+    { path: '/restaurant', label: 'Dashboard', icon: <LayoutGrid size={24} />, end: true },
+    { path: '/restaurant/orders', label: 'Orders', icon: <ClipboardList size={24} /> },
+    { path: '/restaurant/history', label: 'History', icon: <History size={24} /> },
+    { path: '/restaurant/menu', label: 'Menu', icon: <Utensils size={24} /> },
+    { path: '/restaurant/tables', label: 'Tables', icon: <Grid size={24} /> },
   ];
 
   return (
