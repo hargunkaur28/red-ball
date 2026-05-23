@@ -117,7 +117,7 @@ export default function FacilityRentals() {
             </p>
           </div>
           <Link
-            to={isAuthenticated ? '/user/book-slots/all-services' : '/book-slots/all-services'}
+            to={isAuthenticated ? '/user/book-slots' : '/book-slots'}
             className="px-6 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wider transition-colors shrink-0 whitespace-nowrap"
             style={{
               background: 'rgba(245,166,35,0.1)',
