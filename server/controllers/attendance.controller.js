@@ -246,7 +246,10 @@ exports.checkIn = async (req, res) => {
     // Emit socket event
     const io = req.app.get('io');
     if (io) {
-      io.emit('attendance:check-in', { userId, timestamp: new Date() });
+      // Find user name for the payload
+      const user = await require('../models/User').findById(userId).select('name');
+      const userName = user?.name || 'Unknown User';
+      io.emit('attendance:check-in', { userId, userName, sport, timestamp: new Date() });
       io.emit('dashboard:refresh');
     }
 
@@ -294,8 +297,11 @@ exports.checkOut = async (req, res) => {
 
     const io = req.app.get('io');
     if (io) {
+      const user = await require('../models/User').findById(userId).select('name');
+      const userName = user?.name || 'Unknown User';
       io.emit('attendance:check-out', {
         userId,
+        userName,
         sport: attendance.sport,
         attendanceId: attendance._id,
         timestamp: attendance.checkOutTime,

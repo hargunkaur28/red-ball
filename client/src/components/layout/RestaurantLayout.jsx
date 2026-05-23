@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, ClipboardList, Utensils, Package, Grid, Menu, X, LogOut } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, Utensils, Package, Grid, Menu, X, LogOut, Settings } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { getInitials } from '../../lib/utils';
 import ErrorBoundary from '../shared/ErrorBoundary';
@@ -15,6 +15,7 @@ const menuItems = [
   { path: '/restaurant/history', label: 'Order History', icon: <Package size={18} /> },
   { path: '/restaurant/menu', label: 'Menu', icon: <Utensils size={18} /> },
   { path: '/restaurant/tables', label: 'Tables & QR', icon: <Grid size={18} /> },
+  { path: '/restaurant/settings', label: 'Settings', icon: <Settings size={18} /> },
 ];
 
 export default function RestaurantLayout() {

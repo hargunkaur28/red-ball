@@ -114,6 +114,43 @@ export default function Dashboard() {
   const qc = useQueryClient();
   const [checkInLog, setCheckInLog] = useState([]);
 
+  // Fetch today's check-in/out feed on mount
+  useEffect(() => {
+    const fetchRecentFeed = async () => {
+      try {
+        const { data } = await api.get('/attendance/today');
+        const recentLogs = [];
+        data.attendance.forEach(a => {
+          const userName = a.userId?.name || 'Unknown User';
+          if (a.checkOutTime) {
+            recentLogs.push({
+              type: 'check-out',
+              id: `out-${a._id}`,
+              sport: a.sport,
+              userName,
+              timestamp: a.checkOutTime,
+            });
+          }
+          if (a.checkInTime) {
+            recentLogs.push({
+              type: 'check-in',
+              id: `in-${a._id}`,
+              sport: a.sport,
+              userName,
+              timestamp: a.checkInTime,
+            });
+          }
+        });
+        
+        recentLogs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        setCheckInLog(recentLogs.slice(0, 20));
+      } catch (error) {
+        console.error('Error fetching recent attendance:', error);
+      }
+    };
+    fetchRecentFeed();
+  }, []);
+
   // Socket.IO for real-time check-in/out events
   useEffect(() => {
     const serverUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
@@ -137,7 +174,6 @@ export default function Dashboard() {
 
     return () => socket.disconnect();
   }, [qc]);
-
   // Fetch active sports count
   const { data: sportsData, isLoading: sportsLoading } = useQuery({
     queryKey: ['dashboard-sports'],
@@ -386,12 +422,12 @@ export default function Dashboard() {
           </h2>
         </div>
         {checkInLog.length === 0 ? (
-          <div className="card py-5 text-center text-sm text-[#9CA3AF]">
+          <div className="card py-4 text-center text-sm text-[#9CA3AF]">
             No check-in/check-out events yet. Events appear here in real-time as members scan QR codes.
           </div>
         ) : (
-          <div className="card overflow-hidden">
-            <div className="max-h-[280px] overflow-y-auto divide-y divide-gray-50">
+          <div className="card !p-0 overflow-hidden">
+            <div className="max-h-[280px] overflow-y-auto divide-y divide-gray-50 py-1">
               <AnimatePresence initial={false}>
                 {checkInLog.map(entry => (
                   <motion.div
@@ -414,7 +450,7 @@ export default function Dashboard() {
                       <p className="text-sm font-semibold text-[#0D0D0D] truncate">
                         {entry.type === 'auto-checkout'
                           ? `Auto-checkout: ${entry.count} session(s)`
-                          : `${entry.type === 'check-in' ? 'Check-In' : 'Check-Out'} — ${entry.sport || 'Unknown'}`}
+                          : `${entry.userName || 'Member'} ${entry.type === 'check-in' ? 'Checked-In for' : 'Checked-Out from'} ${entry.sport || 'Unknown'}`}
                       </p>
                     </div>
                     <span className="text-[10px] text-[#9CA3AF] font-mono shrink-0">

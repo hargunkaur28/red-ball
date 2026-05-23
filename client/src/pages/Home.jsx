@@ -33,11 +33,14 @@ function FlowSection({ children, theme = 'dark', id }) {
   );
 }
 
+let hasPlayedIntroThisSession = false;
+
 export default function Home() {
-  // Always display landing animation on home page load for maximum visual wow factor
-  const [showIntro, setShowIntro] = useState(true);
+  // Play landing animation on fresh page load or refresh, but skip on SPA navigation back to Home
+  const [showIntro, setShowIntro] = useState(!hasPlayedIntroThisSession);
 
   const handleIntroComplete = () => {
+    hasPlayedIntroThisSession = true;
     setShowIntro(false);
   };
 

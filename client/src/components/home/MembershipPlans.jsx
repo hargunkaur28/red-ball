@@ -36,7 +36,7 @@ const plans = [
   },
   {
     name: 'All Services',
-    price: '18,000',
+    price: '17,000',
     duration: '/6 months',
     billing: 'Billed half-yearly',
     highlighted: true,
@@ -77,7 +77,7 @@ const cardVariants = {
 
 export default function MembershipPlans() {
   const { isAuthenticated } = useAuthStore();
-  const [activePlan, setActivePlan] = useState('18,000');
+  const [activePlan, setActivePlan] = useState('17,000');
 
   return (
     <section id="membership" className="bg-[#0D0D0D] py-20 md:py-28">
@@ -117,7 +117,7 @@ export default function MembershipPlans() {
                 key={plan.price}
                 variants={cardVariants}
                 onMouseEnter={() => setActivePlan(plan.price)}
-                onMouseLeave={() => setActivePlan('18,000')}
+                onMouseLeave={() => setActivePlan('17,000')}
                 className={`rounded-2xl p-6 sm:p-8 relative transition-all duration-300 cursor-default ${
                   isActive
                     ? 'bg-[#C8102E] text-white md:scale-[1.05] shadow-[0_15px_40px_rgba(200,16,46,0.3)] z-10'

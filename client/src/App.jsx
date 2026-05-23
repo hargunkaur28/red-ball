@@ -26,6 +26,7 @@ const SASports = lazy(() => import('./pages/super-admin/Sports'));
 const SAMemberships = lazy(() => import('./pages/super-admin/Memberships'));
 const SASessionOvertime = lazy(() => import('./pages/super-admin/SessionOvertime'));
 const SAOneTime = lazy(() => import('./pages/super-admin/OneTime'));
+const SACommunication = lazy(() => import('./pages/super-admin/Communication'));
 
 // User
 const UserDashboard = lazy(() => import('./pages/user/Dashboard'));
@@ -41,6 +42,7 @@ const LiveOrders = lazy(() => import('./pages/restaurant/Orders'));
 const RestaurantOrderHistory = lazy(() => import('./pages/restaurant/RestaurantOrders'));
 const RestaurantMenu = lazy(() => import('./pages/restaurant/Menu'));
 const RestaurantTables = lazy(() => import('./pages/restaurant/Tables'));
+const RestaurantSettings = lazy(() => import('./pages/restaurant/Settings'));
 
 // Public
 const TableOrder = lazy(() => import('./pages/table/TableOrder'));
@@ -120,6 +122,7 @@ export default function App() {
                 <Route path="memberships" element={<SAMemberships />} />
                 <Route path="session-overtime" element={<SASessionOvertime />} />
                 <Route path="one-time" element={<SAOneTime />} />
+                <Route path="communication" element={<SACommunication />} />
                 <Route path="settings" element={<Settings />} />
               </Route>
 
@@ -150,6 +153,7 @@ export default function App() {
                 <Route path="history" element={<RestaurantOrderHistory />} />
                 <Route path="menu" element={<RestaurantMenu />} />
                 <Route path="tables" element={<RestaurantTables />} />
+                <Route path="settings" element={<RestaurantSettings />} />
               </Route>
 
               {/* Redirect root */}

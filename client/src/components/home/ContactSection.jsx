@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { MapPin, Phone, Mail, Clock } from 'lucide-react';
-import toast, { Toaster } from 'react-hot-toast';
+import { MapPin, Phone, Mail, Clock, CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
+import api from '../../lib/axios';
 
 const hours = [
   { day: 'Monday – Friday', time: '6:00 AM – 8:00 PM' },
@@ -12,6 +13,7 @@ const hours = [
 export default function ContactSection() {
   const [form, setForm] = useState({ name: '', email: '', message: '' });
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,25 +24,13 @@ export default function ContactSection() {
     setLoading(true);
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      toast.success("Message sent! We'll be in touch.", {
-        style: {
-          background: '#0D0D0D',
-          color: '#FFFFFF',
-          border: '1px solid rgba(200,16,46,0.3)',
-        },
-        iconTheme: { primary: '#22C55E', secondary: '#FFFFFF' },
-      });
+      await api.post('/contact', form);
+      toast.success("Message sent! We'll be in touch.");
       setForm({ name: '', email: '', message: '' });
-    } catch {
-      toast.error('Something went wrong. Please try again.', {
-        style: {
-          background: '#0D0D0D',
-          color: '#FFFFFF',
-          border: '1px solid rgba(200,16,46,0.3)',
-        },
-      });
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (error) {
+      toast.error('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -48,7 +38,6 @@ export default function ContactSection() {
 
   return (
     <section id="contact" className="bg-[#0D0D0D] py-20 md:py-28">
-      <Toaster position="top-right" />
       <div className="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12">
         <motion.div
           initial={{ opacity: 0, y: 48 }}
@@ -135,12 +124,17 @@ export default function ContactSection() {
                 />
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="w-full py-3.5 rounded-full bg-[#C8102E] text-white font-semibold transition-all duration-200 hover:bg-[#8B0B1E] disabled:opacity-50 flex items-center justify-center gap-2"
+                  disabled={loading || success}
+                  className={`w-full py-3.5 rounded-full text-white font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${success ? 'bg-[#22C55E]' : 'bg-[#C8102E] hover:bg-[#8B0B1E]'} disabled:opacity-50`}
                   style={{ fontFamily: "'DM Sans', sans-serif" }}
                 >
                   {loading ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : success ? (
+                    <>
+                      <CheckCircle2 size={18} />
+                      Message Sent!
+                    </>
                   ) : (
                     'Send Message'
                   )}

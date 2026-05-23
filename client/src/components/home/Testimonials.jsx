@@ -43,14 +43,15 @@ export default function Testimonials() {
     queryKey: ['featured-reviews'],
     queryFn: () => api.get('/reviews/featured').then(r => r.data).catch(() => ({ reviews: [] })),
   });
-  const visibleTestimonials = data?.reviews?.length
-    ? data.reviews.map(review => ({
-        sport: review.category,
-        text: review.comment,
-        name: review.name,
-        rating: review.rating,
-      }))
-    : testimonials;
+  const visibleTestimonials = [
+    ...(data?.reviews || []).map(review => ({
+      sport: review.category,
+      text: review.comment,
+      name: review.name,
+      rating: review.rating,
+    })),
+    ...testimonials,
+  ];
 
   return (
     <section className="bg-white py-20 md:py-28" data-theme="light">
@@ -101,7 +102,7 @@ export default function Testimonials() {
             {visibleTestimonials.map((t, i) => (
               <SwiperSlide key={i} className="!h-auto">
                 <div
-                  className="bg-white rounded-3xl p-8 border border-black/5 shadow-md h-full min-h-[240px] flex flex-col justify-between transition-all duration-300 hover:-translate-y-2 hover:border-[#F5A623]/40 cursor-pointer group hover:shadow-xl"
+                  className="bg-white rounded-3xl p-8 border border-black/15 shadow-[0_8px_30px_rgba(0,0,0,0.08)] h-full min-h-[240px] flex flex-col justify-between transition-all duration-300 hover:-translate-y-2 hover:border-[#C8102E]/40 cursor-pointer group hover:shadow-xl"
                 >
                   {/* Sport Label */}
                   <div>

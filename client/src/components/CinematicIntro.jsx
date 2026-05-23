@@ -309,15 +309,15 @@ export default function CinematicIntro({ onComplete }) {
 
           {/* ── GIANT KINETIC COMMERCIAL TYPOGRAPHY OVERLAYS ─────────────── */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-6">
-            <AnimatePresence mode="wait">
+            <AnimatePresence>
               {currentWord && (
                 <motion.h2
                   key={currentWord}
                   initial={{ opacity: 0, scale: 0.75, filter: 'blur(20px)', letterSpacing: '-0.05em' }}
                   animate={{ opacity: 1, scale: 1.1, filter: 'blur(0px)', letterSpacing: '0.02em' }}
                   exit={{ opacity: 0, scale: 1.4, filter: 'blur(12px)' }}
-                  transition={{ duration: 0.22, ease: 'easeOut' }}
-                  className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-serif font-extrabold tracking-tight text-white uppercase text-center drop-shadow-[0_10px_30px_rgba(220,38,38,0.5)]"
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="absolute text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-serif font-extrabold tracking-tight text-white uppercase text-center drop-shadow-[0_10px_30px_rgba(220,38,38,0.5)]"
                 >
                   {currentWord}
                 </motion.h2>

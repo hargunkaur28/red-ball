@@ -14,6 +14,11 @@ export default function Settings() {
     queryFn: () => api.get('/session-config').then(r => r.data.data),
   });
 
+  const { data: academySettings, isLoading: isAcademyLoading } = useQuery({
+    queryKey: ['academy-settings'],
+    queryFn: () => api.get('/academy-settings').then(r => r.data.data),
+  });
+
   const globalConfig = configs.find(c => c.key === 'default') || {
     allowedDurationMinutes: 75,
     overtimeThresholdMinutes: 0,
@@ -32,6 +37,28 @@ export default function Settings() {
     }
   });
 
+  const updateAcademyMutation = useMutation({
+    mutationFn: (payload) => api.put('/academy-settings', payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['academy-settings'] });
+      toast.success('Academy info saved!');
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to save academy info');
+    }
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: (payload) => api.put('/auth/change-password', payload),
+    onSuccess: () => {
+      toast.success('Password changed successfully!');
+      document.getElementById('password-form').reset();
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to change password');
+    }
+  });
+
   const handleGlobalConfigSubmit = (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -46,27 +73,59 @@ export default function Settings() {
     updateMutation.mutate(payload);
   };
 
+  const handleAcademySubmit = (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const payload = {
+      academyName: fd.get('academyName'),
+      address: fd.get('address'),
+      phone: fd.get('phone'),
+      email: fd.get('email'),
+    };
+    updateAcademyMutation.mutate(payload);
+  };
+
+  const handlePasswordSubmit = (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const currentPassword = fd.get('currentPassword');
+    const newPassword = fd.get('newPassword');
+    const confirmPassword = fd.get('confirmPassword');
+
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+    
+    changePasswordMutation.mutate({ currentPassword, newPassword });
+  };
+
   return (
     <div className="pb-24">
       <PageHeader title="Settings" subtitle="Academy configuration" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="card">
+        
+        {/* Academy Info */}
+        <div className="card lg:col-span-2">
           <h3 className="text-sm font-medium text-[#111] mb-4">Academy Info</h3>
-          <div className="space-y-3">
-            <div><label className="block text-sm text-[#666] mb-1">Academy Name</label><input className="input-field" defaultValue="Red Ball Cricket Academy" /></div>
-            <div><label className="block text-sm text-[#666] mb-1">Address</label><input className="input-field" defaultValue="123 Sports Complex" /></div>
-            <div><label className="block text-sm text-[#666] mb-1">GSTIN</label><input className="input-field" placeholder="Enter GSTIN" /></div>
-            <div><label className="block text-sm text-[#666] mb-1">Phone</label><input className="input-field" placeholder="+91 XXXXXXXXXX" /></div>
-            <button className="btn-primary mt-2">Save Changes</button>
-          </div>
-        </div>
-        <div className="card">
-          <h3 className="text-sm font-medium text-[#111] mb-4">GST Settings</h3>
-          <div className="space-y-3">
-            <div><label className="block text-sm text-[#666] mb-1">Default GST %</label><input type="number" className="input-field" defaultValue="18" /></div>
-            <div><label className="block text-sm text-[#666] mb-1">Restaurant GST %</label><input type="number" className="input-field" defaultValue="5" /></div>
-            <button className="btn-primary mt-2">Update GST</button>
-          </div>
+          {isAcademyLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="animate-spin text-[#888]" />
+            </div>
+          ) : (
+            <form onSubmit={handleAcademySubmit}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><label className="block text-sm text-[#666] mb-1">Academy Name</label><input name="academyName" className="input-field" defaultValue={academySettings?.academyName || ''} required /></div>
+                <div><label className="block text-sm text-[#666] mb-1">Address</label><input name="address" className="input-field" defaultValue={academySettings?.address || ''} /></div>
+                <div><label className="block text-sm text-[#666] mb-1">Phone</label><input name="phone" className="input-field" defaultValue={academySettings?.phone || ''} placeholder="+91 XXXXXXXXXX" /></div>
+                <div><label className="block text-sm text-[#666] mb-1">Email</label><input name="email" type="email" className="input-field" defaultValue={academySettings?.email || ''} placeholder="redballcricketground@gmail.com" /></div>
+              </div>
+              <button type="submit" disabled={updateAcademyMutation.isPending} className="btn-primary mt-4 gap-2">
+                {updateAcademyMutation.isPending && <Loader2 size={16} className="animate-spin" />}
+                Save Changes
+              </button>
+            </form>
+          )}
         </div>
 
         {/* Global Session Configuration */}
@@ -119,6 +178,22 @@ export default function Settings() {
               </div>
             </form>
           )}
+        </div>
+
+        {/* Security / Change Password */}
+        <div className="card lg:col-span-2">
+          <h3 className="text-sm font-medium text-[#111] mb-4">Security</h3>
+          <form id="password-form" onSubmit={handlePasswordSubmit}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div><label className="block text-sm text-[#666] mb-1">Current Password</label><input name="currentPassword" type="password" required className="input-field" /></div>
+              <div><label className="block text-sm text-[#666] mb-1">New Password</label><input name="newPassword" type="password" required minLength="6" className="input-field" /></div>
+              <div><label className="block text-sm text-[#666] mb-1">Confirm New Password</label><input name="confirmPassword" type="password" required minLength="6" className="input-field" /></div>
+            </div>
+            <button type="submit" disabled={changePasswordMutation.isPending} className="btn-primary mt-4 gap-2">
+              {changePasswordMutation.isPending && <Loader2 size={16} className="animate-spin" />}
+              Change Password
+            </button>
+          </form>
         </div>
 
       </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, Trophy, CreditCard, Ticket, Menu, X, LogOut, Bell, TimerReset, Settings } from 'lucide-react';
+import { LayoutDashboard, Trophy, CreditCard, Ticket, Menu, X, LogOut, Bell, TimerReset, Settings, MessageSquare } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { getInitials } from '../../lib/utils';
 import ErrorBoundary from '../shared/ErrorBoundary';
@@ -14,6 +14,7 @@ const menuItems = [
   { path: '/super-admin/memberships', label: 'Memberships', icon: <CreditCard size={18} /> },
   { path: '/super-admin/session-overtime', label: 'Session Overtime', icon: <TimerReset size={18} /> },
   { path: '/super-admin/one-time', label: 'One-Time Entries', icon: <Ticket size={18} /> },
+  { path: '/super-admin/communication', label: 'Communication', icon: <MessageSquare size={18} /> },
   { path: '/super-admin/settings', label: 'Settings', icon: <Settings size={18} /> },
 ];
 
@@ -174,9 +175,7 @@ export default function SuperAdminLayout() {
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            <button className="w-9 h-9 rounded-lg bg-[#F0F0F0] border border-[#EAEAEA] flex items-center justify-center text-[#666666] hover:text-[#111111] relative transition-colors">
-              <Bell size={18} />
-            </button>
+
             {user?.photo ? (
               <img src={user.photo} alt={user.name} className="w-9 h-9 rounded-full object-cover border border-[#EAEAEA]" />
             ) : (

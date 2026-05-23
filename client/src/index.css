@@ -293,7 +293,7 @@
 
 /* Swiper custom dots */
 .swiper-pagination-bullet {
-  background: rgba(255,255,255,0.4) !important;
+  background: rgba(0,0,0,0.15) !important;
   width: 10px !important;
   height: 10px !important;
   transition: all 0.3s ease !important;

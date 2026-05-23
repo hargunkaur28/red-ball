@@ -32,6 +32,9 @@ const reviewRoutes = require('./routes/review.routes');
 const sportRoutes = require('./routes/sport.routes');
 const superadminRoutes = require('./routes/superadmin.routes');
 const kitchenRoutes = require('./routes/kitchen.routes');
+const contactRoutes = require('./routes/contactRoutes');
+const adminCommunicationRoutes = require('./routes/adminCommunicationRoutes');
+const academySettingsRoutes = require('./routes/academySettings.routes');
 
 // Import cron jobs
 const startExpiryReminder = require('./jobs/expiryReminder.job');
@@ -144,6 +147,9 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/sports', sportRoutes);
 app.use('/api/super-admin', superadminRoutes);
 app.use('/api/kitchen', kitchenRoutes);
+app.use('/api/contact', contactRoutes);
+app.use('/api/super-admin/communication', adminCommunicationRoutes);
+app.use('/api/academy-settings', academySettingsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
