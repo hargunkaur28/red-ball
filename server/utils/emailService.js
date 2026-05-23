@@ -93,7 +93,7 @@ async function sendMembershipWelcomeEmail({ toEmail, toName, planName, startDate
   });
 }
 
-async function sendAdminPaymentAlert({ adminEmail, payerName, paymentType, amount, paymentMode, invoiceNumber, timestamp }) {
+async function sendAdminPaymentAlert({ adminEmail, payerName, payerEmail, payerPhone, paymentType, amount, paymentMode, invoiceNumber, timestamp }) {
   return send({
     sender: getSender(),
     to: [{ email: adminEmail, name: 'Admin' }],
@@ -105,6 +105,8 @@ async function sendAdminPaymentAlert({ adminEmail, payerName, paymentType, amoun
           <tr><td style="padding:6px 0;color:#666;width:140px;">Amount</td><td><strong style="color:#16a34a;font-size:18px;">&#8377;${amount}</strong></td></tr>
           <tr><td style="padding:6px 0;color:#666;">Payment Type</td><td>${paymentType}</td></tr>
           <tr><td style="padding:6px 0;color:#666;">Payer</td><td>${payerName}</td></tr>
+          ${payerEmail ? `<tr><td style="padding:6px 0;color:#666;">Email</td><td>${payerEmail}</td></tr>` : ''}
+          ${payerPhone ? `<tr><td style="padding:6px 0;color:#666;">Phone</td><td>${payerPhone}</td></tr>` : ''}
           <tr><td style="padding:6px 0;color:#666;">Payment Mode</td><td>${paymentMode || 'N/A'}</td></tr>
           <tr><td style="padding:6px 0;color:#666;">Invoice No.</td><td>${invoiceNumber || 'N/A'}</td></tr>
           <tr><td style="padding:6px 0;color:#666;">Time (IST)</td><td>${timestamp}</td></tr>

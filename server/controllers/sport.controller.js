@@ -811,15 +811,12 @@ exports.entryPayInstant = async (req, res) => {
     }
 
     const ratePerHour = sport.hourlyPrice || 0;
-    const hours = 1;
-    const amount = ratePerHour * hours;
-    const gstAmount = Math.round(amount * 0.18 * 100) / 100;
-    const totalAmount = amount + gstAmount;
+    const amount = ratePerHour;
 
     const { createRazorpayOrder } = require('../config/razorpay');
-    
+
     const rzpOrder = await createRazorpayOrder({
-      amount: Math.round(totalAmount * 100), // paise
+      amount: Math.round(amount * 100), // paise
       currency: 'INR',
       receipt: `OTP_QR_${Date.now()}`
     });
@@ -832,8 +829,8 @@ exports.entryPayInstant = async (req, res) => {
         currency: rzpOrder.currency
       },
       amount,
-      gstAmount,
-      totalAmount,
+      gstAmount: 0,
+      totalAmount: amount,
     });
   } catch (error) {
     console.error('entryPayInstant error:', error);
@@ -864,8 +861,8 @@ exports.entryPayVerify = async (req, res) => {
 
     // 2. Fetch payment details from Razorpay
     const paymentDetails = await fetchPaymentDetails(razorpayPaymentId);
-    if (paymentDetails.status !== 'captured') {
-      return res.status(400).json({ success: false, message: 'Payment not captured by Razorpay' });
+    if (paymentDetails.status !== 'captured' && paymentDetails.status !== 'authorized') {
+      return res.status(400).json({ success: false, message: 'Payment not completed by Razorpay' });
     }
 
     // 3. Idempotency Check using Razorpay Payment ID or Order ID
@@ -879,10 +876,7 @@ exports.entryPayVerify = async (req, res) => {
 
     // 4. Calculate prices
     const ratePerHour = sport.hourlyPrice || 0;
-    const hours = 1;
-    const amount = ratePerHour * hours;
-    const gstAmount = Math.round(amount * 0.18 * 100) / 100;
-    const totalAmount = amount + gstAmount;
+    const amount = ratePerHour;
 
     // 5. Execute critical writes inside a transaction
     const result = await runTransaction(async (session) => {
@@ -894,10 +888,10 @@ exports.entryPayVerify = async (req, res) => {
         customerName: customerDetails.name || req.user.name,
         type: 'one-time-play',
         amount,
-        gstAmount,
-        gstPercent: 18,
-        totalAmount,
-        amountPaid: totalAmount,
+        gstAmount: 0,
+        gstPercent: 0,
+        totalAmount: amount,
+        amountPaid: amount,
         remainingAmount: 0,
         status: 'paid',
         paymentMode: 'razorpay',
@@ -1006,13 +1000,10 @@ exports.entryBuyMembership = async (req, res) => {
     const plan = await MembershipPlan.findById(planId);
     if (!plan) return res.status(404).json({ success: false, message: 'Membership plan not found' });
 
-    const { calculateGST } = require('../utils/gstCalculator');
-    const gst = calculateGST(plan.price, plan.gstPercent || 18);
-
     const { createRazorpayOrder } = require('../config/razorpay');
 
     const rzpOrder = await createRazorpayOrder({
-      amount: Math.round(gst.totalAmount * 100), // paise
+      amount: Math.round(plan.price * 100), // paise
       currency: 'INR',
       receipt: `MEMB_QR_${Date.now()}`
     });
@@ -1025,7 +1016,7 @@ exports.entryBuyMembership = async (req, res) => {
         currency: rzpOrder.currency
       },
       plan,
-      totalAmount: gst.totalAmount,
+      totalAmount: plan.price,
     });
   } catch (error) {
     console.error('entryBuyMembership error:', error);
@@ -1059,8 +1050,8 @@ exports.entryVerifyMembership = async (req, res) => {
 
     // 2. Fetch payment details
     const paymentDetails = await fetchPaymentDetails(razorpayPaymentId);
-    if (paymentDetails.status !== 'captured') {
-      return res.status(400).json({ success: false, message: 'Payment not captured by Razorpay' });
+    if (paymentDetails.status !== 'captured' && paymentDetails.status !== 'authorized') {
+      return res.status(400).json({ success: false, message: 'Payment not completed by Razorpay' });
     }
 
     // 3. Idempotency Check
@@ -1071,9 +1062,6 @@ exports.entryVerifyMembership = async (req, res) => {
     if (existingPayment) {
       return res.json({ success: true, message: 'Payment already processed', payment: existingPayment });
     }
-
-    const { calculateGST } = require('../utils/gstCalculator');
-    const gst = calculateGST(plan.price, plan.gstPercent || 18);
 
     const getDurationMs = (p) => {
       const val = p.durationValue || 1;
@@ -1092,11 +1080,11 @@ exports.entryVerifyMembership = async (req, res) => {
         customerName: customerDetails.name || req.user.name,
         type: 'membership',
         referenceId: plan._id,
-        amount: gst.amount,
-        gstAmount: gst.gstAmount,
-        gstPercent: gst.gstPercent,
-        totalAmount: gst.totalAmount,
-        amountPaid: gst.totalAmount,
+        amount: plan.price,
+        gstAmount: 0,
+        gstPercent: 0,
+        totalAmount: plan.price,
+        amountPaid: plan.price,
         remainingAmount: 0,
         status: 'paid',
         paymentMode: 'razorpay',

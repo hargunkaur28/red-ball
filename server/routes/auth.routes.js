@@ -35,6 +35,8 @@ router.get('/me', auth, authController.getMe);
 
 router.put('/profile', auth, upload.single('photo'), authController.updateProfile);
 
+router.delete('/account', auth, authController.deleteAccount);
+
 router.put('/change-password', auth, [
   body('currentPassword').notEmpty().withMessage('Current password required'),
   body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),

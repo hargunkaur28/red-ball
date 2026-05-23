@@ -7,7 +7,7 @@ import { QrCode, Camera, ArrowRight, Sparkles, AlertCircle, Utensils, MapPin, Mi
 import { Scanner } from '@yudiel/react-qr-scanner';
 import useCartStore from '../../store/cartStore';
 import useAuthStore from '../../store/authStore';
-import { formatCurrency, calcGST } from '../../lib/utils';
+import { formatCurrency } from '../../lib/utils';
 import { toast } from 'sonner';
 
 export default function TablePortal({ embedded = false }) {
@@ -272,7 +272,8 @@ export default function TablePortal({ embedded = false }) {
                 navigate(`/table/${selectedTable}`);
               }
             } catch (error) {
-              toast.error('Failed to record order after payment. Please contact support.');
+              console.error('Order record error:', error.response?.data || error.message, error);
+              toast.error(error.response?.data?.message || 'Failed to record order after payment. Please contact support.');
             }
           },
           prefill: {
@@ -329,55 +330,66 @@ export default function TablePortal({ embedded = false }) {
   };
 
   return (
-    <div className={`${embedded ? 'min-h-0 sm:min-h-[600px] rounded-xl sm:rounded-3xl mb-0 sm:mb-8 p-0 sm:p-4 md:p-6' : 'min-h-screen p-3 sm:p-6 md:p-12'} bg-[#0D0D0D] text-white flex flex-col justify-between relative overflow-hidden`} style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      {/* Background Lighting decor */}
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#C8102E]/15 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#F5A623]/10 rounded-full blur-[150px] pointer-events-none" />
+    <div className={`${embedded ? 'min-h-0 sm:min-h-[600px] rounded-xl sm:rounded-3xl mb-0 sm:mb-8 p-0 sm:p-4 md:p-6' : 'min-h-screen p-3 sm:p-6 md:p-12'} bg-[#0D0D0D] text-white flex flex-col justify-between relative`} style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      {/* Background Lighting decor — isolated so it never breaks sticky/fixed */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#C8102E]/15 rounded-full blur-[140px]" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#F5A623]/10 rounded-full blur-[150px]" />
+      </div>
 
       {/* Header */}
-      <header className={`${embedded ? 'relative mb-4 sm:mb-6 rounded-xl sm:rounded-2xl border border-white/5 bg-[#161616]' : 'fixed top-0 left-0 right-0 rounded-none bg-[#0A0D0D] border-b border-white/5'} flex flex-col sm:flex-row items-center justify-between z-40 px-3 sm:px-4 gap-4 sm:gap-0 py-3 sm:py-3`}>
-        <div className="max-w-6xl mx-auto w-full flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0">
-        <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <div className="w-12 h-12 bg-[#C8102E] text-white rounded-2xl flex items-center justify-center font-black text-xl tracking-tighter shadow-lg">
-            RB
-          </div>
-          <div>
-            <h1 className="font-bold text-2xl tracking-wide leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-              RED BALL SPORTS CLUB
-            </h1>
-            <p className="text-xs text-[#F5A623] font-bold tracking-widest uppercase mt-0.5">
-              WHERE GREAT FOOD MEETS GREAT GAMES
-            </p>
-          </div>
-        </Link>
-        
-        <div className="flex items-center gap-2 sm:gap-3 mt-2 sm:mt-0 flex-wrap sm:flex-nowrap justify-center sm:justify-end">
-          <button 
-            onClick={() => setOrdersOpen(true)} 
-            className="p-1.5 sm:p-2 sm:px-4 sm:py-2 rounded-xl bg-[#1A1A1A] hover:bg-[#252525] text-[#F5A623] text-[9px] sm:text-xs font-extrabold flex items-center gap-1 sm:gap-1.5 shadow-lg transition-all border border-white/5 uppercase tracking-wider relative"
-          >
-            <span className="hidden sm:inline">My Orders</span>
-            <Clock size={14} className="sm:hidden" />
-            <Clock size={16} className="hidden sm:inline" />
-          </button>
+      <header className={`${embedded ? 'sticky top-16 lg:top-0 z-20 rounded-xl sm:rounded-2xl border border-white/5 bg-[#161616] mb-4 sm:mb-6' : 'fixed top-0 left-0 right-0 z-40 bg-[#0A0D0D] border-b border-white/5'} px-3 sm:px-6 py-3`}>
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
 
-          <button 
-            onClick={() => setCartOpen(true)} 
-            className="px-3 sm:px-4 py-2 rounded-xl bg-[#C8102E] hover:bg-[#A00D24] text-white text-[10px] sm:text-xs font-extrabold flex items-center gap-1 sm:gap-1.5 shadow-lg transition-all border border-white/10"
-          >
-            <ShoppingBag size={16} />
-            <span>Cart ({items.length})</span>
-          </button>
-          
-          <button onClick={() => navigate('/')} className="px-3 sm:px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-[10px] sm:text-xs font-bold transition-all">
-            ← Back Home
-          </button>
-        </div>
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity shrink-0">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 bg-[#C8102E] text-white rounded-xl flex items-center justify-center font-black text-base sm:text-xl tracking-tighter shadow-lg">
+              RB
+            </div>
+            <div className="hidden sm:block">
+              <h1 className="font-bold text-xl tracking-wide leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                RED BALL SPORTS CLUB
+              </h1>
+              <p className="text-[10px] text-[#F5A623] font-bold tracking-widest uppercase mt-0.5">
+                WHERE GREAT FOOD MEETS GREAT GAMES
+              </p>
+            </div>
+            <span className="sm:hidden font-bold text-sm tracking-wide" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+              RED BALL
+            </span>
+          </Link>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setOrdersOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1A1A1A] hover:bg-[#252525] text-[#F5A623] text-xs font-bold transition-all border border-white/5 shadow whitespace-nowrap"
+            >
+              <Clock size={14} />
+              <span>My Orders</span>
+            </button>
+
+            <button
+              onClick={() => setCartOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#C8102E] hover:bg-[#A00D24] text-white text-xs font-bold transition-all shadow whitespace-nowrap"
+            >
+              <ShoppingBag size={14} />
+              <span>Cart ({items.length})</span>
+            </button>
+
+            <button
+              onClick={() => navigate('/')}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all whitespace-nowrap"
+            >
+              ← Back Home
+            </button>
+          </div>
+
         </div>
       </header>
 
       {/* Main Container */}
-      <main className={`max-w-6xl mx-auto w-full px-2 sm:px-4 z-10 grow my-auto py-4 sm:py-8 ${embedded ? 'mt-0' : 'mt-28 sm:mt-16'}`}>
+      <main className={`max-w-6xl mx-auto w-full px-2 sm:px-4 z-10 grow my-auto py-4 sm:py-8 ${embedded ? 'mt-0' : 'mt-16'}`}>
         
         {/* Hero Section */}
         <div className="mb-8">
@@ -522,9 +534,9 @@ export default function TablePortal({ embedded = false }) {
                           </div>
 
                           {item.isAvailable && (
-                            <div className="w-full sm:w-auto">
+                            <div className="w-full sm:w-auto flex justify-center sm:justify-end">
                               {qty > 0 ? (
-                                <div className="flex items-center gap-2 bg-black rounded-full p-1 border border-white/10 shadow-lg">
+                                <div className="flex items-center gap-2 bg-black rounded-full p-1 border border-white/10 shadow-lg w-fit">
                                   <button 
                                     onClick={() => updateQuantity(item._id, sizeLabel, qty - 1)}
                                     className="w-6 h-6 rounded-full bg-[#222] text-white hover:bg-[#333] flex items-center justify-center font-bold text-xs"
@@ -736,6 +748,19 @@ export default function TablePortal({ embedded = false }) {
                           </span>
                         </div>
 
+                        {order.estimatedReadyAt && order.status === 'preparing' && (() => {
+                          const minsLeft = Math.max(0, Math.round((new Date(order.estimatedReadyAt) - Date.now()) / 60000));
+                          return (
+                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-400 bg-amber-950/40 border border-amber-500/20 rounded-lg px-3 py-1.5">
+                              <Clock size={12} className="shrink-0" />
+                              {minsLeft > 0
+                                ? <span>Ready in ~{minsLeft} min{minsLeft !== 1 ? 's' : ''} · {new Date(order.estimatedReadyAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                : <span>Should be ready now</span>
+                              }
+                            </div>
+                          );
+                        })()}
+
                         <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1 scrollbar-thin">
                           {order.items.map(item => (
                             <div key={item._id} className="flex justify-between text-xs font-bold text-gray-200">
@@ -817,42 +842,25 @@ export default function TablePortal({ embedded = false }) {
         )}
       </AnimatePresence>
 
-      {/* Floating Cart Notification */}
+      {/* Floating Cart Button */}
       <AnimatePresence>
-        {showCartNotif && items.length > 0 && (
-          <motion.div
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            transition={{ type: "spring", damping: 20, stiffness: 300 }}
-            className={`fixed ${embedded ? 'bottom-24 sm:bottom-6' : 'bottom-6'} left-1/2 transform -translate-x-1/2 z-40 bg-[#161616] border border-white/10 rounded-2xl shadow-2xl p-4 sm:p-5 max-w-[90vw] sm:max-w-sm w-full`}
+        {items.length > 0 && (
+          <motion.button
+            initial={{ scale: 0, opacity: 0 }}
+            animate={showCartNotif
+              ? { scale: [1, 1.25, 1], opacity: 1 }
+              : { scale: 1, opacity: 1 }
+            }
+            exit={{ scale: 0, opacity: 0 }}
+            transition={{ type: 'spring', damping: 18, stiffness: 300 }}
+            onClick={() => setCartOpen(true)}
+            className={`fixed ${embedded ? 'bottom-28 sm:bottom-8' : 'bottom-8'} right-4 z-40 w-14 h-14 bg-[#C8102E] hover:bg-[#A60D25] rounded-full shadow-[0_8px_32px_rgba(200,16,46,0.5)] flex items-center justify-center transition-colors`}
           >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 flex-1">
-                <div className="w-12 h-12 bg-gradient-to-br from-[#C8102E] to-[#A60D25] rounded-lg flex items-center justify-center flex-shrink-0">
-                  <ShoppingBag size={20} className="text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-white">Added to Cart</p>
-                  <p className="text-xs text-gray-400 truncate">{items.length} item{items.length !== 1 ? 's' : ''} • {formatCurrency(getSubtotal())}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={() => setCartOpen(true)}
-                  className="px-3 py-1.5 bg-[#C8102E] hover:bg-[#A60D25] text-white text-xs font-bold rounded-lg transition-all"
-                >
-                  Cart
-                </button>
-                <button
-                  onClick={() => setShowCartNotif(false)}
-                  className="p-1.5 hover:bg-white/10 rounded-lg transition-all"
-                >
-                  <X size={16} className="text-gray-400" />
-                </button>
-              </div>
-            </div>
-          </motion.div>
+            <ShoppingBag size={22} className="text-white" />
+            <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1 bg-white text-[#C8102E] rounded-full text-[11px] font-black flex items-center justify-center shadow">
+              {items.length}
+            </span>
+          </motion.button>
         )}
       </AnimatePresence>
 

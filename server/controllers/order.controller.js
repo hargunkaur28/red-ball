@@ -1,6 +1,7 @@
 const Order = require('../models/Order');
 const Inventory = require('../models/Inventory');
 const { calculateGST } = require('../utils/gstCalculator');
+const { sendAdminPaymentAlert } = require('../utils/emailService');
 
 exports.getAll = async (req, res) => {
   try {
@@ -64,9 +65,32 @@ exports.create = async (req, res) => {
       io.emit('dashboard:refresh');
     }
 
+    // Email alert to manager + admin for online-paid orders
+    if (order.paymentStatus === 'paid' && order.paymentMethod === 'razorpay') {
+      const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+      const recipients = [
+        process.env.MANAGER_EMAIL,
+        process.env.ADMIN_NOTIFICATION_EMAIL,
+      ].filter(Boolean);
+
+      recipients.forEach((email) => {
+        sendAdminPaymentAlert({
+          adminEmail: email,
+          payerName: order.customerName || 'Guest',
+          payerPhone: order.customerPhone,
+          paymentType: `Food Order (${order.orderType})`,
+          amount: order.totalAmount,
+          paymentMode: 'Razorpay',
+          invoiceNumber: order._id.toString().slice(-8).toUpperCase(),
+          timestamp,
+        }).catch(() => {});
+      });
+    }
+
     res.status(201).json({ order: populated });
   } catch (error) {
-    res.status(500).json({ message: 'Server error.', error: error.message });
+    console.error('Order create error:', error.message, error.stack);
+    res.status(500).json({ message: error.message || 'Server error.' });
   }
 };
 

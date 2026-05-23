@@ -16,6 +16,7 @@ import ContactSection from '../components/home/ContactSection';
 import Footer from '../components/home/Footer';
 import ScrollToTop from '../components/home/ScrollToTop';
 import WhatsAppFloat from '../components/home/WhatsAppFloat';
+import FloatingScanButton from '../components/home/FloatingScanButton';
 
 function FlowSection({ children, theme = 'dark', id }) {
   return (
@@ -89,6 +90,7 @@ export default function Home() {
         <WhatsAppFloat />
 
       </motion.div>
+      <FloatingScanButton />
     </div>
   );
 }

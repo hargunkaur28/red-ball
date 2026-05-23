@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import api from '../lib/axios';
 import { formatCurrency } from '../lib/utils';
 import useAuthStore from '../store/authStore';
+import { queryClient } from '../lib/queryClient';
 
 export default function MembershipPortal({ embedded = false }) {
   const [searchParams] = useSearchParams();
@@ -213,8 +214,9 @@ export default function MembershipPortal({ embedded = false }) {
             if (verifyRes.success) {
               if (verifyRes.token) {
                 localStorage.setItem('token', verifyRes.token);
-                await checkAuth(); // Re-sync auth state
+                await checkAuth();
               }
+              queryClient.invalidateQueries({ queryKey: ['my-membership'] });
               toast.success('Membership purchased successfully!');
               navigate('/user');
             } else {

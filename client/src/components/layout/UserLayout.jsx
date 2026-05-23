@@ -130,7 +130,7 @@ export default function UserLayout() {
         </header>
         <main className="w-full max-w-[1600px] p-4 pb-28 sm:p-5 sm:pb-28 lg:p-6 lg:pb-6">
           <ErrorBoundary>
-            <motion.div key={location.pathname} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+            <motion.div key={location.pathname} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
               <Outlet />
             </motion.div>
           </ErrorBoundary>

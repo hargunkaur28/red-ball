@@ -386,6 +386,32 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
+// DELETE /api/auth/account
+exports.deleteAccount = async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password) {
+      return res.status(400).json({ message: 'Password is required to delete your account.' });
+    }
+
+    const user = await User.findById(req.user.userId).select('+password');
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+
+    if (user.role === 'superadmin' || user.role === 'manager') {
+      return res.status(403).json({ message: 'Privileged accounts cannot be self-deleted.' });
+    }
+
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) return res.status(401).json({ message: 'Incorrect password.' });
+
+    await User.findByIdAndDelete(req.user.userId);
+    res.clearCookie('refreshToken', REFRESH_COOKIE_OPTIONS);
+    res.json({ message: 'Account deleted successfully.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.' });
+  }
+};
+
 // GET /api/auth/me
 exports.getMe = async (req, res) => {
   try {

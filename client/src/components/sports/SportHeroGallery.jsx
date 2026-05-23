@@ -76,10 +76,6 @@ export default function SportHeroGallery({ sport }) {
         className="absolute bottom-0 left-0 right-0 px-4 sm:px-6 pb-5 sm:pb-8 pt-20 z-10"
       >
         <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-          {/* Icon */}
-          <div className="text-3xl sm:text-5xl leading-none">{icon}</div>
-
-          {/* Name */}
           <h1
             className="text-white font-black leading-none truncate pr-4"
             style={{

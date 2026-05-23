@@ -221,6 +221,10 @@ export default function OneTimeBookingPortal({ embedded = false }) {
       };
 
       const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', () => {
+        toast.error('Payment failed. Please try again.');
+        setSubmitting(false);
+      });
       rzp.open();
     } catch (err) {
       toast.error(err.response?.data?.message || err.message || 'Payment initialization failed.');

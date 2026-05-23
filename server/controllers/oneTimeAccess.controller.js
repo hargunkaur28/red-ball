@@ -97,8 +97,8 @@ exports.verifyPurchase = async (req, res) => {
 
     // 2. Fetch Razorpay Payment Details
     const paymentDetails = await fetchPaymentDetails(razorpayPaymentId);
-    if (paymentDetails.status !== 'captured') {
-      return res.status(400).json({ success: false, message: 'Payment not captured by Razorpay.' });
+    if (paymentDetails.status !== 'captured' && paymentDetails.status !== 'authorized') {
+      return res.status(400).json({ success: false, message: 'Payment not completed by Razorpay.' });
     }
 
     // 3. Idempotency Check using Razorpay Payment ID or Order ID
@@ -151,18 +151,16 @@ exports.verifyPurchase = async (req, res) => {
     // 5. Create Payment record
     const ratePerHour = sport.hourlyPrice || 0;
     const amount = ratePerHour;
-    const gstAmount = Math.round(amount * 0.18 * 100) / 100;
-    const totalAmount = amount + gstAmount;
 
     const payment = await Payment.create({
       studentId: userId,
       customerName: resolvedUser.name,
       type: 'one-time-play',
       amount,
-      gstAmount,
-      gstPercent: 18,
-      totalAmount,
-      amountPaid: totalAmount,
+      gstAmount: 0,
+      gstPercent: 0,
+      totalAmount: amount,
+      amountPaid: amount,
       remainingAmount: 0,
       status: 'paid',
       paymentMode: 'razorpay',

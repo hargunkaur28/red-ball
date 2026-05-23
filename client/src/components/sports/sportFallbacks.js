@@ -23,10 +23,10 @@ const FALLBACKS = {
       'Premium box cricket arenas with artificial turf, nets, high floodlights, and coaching zones. Red Ball is Rohtak\'s premier box cricket training and recreational play destination.',
     features: ['Turf Pitch', 'Practice Nets', 'Coaching', 'Floodlights', 'Box Cricket Cage'],
     chips: ['Box Cricket Arena', 'Floodlit'],
-    thumbnail: 'https://images.unsplash.com/photo-1607734834519-d8576ae60ea6?q=80&w=600&auto=format&fit=crop',
-    heroImage: 'https://images.unsplash.com/photo-1607734834519-d8576ae60ea6?q=80&w=1400&auto=format&fit=crop',
+    thumbnail: 'https://mediarelations.gwu.edu/sites/g/files/zaxdzs5306/files/2024-06/adobestock_510555809.jpeg',
+    heroImage: 'https://mediarelations.gwu.edu/sites/g/files/zaxdzs5306/files/2024-06/adobestock_510555809.jpeg',
     images: [
-      'https://images.unsplash.com/photo-1607734834519-d8576ae60ea6?q=80&w=800&auto=format&fit=crop',
+      'https://mediarelations.gwu.edu/sites/g/files/zaxdzs5306/files/2024-06/adobestock_510555809.jpeg',
       'https://images.unsplash.com/photo-1540747913346-19212a4b423a?q=80&w=800&auto=format&fit=crop',
     ],
     color: '#C8102E',

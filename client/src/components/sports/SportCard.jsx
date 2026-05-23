@@ -50,14 +50,8 @@ export default function SportCard({ sport, linkPrefix = '/sports' }) {
           }}
         />
 
-        {/* Top row: icon + price badge */}
-        <div className="absolute top-3 left-3 right-3 sm:top-4 sm:left-4 sm:right-4 flex items-start justify-between z-10">
-          <div
-            className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-base sm:text-xl shadow-lg backdrop-blur-sm shrink-0"
-            style={{ background: 'rgba(0,0,0,0.5)' }}
-          >
-            {icon}
-          </div>
+        {/* Top row: price badge */}
+        <div className="absolute top-3 left-3 right-3 sm:top-4 sm:left-4 sm:right-4 flex items-start justify-end z-10">
           <div
             className="px-2 py-1 sm:px-2.5 sm:py-1 rounded-xl sm:rounded-full text-[10px] sm:text-[11px] font-bold shadow-lg backdrop-blur-sm flex flex-col sm:block text-center sm:text-left whitespace-nowrap"
             style={{ background: `${accentColor}CC`, color: '#fff' }}

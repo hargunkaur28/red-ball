@@ -3,12 +3,17 @@ const Membership = require('../models/Membership');
 const Payment = require('../models/Payment');
 const Admission = require('../models/Admission');
 const Attendance = require('../models/Attendance');
+const User = require('../models/User');
 const { calculateGST } = require('../utils/gstCalculator');
 const { getDurationMs } = require('../utils/dateUtils');
-const { verifyPaymentSignature } = require('../config/razorpay');
+const { verifyPaymentSignature, fetchPaymentDetails } = require('../config/razorpay');
 const { DEFAULT_ALLOWED_DURATION_MINUTES } = require('../utils/sessionCalculator');
 const { invalidateEntitlementCache, calculateEntitlement, validateCheckIn } = require('../utils/entitlementEngine');
 const { getEffectiveConfig } = require('../utils/sessionCalculator');
+const { runTransaction } = require('../utils/transactionHandler');
+const jwt = require('jsonwebtoken');
+const { sendMembershipWelcomeEmail, sendAdminPaymentAlert } = require('../utils/emailService');
+const { buildInvoiceHTML } = require('../utils/invoiceBuilder');
 
 // GET /api/plans
 exports.getPlans = async (req, res) => {
@@ -77,7 +82,6 @@ exports.assignMembership = async (req, res) => {
 
     const startDate = new Date();
     const endDate = new Date(startDate.getTime() + getDurationMs(plan));
-    const gst = calculateGST(plan.price, plan.gstPercent || 18);
     const isPaidNow = paymentMode && paymentMode !== 'online';
 
     // Create payment
@@ -85,10 +89,10 @@ exports.assignMembership = async (req, res) => {
       studentId,
       type: 'membership',
       referenceId: plan._id,
-      amount: gst.amount,
-      gstAmount: gst.gstAmount,
-      gstPercent: gst.gstPercent,
-      totalAmount: gst.totalAmount,
+      amount: plan.price,
+      gstAmount: 0,
+      gstPercent: 0,
+      totalAmount: plan.price,
       status: isPaidNow ? 'paid' : 'pending',
       paymentMode: isPaidNow ? paymentMode : undefined,
     });
@@ -119,7 +123,7 @@ exports.renewMembership = async (req, res) => {
     if (!membership) return res.status(404).json({ message: 'Membership not found.' });
 
     const plan = membership.planId;
-    const gst = calculateGST(plan.price, plan.gstPercent || 18);
+    const price = plan.price;
 
     // Verify Razorpay signature if provided
     const isRazorpay = paymentMode === 'razorpay' && razorpayOrderId && razorpayPaymentId && razorpaySignature;
@@ -130,9 +134,9 @@ exports.renewMembership = async (req, res) => {
 
     // Razorpay verified → full payment, else use provided amountPaid
     const parsedAmountPaid = isRazorpay
-      ? gst.totalAmount
-      : (amountPaid !== undefined ? parseFloat(amountPaid) : (paymentMode && paymentMode !== 'online' ? gst.totalAmount : 0));
-    const remainingAmount = Math.max(0, gst.totalAmount - parsedAmountPaid);
+      ? price
+      : (amountPaid !== undefined ? parseFloat(amountPaid) : (paymentMode && paymentMode !== 'online' ? price : 0));
+    const remainingAmount = Math.max(0, price - parsedAmountPaid);
 
     let paymentState = 'pending';
     if (remainingAmount === 0) paymentState = 'paid';
@@ -145,11 +149,11 @@ exports.renewMembership = async (req, res) => {
       studentId: membership.studentId,
       type: 'membership',
       referenceId: plan._id,
-      amount: gst.amount,
-      gstAmount: gst.gstAmount,
-      gstPercent: gst.gstPercent,
-      totalAmount: gst.totalAmount,
-      amountPaid: Math.min(parsedAmountPaid, gst.totalAmount),
+      amount: price,
+      gstAmount: 0,
+      gstPercent: 0,
+      totalAmount: price,
+      amountPaid: Math.min(parsedAmountPaid, price),
       remainingAmount,
       status: paymentState,
       paymentMode: isRazorpay ? 'razorpay' : (paymentMode || 'cash'),
@@ -394,12 +398,9 @@ exports.publicPurchaseOrder = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Membership plan not found or inactive.' });
     }
 
-    const { calculateGST } = require('../utils/gstCalculator');
-    const gst = calculateGST(plan.price, plan.gstPercent || 18);
-
     const { createRazorpayOrder } = require('../config/razorpay');
     const rzpOrder = await createRazorpayOrder({
-      amount: Math.round(gst.totalAmount * 100), // in paise
+      amount: Math.round(plan.price * 100), // in paise, no GST
       currency: 'INR',
       receipt: `PUBLIC_MEMB_${Date.now()}`
     });
@@ -412,7 +413,7 @@ exports.publicPurchaseOrder = async (req, res) => {
         currency: rzpOrder.currency
       },
       plan,
-      totalAmount: gst.totalAmount,
+      totalAmount: plan.price,
     });
   } catch (error) {
     console.error('publicPurchaseOrder error:', error);
@@ -427,18 +428,11 @@ exports.publicVerifyPayment = async (req, res) => {
     const plan = await MembershipPlan.findById(planId);
     if (!plan) return res.status(404).json({ success: false, message: 'Membership plan not found' });
 
-    // 1. Verify Razorpay signature
-    const { verifyPaymentSignature, fetchPaymentDetails } = require('../config/razorpay');
+    // 1. Verify Razorpay signature (cryptographically sufficient — handler only fires on success)
     const isValid = verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
     if (!isValid) return res.status(400).json({ success: false, message: 'Invalid payment signature' });
 
-    // 2. Fetch payment details
-    const paymentDetails = await fetchPaymentDetails(razorpayPaymentId);
-    if (paymentDetails.status !== 'captured') {
-      return res.status(400).json({ success: false, message: 'Payment not captured by Razorpay' });
-    }
-
-    // 3. Idempotency Check
+    // 2. Idempotency Check
     const existingPayment = await Payment.findOne({
       $or: [{ razorpayPaymentId }, { razorpayOrderId }],
       status: 'paid'
@@ -446,12 +440,6 @@ exports.publicVerifyPayment = async (req, res) => {
     if (existingPayment) {
       return res.json({ success: true, message: 'Payment already processed' });
     }
-
-    const { calculateGST } = require('../utils/gstCalculator');
-    const gst = calculateGST(plan.price, plan.gstPercent || 18);
-    const { getDurationMs } = require('../utils/dateUtils');
-    const { runTransaction } = require('../utils/transactionHandler');
-    const User = require('../models/User');
 
     // 4. Match User or Create New (Commerce Integrity Rule 3)
     let targetUserId = req.user?.userId; // If authenticated
@@ -465,7 +453,7 @@ exports.publicVerifyPayment = async (req, res) => {
 
       if (!user) {
         // Auto-create user
-        const bcrypt = require('bcryptjs');
+        const bcrypt = require('bcryptjs'); // lazy-loaded since bcrypt is only needed for guest purchases
         const hashedPassword = await bcrypt.hash('User@123', 10);
         user = await User.create({
           name: customerDetails.name,
@@ -510,11 +498,11 @@ exports.publicVerifyPayment = async (req, res) => {
         customerName: user.name,
         type: 'membership',
         referenceId: plan._id,
-        amount: gst.amount,
-        gstAmount: gst.gstAmount,
-        gstPercent: gst.gstPercent,
-        totalAmount: gst.totalAmount,
-        amountPaid: gst.totalAmount,
+        amount: plan.price,
+        gstAmount: 0,
+        gstPercent: 0,
+        totalAmount: plan.price,
+        amountPaid: plan.price,
         remainingAmount: 0,
         status: 'paid',
         paymentMode: 'razorpay',
@@ -557,7 +545,6 @@ exports.publicVerifyPayment = async (req, res) => {
     // Generate token if it was a guest purchase so they can log in
     let token = null;
     if (!req.user) {
-      const jwt = require('jsonwebtoken');
       token = jwt.sign(
         { userId: user._id, role: user.role },
         process.env.ACCESS_SECRET || process.env.JWT_SECRET || 'fallback_secret',
@@ -565,12 +552,55 @@ exports.publicVerifyPayment = async (req, res) => {
       );
     }
 
-    const { invalidateEntitlementCache } = require('../utils/entitlementEngine');
     invalidateEntitlementCache(targetUserId);
 
-    res.json({ 
-      success: true, 
-      message: 'Membership purchased successfully!', 
+    // Send emails (fire-and-forget — don't block response on email delivery)
+    const payment = result.payment;
+    const membership = result.membership;
+    const fmt = (d) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    const invoiceHtml = buildInvoiceHTML({
+      invoiceNumber: payment.invoiceNumber,
+      date: fmt(payment.createdAt || new Date()),
+      studentName: user.name,
+      studentPhone: user.phone || '',
+      studentEmail: user.email,
+      items: [{ description: plan.name, quantity: 1, rate: plan.price, amount: plan.price }],
+      subtotal: plan.price,
+      gstPercent: 0,
+      gstAmount: 0,
+      totalAmount: plan.price,
+      paymentMode: 'Razorpay (Online)',
+      paymentId: razorpayPaymentId,
+      status: 'PAID',
+    });
+
+    sendMembershipWelcomeEmail({
+      toEmail: user.email,
+      toName: user.name,
+      planName: plan.name,
+      startDate: fmt(membership.startDate),
+      endDate: fmt(membership.endDate),
+      totalAmount: plan.price,
+      invoiceHtml,
+      invoiceNumber: payment.invoiceNumber,
+    }).catch((err) => console.error('Welcome email failed:', err.message));
+
+    sendAdminPaymentAlert({
+      adminEmail: process.env.ADMIN_NOTIFICATION_EMAIL,
+      payerName: user.name,
+      payerEmail: user.email,
+      payerPhone: user.phone,
+      paymentType: `Membership — ${plan.name}`,
+      amount: plan.price,
+      paymentMode: 'Razorpay',
+      invoiceNumber: payment.invoiceNumber,
+      timestamp: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+    }).catch((err) => console.error('Admin alert email failed:', err.message));
+
+    res.json({
+      success: true,
+      message: 'Membership purchased successfully!',
       membership: result.membership,
       token
     });

@@ -114,13 +114,13 @@ exports.create = async (req, res) => {
         const startDate = new Date();
         const durationMs = getDurationMs(plan);
         const endDate = new Date(startDate.getTime() + durationMs);
-        const gst = calculateGST(plan.price, plan.gstPercent || 18);
+        const price = plan.price;
 
         // Razorpay verified → full payment. Otherwise use provided amountPaid.
         const parsedAmountPaid = isRazorpay
-          ? gst.totalAmount
-          : (amountPaid !== undefined ? parseFloat(amountPaid) : (paymentMode && paymentMode !== 'online' ? gst.totalAmount : 0));
-        const remainingAmount = Math.max(0, gst.totalAmount - parsedAmountPaid);
+          ? price
+          : (amountPaid !== undefined ? parseFloat(amountPaid) : (paymentMode && paymentMode !== 'online' ? price : 0));
+        const remainingAmount = Math.max(0, price - parsedAmountPaid);
 
         let paymentState = 'pending';
         if (remainingAmount === 0) paymentState = 'paid';
@@ -133,11 +133,11 @@ exports.create = async (req, res) => {
           studentId: user._id,
           type: 'membership',
           referenceId: plan._id,
-          amount: gst.amount,
-          gstAmount: gst.gstAmount,
-          gstPercent: gst.gstPercent,
-          totalAmount: gst.totalAmount,
-          amountPaid: Math.min(parsedAmountPaid, gst.totalAmount),
+          amount: price,
+          gstAmount: 0,
+          gstPercent: 0,
+          totalAmount: price,
+          amountPaid: Math.min(parsedAmountPaid, price),
           remainingAmount,
           status: paymentState,
           paymentMode: isRazorpay ? 'razorpay' : (paymentMode || 'cash'),
@@ -166,7 +166,7 @@ exports.create = async (req, res) => {
             io.emit('fees:pending', {
               studentId: user._id,
               studentName: name,
-              amount: gst.totalAmount,
+              amount: price,
               type: 'membership',
             });
           }

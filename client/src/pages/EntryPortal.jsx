@@ -881,6 +881,10 @@ export default function EntryPortal() {
         ondismiss: () => toast.message('Payment cancelled. You can try again from this page.'),
       },
     });
+    rzp.on('payment.failed', () => {
+      toast.error('Payment failed. Please try again.');
+      setActionLoading(false);
+    });
     rzp.open();
   };
 
@@ -1023,7 +1027,7 @@ export default function EntryPortal() {
                     <div className="summary-row"><span>Option</span><strong>{optionSummary.title}</strong></div>
                     <div className="summary-row"><span>Access</span><strong>{optionSummary.subtitle}</strong></div>
                     <div className="summary-row"><span>Base amount</span><strong>{formatMoney(optionSummary.base)}</strong></div>
-                    <div className="summary-row"><span>Estimated total with GST</span><strong>{formatMoney(optionSummary.total)}</strong></div>
+                    <div className="summary-row"><span>Total</span><strong>{formatMoney(optionSummary.total)}</strong></div>
                   </div>
 
                   {!isAuthenticated && (

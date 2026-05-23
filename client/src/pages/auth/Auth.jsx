@@ -509,6 +509,7 @@ export default function Auth() {
   const [forgotNewPassword, setForgotNewPassword] = useState('');
   const [forgotStep, setForgotStep] = useState('email'); // 'email' | 'otp'
   const [forgotLoading, setForgotLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showDemo, setShowDemo] = useState(false);
   const redirectTo = searchParams.get('redirectTo');
 
@@ -971,9 +972,12 @@ export default function Auth() {
                       <div className="field-label">New Password</div>
                       <div className="field-inner">
                         <span className="field-icon"><LockIcon /></span>
-                        <input type="password" value={forgotNewPassword}
+                        <input type={showForgotPassword ? 'text' : 'password'} value={forgotNewPassword}
                           onChange={(e) => setForgotNewPassword(e.target.value)}
                           className="field-input" placeholder="Min 8 chars, upper, lower, number" />
+                        <button type="button" className="eye-btn" onClick={() => setShowForgotPassword(!showForgotPassword)} tabIndex={-1}>
+                          {showForgotPassword ? <EyeOffIcon /> : <EyeIcon />}
+                        </button>
                       </div>
                     </div>
                   </>

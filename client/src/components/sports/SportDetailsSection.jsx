@@ -23,12 +23,21 @@ export default function SportDetailsSection({ sport }) {
         >
           Red Ball Academy
         </p>
-        <h2
-          className="text-white text-3xl font-black leading-tight"
-          style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1px', fontSize: 'clamp(1.8rem, 3vw, 2.5rem)' }}
-        >
-          {sport?.name} Facility
-        </h2>
+        <div className="flex items-center gap-3 flex-wrap">
+          <h2
+            className="text-white text-3xl font-black leading-tight"
+            style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1px', fontSize: 'clamp(1.8rem, 3vw, 2.5rem)' }}
+          >
+            {sport?.name} Facility
+          </h2>
+          <a
+            href="#booking"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-white text-xs font-bold tracking-wide transition-all hover:opacity-90 hover:scale-105 shrink-0"
+            style={{ background: accentColor }}
+          >
+            Book Now ↓
+          </a>
+        </div>
       </div>
 
       {/* Rating placeholder */}

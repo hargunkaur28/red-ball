@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import api from '../lib/axios';
+import { queryClient } from '../lib/queryClient';
 
 const useAuthStore = create((set, get) => ({
   user: null,
@@ -32,6 +33,7 @@ const useAuthStore = create((set, get) => ({
   logout: async () => {
     try { await api.post('/auth/logout'); } catch {}
     localStorage.removeItem('accessToken');
+    queryClient.clear();
     set({ user: null, isAuthenticated: false, isLoading: false });
   },
 
@@ -94,6 +96,13 @@ const useAuthStore = create((set, get) => ({
 
   changePassword: async (passwordData) => {
     const { data } = await api.put('/auth/change-password', passwordData);
+    return data;
+  },
+
+  deleteAccount: async (password) => {
+    const { data } = await api.delete('/auth/account', { data: { password } });
+    localStorage.removeItem('accessToken');
+    set({ user: null, isAuthenticated: false, isLoading: false });
     return data;
   },
 

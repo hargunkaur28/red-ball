@@ -1,11 +1,17 @@
 import { useState, useRef } from 'react';
-import { Camera, Lock, Eye, EyeOff, Save, KeyRound } from 'lucide-react';
+import { Camera, Lock, Eye, EyeOff, Save, KeyRound, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import toast from 'react-hot-toast';
 
 export default function Profile() {
-  const { user, updateProfile, changePassword } = useAuthStore();
+  const { user, updateProfile, changePassword, deleteAccount } = useAuthStore();
   const fileInputRef = useRef(null);
+  const navigate = useNavigate();
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Profile Form State
   const [name, setName] = useState(user?.name || '');
@@ -68,6 +74,20 @@ export default function Profile() {
       toast.error(err.response?.data?.message || 'Failed to update profile details.');
     } finally {
       setProfileLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword) { toast.error('Please enter your password.'); return; }
+    setDeleteLoading(true);
+    try {
+      await deleteAccount(deletePassword);
+      toast.success('Account deleted.');
+      navigate('/');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete account.');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -308,6 +328,68 @@ export default function Profile() {
         </div>
 
       </div>
+
+      {/* Danger Zone */}
+      <div className="rounded-[28px] border border-red-900/40 bg-red-950/10 p-5 sm:p-8">
+        <h3 className="text-lg font-bold text-red-400 flex items-center gap-2 mb-1">
+          <Trash2 size={18} /> Danger Zone
+        </h3>
+        <p className="text-sm text-white/40 mb-5">Once you delete your account, all your data will be permanently removed.</p>
+        <button
+          type="button"
+          onClick={() => setShowDeleteModal(true)}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-red-700/50 bg-red-950/30 text-sm font-bold text-red-400 hover:bg-red-900/40 hover:text-red-300 transition-colors"
+        >
+          <Trash2 size={15} /> Delete My Account
+        </button>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) { setShowDeleteModal(false); setDeletePassword(''); } }}
+        >
+          <div className="w-full max-w-sm rounded-[24px] border border-white/10 bg-[#111515] p-7 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-full bg-red-900/30 border border-red-700/40 flex items-center justify-center">
+                <Trash2 size={18} className="text-red-400" />
+              </div>
+              <div>
+                <h4 className="font-black text-white text-base">Delete Account</h4>
+                <p className="text-xs text-white/40">This action cannot be undone</p>
+              </div>
+            </div>
+            <p className="text-sm text-white/55 mb-5">Enter your password to confirm account deletion.</p>
+            <div className="relative mb-5">
+              <input
+                type="password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                placeholder="Your password"
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none transition focus:border-red-600 placeholder-white/20 text-sm"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setShowDeleteModal(false); setDeletePassword(''); }}
+                className="flex-1 rounded-full border border-white/10 bg-white/5 py-2.5 text-sm font-bold text-white/60 hover:bg-white/10 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={deleteLoading}
+                className="flex-1 rounded-full bg-red-700 py-2.5 text-sm font-bold text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
+              >
+                {deleteLoading ? 'Deleting...' : 'Yes, Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

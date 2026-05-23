@@ -72,13 +72,12 @@ exports.create = async (req, res) => {
     }
 
     const amount = hours * ratePerHour;
-    const gst = calculateGST(amount);
 
     const play = await OneTimePlay.create({
       name, phone, sport, hours, ratePerHour,
-      amount: gst.amount,
-      gstAmount: gst.gstAmount,
-      totalAmount: gst.totalAmount,
+      amount,
+      gstAmount: 0,
+      totalAmount: amount,
       createdBy: req.user.userId,
     });
 
@@ -89,7 +88,7 @@ exports.create = async (req, res) => {
       parsedAmountPaid = isNaN(parsed) ? 0 : parsed;
     }
 
-    const remainingAmount = Math.max(0, gst.totalAmount - parsedAmountPaid);
+    const remainingAmount = Math.max(0, amount - parsedAmountPaid);
     let status = 'pending';
     if (remainingAmount === 0) status = 'paid';
     else if (parsedAmountPaid > 0) status = 'partial';
@@ -99,11 +98,11 @@ exports.create = async (req, res) => {
       type: 'one-time-play',
       referenceId: play._id,
       customerName: name,
-      amount: gst.amount,
-      gstAmount: gst.gstAmount,
-      gstPercent: gst.gstPercent,
-      totalAmount: gst.totalAmount,
-      amountPaid: Math.min(parsedAmountPaid, gst.totalAmount),
+      amount,
+      gstAmount: 0,
+      gstPercent: 0,
+      totalAmount: amount,
+      amountPaid: Math.min(parsedAmountPaid, amount),
       remainingAmount,
       status,
       paymentMode: paymentMode || 'cash',

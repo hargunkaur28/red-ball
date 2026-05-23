@@ -91,6 +91,7 @@ export default function SportDetailPage({ embedded = false }) {
 
           {/* Right — booking */}
           <div
+            id="booking"
             className="lg:sticky lg:top-8 rounded-3xl p-6 sm:p-8"
             style={{
               background: 'rgba(255,255,255,0.02)',

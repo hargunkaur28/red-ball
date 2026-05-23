@@ -138,7 +138,6 @@ exports.bookSlot = async (req, res) => {
     // Calculate price
     const basePrice = slot.pricePerSlot * numPlayers;
     const finalPrice = slot.isPeakHour ? basePrice * slot.peakHourMultiplier : basePrice;
-    const gst = calculateGST(finalPrice);
 
     // Create booking
     const booking = await SlotBooking.create({
@@ -154,8 +153,8 @@ exports.bookSlot = async (req, res) => {
       endTime: endTime || slot.endTime,
       duration: duration || slot.duration,
       price: finalPrice,
-      gstAmount: gst.gstAmount,
-      totalAmount: gst.totalAmount,
+      gstAmount: 0,
+      totalAmount: finalPrice,
       notes,
     });
 
@@ -307,9 +306,8 @@ exports.createPublicBookingOrder = async (req, res) => {
 
     const basePrice = slot ? slot.pricePerSlot * players : service.hourlyPrice * players;
     const finalPrice = (slot && slot.isPeakHour) ? basePrice * slot.peakHourMultiplier : basePrice;
-    const gst = calculateGST(finalPrice);
     const order = await createRazorpayOrder({
-      amount: Math.round(gst.totalAmount * 100),
+      amount: Math.round(finalPrice * 100),
       currency: 'INR',
       receipt: `${slot ? 'slot' : 'service'}_${(slot || service)._id.toString().slice(-10)}_${Date.now().toString().slice(-6)}`,
       notes: { slotId: (slot || service)._id.toString(), duration: duration || (slot ? slot.duration : 60) },
@@ -317,9 +315,9 @@ exports.createPublicBookingOrder = async (req, res) => {
 
     res.json({
       razorpayOrder: { id: order.id, amount: order.amount, currency: order.currency },
-      amount: gst.amount,
-      gstAmount: gst.gstAmount,
-      totalAmount: gst.totalAmount,
+      amount: finalPrice,
+      gstAmount: 0,
+      totalAmount: finalPrice,
     });
   } catch (error) {
     console.error('createPublicBookingOrder error:', error);
@@ -384,7 +382,6 @@ exports.createPublicBooking = async (req, res) => {
 
     const basePrice = slot ? slot.pricePerSlot : service.hourlyPrice;
     const finalPrice = (slot && slot.isPeakHour) ? basePrice * slot.peakHourMultiplier : basePrice;
-    const gst = calculateGST(finalPrice);
 
     const booking = await SlotBooking.create({
       slotId: slot ? slot._id : null,
@@ -398,8 +395,8 @@ exports.createPublicBooking = async (req, res) => {
       endTime: slot ? slot.endTime : "Flexible",
       duration: duration || (slot ? slot.duration : 60),
       price: finalPrice,
-      gstAmount: gst.gstAmount,
-      totalAmount: gst.totalAmount,
+      gstAmount: 0,
+      totalAmount: finalPrice,
       paymentStatus: isRazorpay ? 'paid' : 'pending',
       status: isRazorpay ? 'confirmed' : 'pending',
       notes: sport ? `QR portal sport: ${sport}` : 'QR portal booking',
@@ -409,12 +406,12 @@ exports.createPublicBooking = async (req, res) => {
       type: 'one-time-play',
       referenceId: booking._id,
       customerName: name,
-      amount: gst.amount,
-      gstAmount: gst.gstAmount,
-      gstPercent: gst.gstPercent,
-      totalAmount: gst.totalAmount,
-      amountPaid: isRazorpay ? gst.totalAmount : 0,
-      remainingAmount: isRazorpay ? 0 : gst.totalAmount,
+      amount: finalPrice,
+      gstAmount: 0,
+      gstPercent: 0,
+      totalAmount: finalPrice,
+      amountPaid: isRazorpay ? finalPrice : 0,
+      remainingAmount: isRazorpay ? 0 : finalPrice,
       status: isRazorpay ? 'paid' : 'pending',
       paymentMode: isRazorpay ? 'razorpay' : 'cash',
       ...(isRazorpay && { razorpayOrderId, razorpayPaymentId, razorpaySignature }),

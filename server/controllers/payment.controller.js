@@ -85,19 +85,18 @@ exports.getAll = async (req, res) => {
 // POST /api/payments/create-order (Razorpay online payment)
 exports.createOrder = async (req, res) => {
   try {
-    const { amount, type, studentId, referenceId, gstPercent = 18, customerName, customerEmail, customerPhone, description } = req.body;
-    const gst = calculateGST(amount, gstPercent);
+    const { amount, type, studentId, referenceId, customerName, customerEmail, customerPhone, description } = req.body;
 
     const paymentData = {
       type,
       referenceId,
       customerName,
-      amount: gst.amount,
-      gstAmount: gst.gstAmount,
-      gstPercent: gst.gstPercent,
-      totalAmount: gst.totalAmount,
+      amount,
+      gstAmount: 0,
+      gstPercent: 0,
+      totalAmount: amount,
       amountPaid: 0,
-      remainingAmount: gst.totalAmount,
+      remainingAmount: amount,
       status: 'pending',
       paymentMode: 'razorpay',
     };
@@ -108,7 +107,7 @@ exports.createOrder = async (req, res) => {
 
     // Create Razorpay order
     const razorpayOrder = await createRazorpayOrder({
-      amount: Math.round(gst.totalAmount * 100), // Amount in paise
+      amount: Math.round(amount * 100), // Amount in paise
       currency: 'INR',
       receipt: `rcpt_${payment._id.toString().slice(-10)}`,
       notes: {
@@ -152,8 +151,8 @@ exports.verifyPayment = async (req, res) => {
 
     // Fetch payment details from Razorpay to verify amount and status
     const paymentDetails = await fetchPaymentDetails(razorpayPaymentId);
-    if (paymentDetails.status !== 'captured') {
-      return res.status(400).json({ message: 'Payment not captured by Razorpay.' });
+    if (paymentDetails.status !== 'captured' && paymentDetails.status !== 'authorized') {
+      return res.status(400).json({ message: 'Payment not completed by Razorpay.' });
     }
 
     // Update payment record
@@ -188,18 +187,17 @@ exports.verifyPayment = async (req, res) => {
 // POST /api/payments/manual — Manual cash/UPI/card payment
 exports.manualPayment = async (req, res) => {
   try {
-    const { amount, type, studentId, referenceId, paymentMode, gstPercent = 18 } = req.body;
-    const gst = calculateGST(amount, gstPercent);
+    const { amount, type, studentId, referenceId, paymentMode } = req.body;
 
     const payment = await Payment.create({
       studentId,
       type,
       referenceId,
-      amount: gst.amount,
-      gstAmount: gst.gstAmount,
-      gstPercent: gst.gstPercent,
-      totalAmount: gst.totalAmount,
-      amountPaid: gst.totalAmount,
+      amount,
+      gstAmount: 0,
+      gstPercent: 0,
+      totalAmount: amount,
+      amountPaid: amount,
       remainingAmount: 0,
       status: 'paid',
       paymentMode,

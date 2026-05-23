@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../lib/axios';
 import useCartStore from '../../store/cartStore';
-import { formatCurrency, calcGST } from '../../lib/utils';
+import { formatCurrency } from '../../lib/utils';
 import { toast } from 'sonner';
 import { io } from 'socket.io-client';
 import { Clock, Flame, CheckCircle, AlertCircle, ShoppingBag, X, Plus, User, Phone, FileText, Sparkles, ArrowRight, ArrowLeft, ChefHat, CheckCircle2 } from 'lucide-react';
@@ -257,7 +257,6 @@ export default function TableOrder() {
 
         const payRes = await api.post('/payments/create-order', {
           amount: getSubtotal(),
-          gstPercent: 5,
           type: 'restaurant',
           studentId: null,
           referenceId: newOrder._id,
@@ -305,6 +304,10 @@ export default function TableOrder() {
         };
 
         const rzp = new window.Razorpay(options);
+        rzp.on('payment.failed', () => {
+          toast.error('Payment failed. Please try again.');
+          setIsSubmitting(false);
+        });
         rzp.open();
       } else {
         clearCart();
@@ -773,7 +776,7 @@ export default function TableOrder() {
               </div>
               <div className="text-left">
                 <p className="text-[9px] text-gray-500 uppercase font-black tracking-[0.2em] mb-0.5">Active Order</p>
-                <p className="text-lg font-black text-white font-mono leading-none">{formatCurrency(gst.totalAmount)}</p>
+                <p className="text-lg font-black text-white font-mono leading-none">{formatCurrency(getSubtotal())}</p>
               </div>
             </div>
 

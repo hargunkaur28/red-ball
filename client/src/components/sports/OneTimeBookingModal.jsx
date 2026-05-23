@@ -148,7 +148,17 @@ export default function OneTimeBookingModal({ sport, isOpen, onClose }) {
         },
       };
 
+      if (!import.meta.env.VITE_RAZORPAY_KEY_ID) {
+        toast.error('Payment key not configured. Add VITE_RAZORPAY_KEY_ID to your .env file.');
+        setSubmitting(false);
+        return;
+      }
+
       const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', () => {
+        toast.error('Payment failed. Please try again.');
+        setSubmitting(false);
+      });
       rzp.open();
     } catch (err) {
       toast.error(err.response?.data?.message || err.message || 'Could not initialize payment.');

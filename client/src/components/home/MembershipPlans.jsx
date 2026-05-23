@@ -54,7 +54,7 @@ const plans = [
 const features = [
   'Choose your sports (Box Cricket · Swimming · Gym · Badminton · Football)',
   'Priority ground booking',
-  'GST receipt emailed (Brevo)',
+  'Digital receipt emailed',
   'Restaurant member discount',
   'Monthly progress updates',
 ];
@@ -97,7 +97,7 @@ export default function MembershipPlans() {
             Choose Your Plan
           </h2>
           <p className="text-lg text-white/45 max-w-[600px] mx-auto" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-            Subscribe and choose which sports to include. Flexible billing, GST receipts, and exclusive member perks.
+            Subscribe and choose which sports to include. Flexible billing and exclusive member perks.
           </p>
         </motion.div>
  

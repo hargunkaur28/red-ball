@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth.middleware');
+const optAuth = require('../middleware/optAuth.middleware');
 const authorize = require('../middleware/role.middleware');
 const mc = require('../controllers/membership.controller');
 
@@ -10,9 +11,9 @@ router.post('/plans', auth, authorize('superadmin', 'admin'), mc.createPlan);
 router.put('/plans/:id', auth, authorize('superadmin', 'admin'), mc.updatePlan);
 router.delete('/plans/:id', auth, authorize('superadmin', 'admin'), mc.deletePlan);
 
-// Public Membership Booking
-router.post('/memberships/public-purchase', mc.publicPurchaseOrder);
-router.post('/memberships/public-verify', mc.publicVerifyPayment);
+// Public Membership Booking (optAuth so logged-in users get req.user set)
+router.post('/memberships/public-purchase', optAuth, mc.publicPurchaseOrder);
+router.post('/memberships/public-verify', optAuth, mc.publicVerifyPayment);
 
 // Memberships
 router.get('/memberships/all', auth, authorize('superadmin', 'admin', 'receptionist'), mc.getAllMemberships);
