@@ -352,9 +352,8 @@ exports.forgotPassword = async (req, res) => {
 
     res.json({ message: 'If that email exists, an OTP has been sent.' });
   } catch (error) {
-    const detail = error?.response?.text || error?.response?.data || error?.message || 'unknown';
-    console.error('Forgot Password Error:', detail);
-    res.status(500).json({ message: 'Email sending failed.', detail });
+    console.error('Forgot Password Error:', error?.response?.data || error?.message || error);
+    res.status(500).json({ message: 'Server error.' });
   }
 };
 
