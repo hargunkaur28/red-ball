@@ -167,7 +167,7 @@ export default function MembershipPlans() {
  
                 {/* CTA */}
                 <Link
-                  to={isAuthenticated ? '/user/buy-memberships' : '/buy-membership'}
+                  to="/sports/all-services"
                   className={`block w-full text-center py-3.5 rounded-full font-semibold transition-all duration-200 hover:scale-[1.03] ${
                     isActive
                       ? 'bg-[#F5A623] text-[#0D0D0D] hover:bg-[#E09410]'
