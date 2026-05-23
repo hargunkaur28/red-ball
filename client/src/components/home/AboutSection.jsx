@@ -113,27 +113,27 @@ export default function AboutSection() {
             </div>
 
             {/* Right Column — Image Collage */}
-            <div className="relative">
-              <div className="relative rounded-xl overflow-hidden shadow-2xl">
+            <div className="relative mt-8 lg:mt-0">
+              <div className="relative rounded-xl overflow-hidden shadow-2xl ml-auto w-[90%] md:w-full">
                 <img
                   src="https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=800&auto=format&fit=crop"
                   alt="Red Ball Cricket Academy Training"
                   loading="lazy"
-                  className="w-full h-[420px] object-cover"
+                  className="w-full h-[300px] sm:h-[380px] md:h-[420px] object-cover"
                 />
               </div>
               {/* Overlapping second image */}
-              <div className="absolute -bottom-8 -left-8 w-[55%] rounded-xl overflow-hidden shadow-2xl border-4 border-white hidden md:block">
+              <div className="absolute -bottom-6 left-0 md:-bottom-8 md:-left-8 w-[60%] sm:w-[55%] rounded-xl overflow-hidden shadow-2xl border-4 border-white">
                 <img
                   src="https://images.unsplash.com/photo-1624526267942-ab0ff8a3e972?q=80&w=500&auto=format&fit=crop"
                   alt="Academy Facilities"
                   loading="lazy"
-                  className="w-full h-[200px] object-cover"
+                  className="w-full h-[160px] sm:h-[180px] md:h-[200px] object-cover"
                 />
               </div>
               {/* Accent shape */}
-              <div className="absolute -top-4 -right-4 w-24 h-24 rounded-xl bg-[#C8102E]/10 -z-10" />
-              <div className="absolute -bottom-4 right-8 w-16 h-16 rounded-full bg-[#F5A623]/15 -z-10" />
+              <div className="absolute -top-4 -right-4 w-16 h-16 md:w-24 md:h-24 rounded-xl bg-[#C8102E]/10 -z-10" />
+              <div className="absolute -bottom-4 right-4 md:right-8 w-12 h-12 md:w-16 md:h-16 rounded-full bg-[#F5A623]/15 -z-10" />
             </div>
 
           </div>
