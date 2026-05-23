@@ -230,11 +230,11 @@ export default function TablePortal({ embedded = false }) {
           amount: getSubtotal(),
         });
         
-        const { orderId, amount, currency, keyId } = orderRes.data;
-        
+        const { orderId, amount, currency } = orderRes.data;
+
         // 2. Open Razorpay Modal
         const options = {
-          key: keyId,
+          key: import.meta.env.VITE_RAZORPAY_KEY_ID,
           amount: amount,
           currency: currency,
           name: 'Red Ball Sports Club',

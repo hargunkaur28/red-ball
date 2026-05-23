@@ -834,11 +834,10 @@ exports.entryPayInstant = async (req, res) => {
       amount,
       gstAmount,
       totalAmount,
-      keyId: process.env.RAZORPAY_KEY_ID
     });
   } catch (error) {
     console.error('entryPayInstant error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: 'Payment order failed.' });
   }
 };
 
@@ -1027,11 +1026,10 @@ exports.entryBuyMembership = async (req, res) => {
       },
       plan,
       totalAmount: gst.totalAmount,
-      keyId: process.env.RAZORPAY_KEY_ID
     });
   } catch (error) {
     console.error('entryBuyMembership error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: 'Membership order failed.' });
   }
 };
 

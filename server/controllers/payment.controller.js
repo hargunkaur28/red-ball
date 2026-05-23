@@ -128,11 +128,10 @@ exports.createOrder = async (req, res) => {
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency,
       },
-      keyId: process.env.RAZORPAY_KEY_ID,
     });
   } catch (error) {
     console.error('Create order error:', error);
-    res.status(500).json({ message: 'Failed to create order.', error: error.message });
+    res.status(500).json({ message: 'Failed to create order.' });
   }
 };
 
@@ -589,10 +588,9 @@ exports.retryPayment = async (req, res) => {
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency,
       },
-      keyId: process.env.RAZORPAY_KEY_ID,
     });
   } catch (error) {
     console.error('Retry payment error:', error);
-    res.status(500).json({ message: 'Failed to retry payment.', error: error.message });
+    res.status(500).json({ message: 'Failed to retry payment.' });
   }
 };

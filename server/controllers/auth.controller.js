@@ -4,6 +4,7 @@ const axios = require('axios');
 const { sendPasswordResetOTP, sendFailedLoginAlert } = require('../utils/emailService');
 const { logFailedLogin, logAdminLogin, logPasswordReset } = require('../utils/securityLogger');
 const AdminSession = require('../models/AdminSession');
+const tokenBlacklist = require('../utils/tokenBlacklist');
 
 const ACCESS_SECRET = process.env.JWT_SECRET;
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
@@ -241,6 +242,16 @@ exports.refresh = async (req, res) => {
 // POST /api/auth/logout
 exports.logout = async (req, res) => {
   try {
+    // Blacklist the current access token so it can't be reused
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const accessToken = authHeader.split(' ')[1];
+      try {
+        const decoded = jwt.verify(accessToken, ACCESS_SECRET);
+        tokenBlacklist.add(accessToken, decoded.exp);
+      } catch {}
+    }
+
     const { refreshToken } = req.cookies;
     if (refreshToken) {
       const decoded = jwt.verify(refreshToken, REFRESH_SECRET);
@@ -341,8 +352,9 @@ exports.forgotPassword = async (req, res) => {
 
     res.json({ message: 'If that email exists, an OTP has been sent.' });
   } catch (error) {
-    console.error('Forgot Password Error:', error);
-    res.status(500).json({ message: 'Server error.' });
+    const detail = error?.response?.text || error?.response?.data || error?.message || 'unknown';
+    console.error('Forgot Password Error:', detail);
+    res.status(500).json({ message: 'Email sending failed.', detail });
   }
 };
 

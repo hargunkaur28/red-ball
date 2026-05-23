@@ -170,10 +170,9 @@ exports.createRazorpayOrder = async (req, res) => {
     res.json({
       orderId: order.id,
       amount: totalAmount,
-      key: process.env.RAZORPAY_KEY_ID,
     });
   } catch (error) {
     console.error('Razorpay order creation error:', error);
-    res.status(500).json({ message: 'Failed to create order', error: error.message });
+    res.status(500).json({ message: 'Failed to create order.' });
   }
 };

@@ -1004,6 +1004,7 @@ function InputField({ label, name, type, value, onChange, error, icon }) {
         <span className="field-icon">{icon}</span>
         <input name={name} type={type} value={value} onChange={onChange} className={`field-input${error ? ' has-error' : ''}`} autoComplete="off" />
       </div>
+      {error && <div style={{ fontSize: '10.5px', color: '#e05560', marginTop: '4px', paddingLeft: '2px' }}>{error}</div>}
     </div>
   );
 }
@@ -1019,6 +1020,7 @@ function PasswordField({ label, name, show, onToggle, value, onChange, error }) 
           {show ? <EyeOffIcon /> : <EyeIcon />}
         </button>
       </div>
+      {error && <div style={{ fontSize: '10.5px', color: '#e05560', marginTop: '4px', paddingLeft: '2px' }}>{error}</div>}
     </div>
   );
 }

@@ -838,12 +838,12 @@ export default function EntryPortal() {
 
   const openRazorpay = async ({ orderResponse, description, verifyPayload, verifyUrl }) => {
     await loadRazorpayScript();
-    if (!orderResponse?.rzpOrder?.id || !orderResponse?.keyId) {
+    if (!orderResponse?.rzpOrder?.id || !import.meta.env.VITE_RAZORPAY_KEY_ID) {
       throw new Error('Payment gateway is not configured for this order.');
     }
 
     const rzp = new window.Razorpay({
-      key: orderResponse.keyId,
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID,
       amount: orderResponse.rzpOrder.amount,
       currency: orderResponse.rzpOrder.currency,
       name: 'Red Ball Academy',

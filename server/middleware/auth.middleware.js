@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const tokenBlacklist = require('../utils/tokenBlacklist');
 
 const ACCESS_SECRET = process.env.JWT_SECRET;
 if (!ACCESS_SECRET) {
@@ -23,6 +24,10 @@ const auth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, ACCESS_SECRET);
+
+    if (tokenBlacklist.has(token)) {
+      return res.status(401).json({ message: 'Token has been invalidated.' });
+    }
 
     const user = await User.findById(decoded.userId);
     if (!user || !user.isActive) {

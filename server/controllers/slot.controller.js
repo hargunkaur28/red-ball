@@ -317,14 +317,13 @@ exports.createPublicBookingOrder = async (req, res) => {
 
     res.json({
       razorpayOrder: { id: order.id, amount: order.amount, currency: order.currency },
-      keyId: process.env.RAZORPAY_KEY_ID,
       amount: gst.amount,
       gstAmount: gst.gstAmount,
       totalAmount: gst.totalAmount,
     });
   } catch (error) {
     console.error('createPublicBookingOrder error:', error);
-    res.status(500).json({ message: 'Failed to create payment order.', error: error.message });
+    res.status(500).json({ message: 'Failed to create payment order.' });
   }
 };
 

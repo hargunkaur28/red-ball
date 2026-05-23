@@ -413,11 +413,10 @@ exports.publicPurchaseOrder = async (req, res) => {
       },
       plan,
       totalAmount: gst.totalAmount,
-      keyId: process.env.RAZORPAY_KEY_ID
     });
   } catch (error) {
     console.error('publicPurchaseOrder error:', error);
-    res.status(500).json({ success: false, message: 'Failed to create purchase order.', error: error.message });
+    res.status(500).json({ success: false, message: 'Failed to create purchase order.' });
   }
 };
 

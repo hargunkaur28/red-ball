@@ -60,11 +60,10 @@ exports.purchaseOrder = async (req, res) => {
         gstAmount,
         totalAmount,
       },
-      keyId: process.env.RAZORPAY_KEY_ID,
     });
   } catch (error) {
     console.error('purchaseOrder error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: 'Failed to create purchase order.' });
   }
 };
 

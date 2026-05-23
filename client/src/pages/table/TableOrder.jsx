@@ -268,7 +268,7 @@ export default function TableOrder() {
         const rzpData = payRes.data;
 
         const options = {
-          key: rzpData.keyId,
+          key: import.meta.env.VITE_RAZORPAY_KEY_ID,
           order_id: rzpData.razorpayOrder.id,
           amount: rzpData.razorpayOrder.amount,
           currency: rzpData.razorpayOrder.currency,

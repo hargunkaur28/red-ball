@@ -1,23 +1,29 @@
+const mongoose = require('mongoose');
 const SlotBooking = require('../models/SlotBooking');
 const Slot = require('../models/Slot');
 const Payment = require('../models/Payment');
+
+const PRIVILEGED_ROLES = ['superadmin', 'manager', 'admin', 'receptionist'];
 
 exports.getAll = async (req, res) => {
   try {
     const { date, status, sport } = req.query;
     const filter = {};
     if (status) filter.status = status;
-    
-    // For date filtering, we might need to join with Slot
-    // but for now let's assume we filter by createdAt or some other date field
+
+    // Regular users can only see their own bookings
+    if (!PRIVILEGED_ROLES.includes(req.user.role)) {
+      filter.userId = req.user.userId;
+    }
+
     const bookings = await SlotBooking.find(filter)
       .populate('slotId')
       .populate('userId', 'name email phone')
       .sort({ createdAt: -1 });
-    
+
     res.json({ success: true, bookings });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: 'Failed to fetch bookings.' });
   }
 };
 
@@ -81,10 +87,22 @@ exports.cancel = async (req, res) => {
 
 exports.getById = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ success: false, message: 'Booking not found.' });
+    }
+
     const booking = await SlotBooking.findById(req.params.id).populate('slotId').populate('userId');
-    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found.' });
+
+    // Regular users can only view their own booking
+    if (!PRIVILEGED_ROLES.includes(req.user.role)) {
+      if (booking.userId?._id?.toString() !== req.user.userId.toString()) {
+        return res.status(403).json({ success: false, message: 'Access denied.' });
+      }
+    }
+
     res.json({ success: true, booking });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: 'Failed to fetch booking.' });
   }
 };

@@ -98,7 +98,7 @@ export default function MembershipBookingModal({ plan, isOpen, onClose }) {
       if (!orderRes.success) throw new Error(orderRes.message);
 
       const options = {
-        key: orderRes.keyId,
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
         amount: orderRes.rzpOrder.amount,
         currency: orderRes.rzpOrder.currency,
         name: 'Red Ball Academy',
