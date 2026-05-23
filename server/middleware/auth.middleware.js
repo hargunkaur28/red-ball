@@ -1,7 +1,10 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-const ACCESS_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_secure_123';
+const ACCESS_SECRET = process.env.JWT_SECRET;
+if (!ACCESS_SECRET) {
+  throw new Error('FATAL: JWT_SECRET must be set in .env');
+}
 
 const auth = async (req, res, next) => {
   try {

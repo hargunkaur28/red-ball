@@ -9,6 +9,7 @@ const {
   createRefund,
   verifyWebhookSignature,
 } = require('../config/razorpay');
+const { sendMembershipWelcomeEmail, sendAdminPaymentAlert } = require('../utils/emailService');
 
 // GET /api/payments
 exports.getAll = async (req, res) => {
@@ -392,19 +393,57 @@ async function activateOnPaymentSuccess(payment, req) {
   const io = req.app.get('io');
 
   if (payment.type === 'membership') {
-    // Activate the membership
     const membership = await Membership.findOneAndUpdate(
       { paymentId: payment._id },
       { status: 'active' },
       { new: true }
-    );
+    ).populate('planId').populate('studentId', 'name email phone');
 
-    // Update admission paymentStatus
     if (membership) {
       await Admission.findOneAndUpdate(
         { membershipId: membership._id },
         { paymentStatus: 'paid' }
       );
+
+      // Send welcome email with invoice (fire-and-forget)
+      if (membership.studentId?.email) {
+        const { buildInvoiceHTML } = require('../utils/invoiceBuilder');
+        const invoiceHtml = buildInvoiceHTML({
+          invoiceNumber: payment.invoiceNumber,
+          date: new Date(payment.createdAt).toLocaleDateString('en-IN', {
+            day: '2-digit', month: 'short', year: 'numeric',
+          }),
+          studentName: membership.studentId.name,
+          studentPhone: membership.studentId.phone,
+          studentEmail: membership.studentId.email,
+          items: [{
+            description: `Membership: ${membership.planId?.name || 'Plan'}`,
+            quantity: 1,
+            rate: payment.amount,
+            amount: payment.amount,
+          }],
+          subtotal: payment.amount,
+          gstPercent: payment.gstPercent,
+          gstAmount: payment.gstAmount,
+          totalAmount: payment.totalAmount,
+          paymentMode: payment.paymentMode,
+          paymentId: payment.razorpayPaymentId || String(payment._id),
+          status: 'PAID',
+        });
+
+        sendMembershipWelcomeEmail({
+          toEmail: membership.studentId.email,
+          toName: membership.studentId.name,
+          planName: membership.planId?.name || 'Membership',
+          startDate: new Date(membership.startDate).toLocaleDateString('en-IN'),
+          endDate: new Date(membership.endDate).toLocaleDateString('en-IN'),
+          totalAmount: payment.totalAmount,
+          invoiceHtml,
+          invoiceNumber: payment.invoiceNumber,
+        }).catch(console.error);
+
+        Payment.findByIdAndUpdate(payment._id, { emailSentAt: new Date() }).catch(() => {});
+      }
     }
   }
 
@@ -441,6 +480,19 @@ async function activateOnPaymentSuccess(payment, req) {
     }
   }
 
+  // Notify admin of every successful payment (fire-and-forget)
+  if (process.env.ADMIN_NOTIFICATION_EMAIL) {
+    sendAdminPaymentAlert({
+      adminEmail: process.env.ADMIN_NOTIFICATION_EMAIL,
+      payerName: payment.customerName || 'Unknown',
+      paymentType: payment.type,
+      amount: payment.totalAmount,
+      paymentMode: payment.paymentMode,
+      invoiceNumber: payment.invoiceNumber,
+      timestamp: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+    }).catch(console.error);
+  }
+
   // Emit realtime updates
   if (io) {
     io.emit('payment:success', {
@@ -458,10 +510,9 @@ async function activateOnPaymentSuccess(payment, req) {
 exports.webhookHandler = async (req, res) => {
   try {
     const signature = req.headers['x-razorpay-signature'];
-    const body = req.rawBody; // Ensure rawBody is available
 
-    // Verify webhook signature
-    if (!verifyWebhookSignature(req.body, signature)) {
+    // Use raw body buffer for HMAC — JSON.stringify(req.body) can differ from the original bytes
+    if (!verifyWebhookSignature(req.rawBody, signature)) {
       return res.status(401).json({ message: 'Invalid signature.' });
     }
 

@@ -6,8 +6,10 @@ const useAuthStore = create((set, get) => ({
   isAuthenticated: false,
   isLoading: true,
 
-  login: async (email, password) => {
-    const { data } = await api.post('/auth/login', { email, password });
+  login: async (email, password, securityCode, rememberMe = false) => {
+    const payload = { email, password, rememberMe };
+    if (securityCode) payload.securityCode = securityCode;
+    const { data } = await api.post('/auth/login', payload);
     localStorage.setItem('accessToken', data.accessToken);
     set({ user: data.user, isAuthenticated: true, isLoading: false });
     return data;

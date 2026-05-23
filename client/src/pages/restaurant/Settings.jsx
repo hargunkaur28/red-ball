@@ -47,11 +47,11 @@ export default function RestaurantSettings() {
               </div>
               <div>
                 <label className="block text-sm text-[#666] mb-1">New Password</label>
-                <input name="newPassword" type="password" required minLength="6" className="input-field" />
+                <input name="newPassword" type="password" required minLength="8" className="input-field" />
               </div>
               <div>
                 <label className="block text-sm text-[#666] mb-1">Confirm New Password</label>
-                <input name="confirmPassword" type="password" required minLength="6" className="input-field" />
+                <input name="confirmPassword" type="password" required minLength="8" className="input-field" />
               </div>
             </div>
             <button type="submit" disabled={changePasswordMutation.isPending} className="btn-primary mt-4 gap-2">

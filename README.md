@@ -11,12 +11,7 @@ This platform serves as the digital gateway for athletes, members, and visitors 
 **Red Ball** is more than just a cricket ground—it is a state-of-the-art sports complex designed to nurture athletic talent and provide premium spaces for recreational play. From professional-grade pitches to floodlit courts, Red Ball is the ultimate hub for sports lovers.
 
 ### 📍 Location & Contact
-*   **Academy Location:** Sector 22-D, Jhajjar Road, near Village-Maina Rohtak, Haryana 124001
-*   **Phone Support:** [+91 93500 76653](tel:+919350076653)
-*   **WhatsApp support:** [+91 93500 76653](https://wa.me/919350076653)
-*   **Email Address:** [redballcricketground@gmail.com](mailto:redballcricketground@gmail.com)
-
----
+*   **Academy Location:** Haryana 124001
 
 ## 👥 Who is this Platform for?
 

@@ -1,13 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import { toast } from 'sonner';
-
-const demoCreds = [
-  { role: 'Super Admin', email: 'admin@redball.com', pass: 'Admin@123' },
-  { role: 'Restaurant Manager', email: 'restaurant@redball.com', pass: 'Manager@123' },
-];
+import api from '../../lib/axios';
 
 const FEATURES = [
   {
@@ -501,11 +497,34 @@ export default function Auth() {
   const [searchParams] = useSearchParams();
   const [isLogin, setIsLogin] = useState(searchParams.get('mode') !== 'register');
   const [showPassword, setShowPassword] = useState(false);
-  const [showDemo, setShowDemo] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
   const [errors, setErrors] = useState({});
+  const [rememberMe, setRememberMe] = useState(false);
+  const [requiresCode, setRequiresCode] = useState(false);
+  const [securityCode, setSecurityCode] = useState('');
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotOtp, setForgotOtp] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotStep, setForgotStep] = useState('email'); // 'email' | 'otp'
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [showDemo, setShowDemo] = useState(false);
   const redirectTo = searchParams.get('redirectTo');
+
+  const demoCreds = [
+    { role: 'Super Admin', email: 'plutobluews@gmail.com', password: 'Admin@123', note: '' },
+    { role: 'Restaurant Manager', email: 'hargun134340@gmail.com', password: 'Manager@123', note: '' },
+    { role: 'Test User', email: 'hargun@gmail.com', password: 'RedBall@123', note: 'for testing subscription' },
+    { role: 'Test User', email: 'shine@tshd.com', password: 'shine123', note: 'for testing membership' },
+  ];
+
+  const handleDemoFill = (cred) => {
+    setFormData((prev) => ({ ...prev, email: cred.email, password: cred.password }));
+    setErrors({});
+    setRequiresCode(false);
+    setSecurityCode('');
+  };
   const { login, register, googleAuth, getRedirectPath } = useAuthStore();
 
   const googleButtonRef = useCallback((node) => {
@@ -562,11 +581,6 @@ export default function Auth() {
     if (errors[e.target.name]) setErrors({ ...errors, [e.target.name]: null });
   };
 
-  const handleDemoFill = (cred) => {
-    setFormData({ ...formData, email: cred.email, password: cred.pass });
-    setIsLogin(true);
-    toast.success(`Filled ${cred.role} credentials`);
-  };
 
   const validate = () => {
     const e = {};
@@ -576,7 +590,7 @@ export default function Auth() {
       if (!formData.name) e.name = 'Full name is required';
       if (!formData.phone) e.phone = 'Phone number is required';
       if (formData.password !== formData.confirmPassword) e.confirmPassword = 'Passwords do not match';
-      if (formData.password.length < 6) e.password = 'Password must be at least 6 characters';
+      if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(formData.password)) e.password = 'Password must be 8+ chars with uppercase, lowercase, and a number';
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -588,21 +602,59 @@ export default function Auth() {
     setLoading(true);
     try {
       if (isLogin) {
-        await login(formData.email, formData.password);
+        await login(formData.email, formData.password, requiresCode ? securityCode : undefined, rememberMe);
         toast.success('Welcome back to the Academy!');
+        navigate(redirectTo || getRedirectPath());
       } else {
         await register({ name: formData.name, email: formData.email, phone: formData.phone, password: formData.password });
         toast.success('Account created! Welcome to Red Ball Academy.');
+        navigate(redirectTo || getRedirectPath());
       }
-      navigate(redirectTo || getRedirectPath());
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Authentication failed');
+      const data = err.response?.data;
+      if (data?.requiresCode) {
+        setRequiresCode(true);
+        toast.info('Enter your 6-digit security code to continue.');
+      } else {
+        toast.error(data?.message || 'Authentication failed');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleAuth = () => { setIsLogin(!isLogin); setErrors({}); };
+  const handleForgotSubmit = async (ev) => {
+    ev.preventDefault();
+    if (forgotStep === 'email') {
+      if (!forgotEmail.trim()) { toast.error('Please enter your email.'); return; }
+    } else {
+      if (forgotOtp.length !== 6) { toast.error('Please enter the 6-digit OTP.'); return; }
+      if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(forgotNewPassword)) {
+        toast.error('Password must be 8+ chars with uppercase, lowercase, and a number.');
+        return;
+      }
+    }
+    setForgotLoading(true);
+    try {
+      if (forgotStep === 'email') {
+        await api.post('/auth/forgot-password', { email: forgotEmail });
+        setForgotStep('otp');
+        toast.success('OTP sent to your email if it exists.');
+      } else {
+        await api.post('/auth/reset-password', { email: forgotEmail, otp: forgotOtp, newPassword: forgotNewPassword });
+        toast.success('Password reset! Please log in.');
+        setForgotMode(false);
+        setForgotStep('email');
+        setForgotEmail(''); setForgotOtp(''); setForgotNewPassword('');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Something went wrong');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const toggleAuth = () => { setIsLogin(!isLogin); setErrors({}); setRequiresCode(false); setSecurityCode(''); };
 
   const laserLines = [
     { top: '20%', width: '60%', left: '-5%', angle: -20, dur: 4.2 },
@@ -742,13 +794,55 @@ export default function Auth() {
 
                   {isLogin && (
                     <div className="remember-row">
-                      <label className="remember-label">
-                        <div className="remember-box" />
-                        <span className="remember-text">Remember me</span>
+                      <label className="remember-label" onClick={() => setRememberMe(!rememberMe)} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                        <div
+                          className="remember-box"
+                          style={{
+                            background: rememberMe ? '#C8102E' : 'rgba(255,255,255,0.04)',
+                            borderColor: rememberMe ? '#C8102E' : 'rgba(255,255,255,0.14)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            transition: 'background 0.18s, border-color 0.18s',
+                          }}
+                        >
+                          {rememberMe && (
+                            <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+                              <polyline points="1.5,6 4.5,9 10.5,3" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          )}
+                        </div>
+                        <span className="remember-text">Remember me <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '10px' }}>({rememberMe ? '90 days' : '30 days'})</span></span>
                       </label>
-                      <button type="button" className="forgot-btn">Forgot password?</button>
+                      <button type="button" className="forgot-btn" onClick={() => setForgotMode(true)}>Forgot password?</button>
                     </div>
                   )}
+
+                  <AnimatePresence>
+                    {isLogin && requiresCode && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        style={{ overflow: 'hidden' }}
+                      >
+                        <div className="field-wrap">
+                          <div className="field-label">6-Digit Security Code</div>
+                          <div className="field-inner">
+                            <span className="field-icon"><LockIcon /></span>
+                            <input
+                              type="text"
+                              maxLength={6}
+                              value={securityCode}
+                              onChange={(e) => setSecurityCode(e.target.value.replace(/\D/g, ''))}
+                              className="field-input"
+                              placeholder="••••••"
+                              style={{ letterSpacing: '0.4em', fontWeight: 700 }}
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                   <button type="submit" className="submit-btn" disabled={loading}>
                     {loading ? <div className="spinner" /> : <>{isLogin ? 'Sign In' : 'Create Account'}<ArrowIcon /></>}
@@ -774,11 +868,16 @@ export default function Auth() {
                   <div className="demo-section">
                     <button
                       type="button"
-                      className={`demo-toggle ${showDemo ? 'active' : ''}`}
+                      className={`demo-toggle${showDemo ? ' active' : ''}`}
                       onClick={() => setShowDemo(!showDemo)}
                     >
-                      <SparkleIcon active={showDemo} />
-                      {showDemo ? 'Hide Demo Access' : 'Show Demo Access'}
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+                      </svg>
+                      Demo Access
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showDemo ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+                        <polyline points="6 9 12 15 18 9"/>
+                      </svg>
                     </button>
                     <AnimatePresence>
                       {showDemo && (
@@ -789,12 +888,19 @@ export default function Auth() {
                           style={{ overflow: 'hidden' }}
                         >
                           {demoCreds.map((c) => (
-                            <button key={c.role} type="button" className="demo-cred" onClick={() => handleDemoFill(c)}>
+                            <button
+                              key={c.email}
+                              type="button"
+                              className="demo-cred"
+                              onClick={() => handleDemoFill(c)}
+                            >
                               <div>
-                                <div className="demo-role">{c.role}</div>
+                                <div className="demo-role">{c.role}{c.note && <span style={{ color: 'rgba(255,255,255,0.28)', fontFamily: 'Barlow,sans-serif', fontWeight: 400, fontSize: '8px', letterSpacing: '0.05em', textTransform: 'none', marginLeft: '6px' }}>— {c.note}</span>}</div>
                                 <div className="demo-email">{c.email}</div>
                               </div>
-                              <ChevronIcon />
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'rgba(255,255,255,0.18)', flexShrink: 0 }}>
+                                <polyline points="9 18 15 12 9 6"/>
+                              </svg>
                             </button>
                           ))}
                         </motion.div>
@@ -802,6 +908,7 @@ export default function Auth() {
                     </AnimatePresence>
                   </div>
                 )}
+
               </motion.div>
             </AnimatePresence>
           </motion.div>
@@ -817,6 +924,74 @@ export default function Auth() {
           <ArrowLeftIcon /> Back to home
         </motion.button>
       </div>
+
+      <AnimatePresence>
+        {forgotMode && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 100,
+              background: 'rgba(0,0,0,0.75)', display: 'flex',
+              alignItems: 'center', justifyContent: 'center', padding: '20px',
+            }}
+            onClick={(e) => { if (e.target === e.currentTarget) { setForgotMode(false); setForgotStep('email'); } }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              style={{
+                background: '#111', border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '12px', padding: '32px', width: '100%', maxWidth: '400px',
+              }}
+            >
+              <div className="form-heading" style={{ fontSize: '24px', marginBottom: '4px' }}>Reset Password</div>
+              <div className="form-subheading" style={{ marginBottom: '24px' }}>
+                {forgotStep === 'email' ? 'Enter your email to receive an OTP' : 'Enter the OTP and your new password'}
+              </div>
+              <form onSubmit={handleForgotSubmit}>
+                {forgotStep === 'email' ? (
+                  <InputField label="Email Address" name="forgotEmail" type="email" value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)} icon={<MailIcon />} />
+                ) : (
+                  <>
+                    <div className="field-wrap">
+                      <div className="field-label">OTP Code</div>
+                      <div className="field-inner">
+                        <span className="field-icon"><LockIcon /></span>
+                        <input type="text" maxLength={6} value={forgotOtp}
+                          onChange={(e) => setForgotOtp(e.target.value.replace(/\D/g, ''))}
+                          className="field-input" placeholder="6-digit OTP"
+                          style={{ letterSpacing: '0.3em', fontWeight: 700 }} autoFocus />
+                      </div>
+                    </div>
+                    <div className="field-wrap">
+                      <div className="field-label">New Password</div>
+                      <div className="field-inner">
+                        <span className="field-icon"><LockIcon /></span>
+                        <input type="password" value={forgotNewPassword}
+                          onChange={(e) => setForgotNewPassword(e.target.value)}
+                          className="field-input" placeholder="Min 8 chars, upper, lower, number" />
+                      </div>
+                    </div>
+                  </>
+                )}
+                <button type="submit" className="submit-btn" disabled={forgotLoading} style={{ marginTop: '16px' }}>
+                  {forgotLoading ? <div className="spinner" /> : forgotStep === 'email' ? 'Send OTP' : 'Reset Password'}
+                </button>
+              </form>
+              {forgotStep === 'otp' && (
+                <button type="button" className="forgot-btn" style={{ marginTop: '12px', display: 'block' }}
+                  onClick={() => setForgotStep('email')}>
+                  Back
+                </button>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
@@ -856,5 +1031,3 @@ const EyeIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none
 const EyeOffIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>;
 const ArrowIcon = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>;
 const ArrowLeftIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>;
-const ChevronIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>;
-const SparkleIcon = ({ active }) => <svg width="11" height="11" viewBox="0 0 24 24" fill={active ? '#C8102E' : 'none'} stroke={active ? '#C8102E' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>;

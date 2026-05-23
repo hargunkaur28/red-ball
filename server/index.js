@@ -1,4 +1,7 @@
 require('dotenv').config();
+const validateEnv = require('./config/validateEnv');
+validateEnv();
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -7,6 +10,9 @@ const compression = require('compression');
 const cookieParser = require('cookie-parser');
 const http = require('http');
 const { Server } = require('socket.io');
+const rateLimit = require('express-rate-limit');
+const mongoSanitize = require('express-mongo-sanitize');
+const xss = require('xss-clean');
 const connectDB = require('./config/db');
 
 // Import routes
@@ -48,14 +54,18 @@ const startTestExpiryChecker = startTestExpiryCheckerModule;
 const app = express();
 const server = http.createServer(app);
 
+const isProd = process.env.NODE_ENV === 'production';
+
+const allowedOrigins = [
+  ...(!isProd ? ['http://localhost:5173'] : []),
+  'https://red-ball-delta.vercel.app',
+  process.env.CLIENT_URL,
+].filter(Boolean);
+
 // Socket.io setup
 const io = new Server(server, {
   cors: {
-    origin: [
-      'http://localhost:5173',
-      'https://red-ball-delta.vercel.app',
-      process.env.CLIENT_URL,
-    ].filter(Boolean),
+    origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
   },
@@ -100,26 +110,60 @@ io.on('connection', (socket) => {
   });
 });
 
-// Middleware
-app.use(helmet({ crossOriginResourcePolicy: false }));
+// Security middleware
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://checkout.razorpay.com', 'https://accounts.google.com'],
+      frameSrc: ["'self'", 'https://api.razorpay.com'],
+      imgSrc: ["'self'", 'data:', 'https://res.cloudinary.com', 'https://lh3.googleusercontent.com'],
+      connectSrc: ["'self'", 'https://api.razorpay.com', ...allowedOrigins],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+    },
+  },
+  hsts: isProd ? { maxAge: 31536000, includeSubDomains: true } : false,
+}));
+
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'https://red-ball-delta.vercel.app',
-    process.env.CLIENT_URL,
-  ].filter(Boolean),
+  origin: allowedOrigins,
   credentials: true,
 }));
+
 app.use(compression());
 app.use(morgan('dev'));
 app.use(express.json({
   limit: '10mb',
   verify: (req, res, buf) => {
     req.rawBody = buf;
-  }
+  },
 }));
 app.use(express.urlencoded({ extended: true }));
-app.use(require('cookie-parser')());
+app.use(cookieParser());
+app.use(mongoSanitize());
+app.use(xss());
+
+// Rate limiting
+app.use('/api/', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many requests, please try again later.' },
+}));
+
+app.use('/api/auth/login', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { message: 'Too many login attempts. Please wait 15 minutes.' },
+}));
+
+app.use('/api/auth/forgot-password', rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { message: 'Too many password reset requests. Try again in an hour.' },
+}));
 
 // Static Files
 app.use('/uploads', express.static(require('path').join(__dirname, 'uploads')));
@@ -170,45 +214,43 @@ const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   await connectDB();
-  
-  // Seed superadmin if not exists
+
   const User = require('./models/User');
+
   const existingAdmin = await User.findOne({ role: 'superadmin' });
   if (!existingAdmin) {
     await User.create({
-      name: 'Super Admin',
-      email: 'admin@redball.com',
+      name: process.env.SUPER_ADMIN_NAME || 'Super Admin',
+      email: process.env.SUPER_ADMIN_EMAIL,
       phone: '9999999999',
-      password: 'Admin@123',
+      password: process.env.SUPER_ADMIN_PASSWORD,
       role: 'superadmin',
     });
-    console.log('🔐 Default superadmin created: admin@redball.com / Admin@123');
+    console.log(`🔐 Superadmin seeded: ${process.env.SUPER_ADMIN_EMAIL}`);
   }
 
-  // Seed restaurant manager if not exists
   const existingManager = await User.findOne({ role: 'manager' });
   if (!existingManager) {
     await User.create({
-      name: 'Restaurant Manager',
-      email: 'restaurant@redball.com',
+      name: process.env.MANAGER_NAME || 'Restaurant Manager',
+      email: process.env.MANAGER_EMAIL,
       phone: '8888888888',
-      password: 'Manager@123',
+      password: process.env.MANAGER_PASSWORD,
       role: 'manager',
     });
-    console.log('👨‍🍳 Default restaurant manager created: restaurant@redball.com / Manager@123');
+    console.log(`👨‍🍳 Manager seeded: ${process.env.MANAGER_EMAIL}`);
   }
 
-  // Seed receptionist if not exists
   const existingReception = await User.findOne({ role: 'receptionist' });
   if (!existingReception) {
     await User.create({
       name: 'Reception Desk',
-      email: 'reception@redball.com',
+      email: process.env.RECEPTION_EMAIL || 'reception@redball.com',
       phone: '7777777777',
-      password: 'Reception@123',
+      password: process.env.RECEPTION_PASSWORD || 'Reception@123',
       role: 'receptionist',
     });
-    console.log('💁 Default receptionist created: reception@redball.com / Reception@123');
+    console.log(`💁 Receptionist seeded`);
   }
 
   // Seed test plans
@@ -226,25 +268,11 @@ const startServer = async () => {
   startExpireOneTimeAccess(io);
   startTestExpiryChecker(io);
 
-  // --- TEMP SCRIPT ---
-  try {
-    const fs = require('fs');
-    const Attendance = require('./models/Attendance');
-    const User = require('./models/User');
-    const hargun = await User.findOne({ email: 'hargun@gmail.com' });
-    if (hargun) {
-      const atts = await Attendance.find({ userId: hargun._id }).sort({ checkInTime: -1 }).limit(2).lean();
-      fs.writeFileSync('d:\\red-ball\\server\\check-output.txt', JSON.stringify(atts, null, 2));
-    }
-  } catch (err) {}
-  // ---
-
   server.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📡 Socket.io ready`);
   });
 
-  // Graceful shutdown handlers
   process.on('SIGTERM', () => {
     console.log('⏹️ SIGTERM received, shutting down gracefully...');
     stopTestExpiryChecker();

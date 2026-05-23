@@ -21,7 +21,15 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: [true, 'Password is required'],
-    minlength: 6,
+    minlength: [8, 'Password must be at least 8 characters'],
+    validate: {
+      validator: function (v) {
+        // Only validate on new/modified passwords (not hashed values)
+        if (this.isModified && !this.isModified('password')) return true;
+        return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(v);
+      },
+      message: 'Password must contain uppercase, lowercase, and a number',
+    },
     select: false,
   },
   role: {
@@ -57,6 +65,26 @@ const userSchema = new mongoose.Schema({
   },
   resetOtpExpiry: {
     type: Date,
+    select: false,
+  },
+  loginAttempts: {
+    type: Number,
+    default: 0,
+    select: false,
+  },
+  loginLockedUntil: {
+    type: Date,
+    default: null,
+    select: false,
+  },
+  lastFailedLoginAt: {
+    type: Date,
+    default: null,
+    select: false,
+  },
+  failedAlertSentAt: {
+    type: Date,
+    default: null,
     select: false,
   },
 }, {

@@ -1,30 +1,46 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const axios = require('axios');
+const { sendPasswordResetOTP, sendFailedLoginAlert } = require('../utils/emailService');
+const { logFailedLogin, logAdminLogin, logPasswordReset } = require('../utils/securityLogger');
+const AdminSession = require('../models/AdminSession');
 
-const ACCESS_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_secure_123';
-const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'fallback_refresh_secret_key_secure_456';
-const REFRESH_COOKIE_OPTIONS = {
+const ACCESS_SECRET = process.env.JWT_SECRET;
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+if (!ACCESS_SECRET || !REFRESH_SECRET) {
+  throw new Error('FATAL: JWT_SECRET and JWT_REFRESH_SECRET must be set in .env');
+}
+
+const COOKIE_BASE = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
-  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-  maxAge: 90 * 24 * 60 * 60 * 1000,
+  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
 };
 
-const generateAccessToken = (userId) => {
-  return jwt.sign({ userId }, ACCESS_SECRET, { expiresIn: '15m' });
-};
+// rememberMe=true → 90 days; default → 30 days
+const getCookieOptions = (rememberMe) => ({
+  ...COOKIE_BASE,
+  maxAge: (rememberMe ? 90 : 30) * 24 * 60 * 60 * 1000,
+});
 
-const generateRefreshToken = (userId) => {
-  return jwt.sign({ userId }, REFRESH_SECRET, { expiresIn: '90d' });
-};
+// Keep a stable options object for logout/clear (30-day baseline)
+const REFRESH_COOKIE_OPTIONS = getCookieOptions(false);
+
+const generateAccessToken = (userId) => jwt.sign({ userId }, ACCESS_SECRET, { expiresIn: '15m' });
+const generateRefreshToken = (userId, rememberMe) =>
+  jwt.sign({ userId }, REFRESH_SECRET, { expiresIn: rememberMe ? '90d' : '30d' });
+
+const getIP = (req) => req.ip || req.headers['x-forwarded-for'] || 'unknown';
+const getUA = (req) => req.headers['user-agent'] || 'unknown';
 
 // POST /api/auth/login
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, securityCode, rememberMe = false } = req.body;
 
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email }).select(
+      '+password +loginAttempts +loginLockedUntil +failedAlertSentAt'
+    );
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
@@ -33,21 +49,98 @@ exports.login = async (req, res) => {
       return res.status(403).json({ message: 'Account is deactivated. Contact admin.' });
     }
 
+    // Temporary lockout check (15 min after 10 failed attempts)
+    if (user.loginLockedUntil && user.loginLockedUntil > new Date()) {
+      const minutesLeft = Math.ceil((user.loginLockedUntil - new Date()) / 60000);
+      return res.status(429).json({
+        message: `Account temporarily locked. Try again in ${minutesLeft} minute(s).`,
+      });
+    }
+
     const isMatch = await user.comparePassword(password);
+
     if (!isMatch) {
+      user.loginAttempts = (user.loginAttempts || 0) + 1;
+      user.lastFailedLoginAt = new Date();
+
+      const ALERT_THRESHOLD = 5;
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      if (
+        user.loginAttempts >= ALERT_THRESHOLD &&
+        (!user.failedAlertSentAt || user.failedAlertSentAt < oneHourAgo)
+      ) {
+        user.failedAlertSentAt = new Date();
+        sendFailedLoginAlert({
+          targetEmail: process.env.ADMIN_NOTIFICATION_EMAIL,
+          attemptedEmail: user.email,
+          role: user.role,
+          attemptCount: user.loginAttempts,
+          ip: getIP(req),
+          userAgent: getUA(req),
+          timestamp: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+        }).catch(console.error);
+      }
+
+      if (user.loginAttempts >= 10) {
+        user.loginLockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+      }
+
+      await user.save({ validateBeforeSave: false });
+
+      logFailedLogin({
+        email: user.email,
+        role: user.role,
+        ipAddress: getIP(req),
+        userAgent: getUA(req),
+        attemptCount: user.loginAttempts,
+      }).catch(() => {});
+
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
-    const accessToken = generateAccessToken(user._id);
-    const refreshToken = generateRefreshToken(user._id);
+    // 6-digit security code required for privileged roles
+    if (user.role === 'superadmin' || user.role === 'manager') {
+      if (!securityCode) {
+        return res.status(401).json({ message: 'Security code required.', requiresCode: true });
+      }
+      const expectedCode =
+        user.role === 'superadmin' ? process.env.SUPER_ADMIN_CODE : process.env.MANAGER_CODE;
 
-    // Store refresh token in DB
+      if (securityCode !== expectedCode) {
+        user.loginAttempts = (user.loginAttempts || 0) + 1;
+        await user.save({ validateBeforeSave: false });
+        return res.status(401).json({ message: 'Invalid security code.' });
+      }
+    }
+
+    // All checks passed — reset counter and issue tokens
+    user.loginAttempts = 0;
+    user.loginLockedUntil = null;
+
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id, rememberMe);
     user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
 
-    // Set refresh token as httpOnly cookie configured for 30-day session persistence
-    res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTIONS);
+    // Track privileged logins
+    if (user.role === 'superadmin' || user.role === 'manager') {
+      AdminSession.create({
+        userId: user._id,
+        role: user.role,
+        ipAddress: getIP(req),
+        userAgent: getUA(req),
+      }).catch(() => {});
 
+      logAdminLogin({
+        userId: user._id,
+        email: user.email,
+        role: user.role,
+        ipAddress: getIP(req),
+        userAgent: getUA(req),
+      }).catch(() => {});
+    }
+
+    res.cookie('refreshToken', refreshToken, getCookieOptions(rememberMe));
     res.json({
       message: 'Login successful',
       accessToken,
@@ -76,22 +169,14 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'Email already registered.' });
     }
 
-    const user = await User.create({
-      name,
-      email,
-      phone,
-      password,
-      role: 'user',
-    });
+    const user = await User.create({ name, email, phone, password, role: 'user' });
 
     const accessToken = generateAccessToken(user._id);
-    const refreshToken = generateRefreshToken(user._id);
-
+    const refreshToken = generateRefreshToken(user._id, false);
     user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
 
-    res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTIONS);
-
+    res.cookie('refreshToken', refreshToken, getCookieOptions(false));
     res.status(201).json({
       message: 'Registration successful',
       accessToken,
@@ -105,6 +190,10 @@ exports.register = async (req, res) => {
     });
   } catch (error) {
     console.error('Register Error:', error);
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map((e) => e.message);
+      return res.status(400).json({ message: messages[0] });
+    }
     res.status(500).json({ message: 'Server error during registration.' });
   }
 };
@@ -124,14 +213,16 @@ exports.refresh = async (req, res) => {
       return res.status(401).json({ message: 'Invalid refresh token.' });
     }
 
-    const newAccessToken = generateAccessToken(user._id);
-    const newRefreshToken = generateRefreshToken(user._id);
+    // Preserve the original remember-me duration: 90d tokens had ~90d lifetime
+    const originalDurationDays = Math.round((decoded.exp - decoded.iat) / 86400);
+    const wasRemembered = originalDurationDays >= 89;
 
+    const newAccessToken = generateAccessToken(user._id);
+    const newRefreshToken = generateRefreshToken(user._id, wasRemembered);
     user.refreshToken = newRefreshToken;
     await user.save({ validateBeforeSave: false });
 
-    res.cookie('refreshToken', newRefreshToken, REFRESH_COOKIE_OPTIONS);
-
+    res.cookie('refreshToken', newRefreshToken, getCookieOptions(wasRemembered));
     res.json({
       accessToken: newAccessToken,
       user: {
@@ -155,7 +246,6 @@ exports.logout = async (req, res) => {
       const decoded = jwt.verify(refreshToken, REFRESH_SECRET);
       await User.findByIdAndUpdate(decoded.userId, { refreshToken: null });
     }
-
     res.clearCookie('refreshToken', REFRESH_COOKIE_OPTIONS);
     res.json({ message: 'Logged out successfully.' });
   } catch (error) {
@@ -187,13 +277,12 @@ exports.googleAuth = async (req, res) => {
 
     let user = await User.findOne({ email: profile.email });
     if (!user) {
-      const requestedRole = role === 'user' ? role : 'user';
       user = await User.create({
         name: profile.name || profile.email.split('@')[0],
         email: profile.email,
         photo: profile.picture || '',
         password: `Google@${Date.now()}`,
-        role: requestedRole,
+        role: 'user',
       });
     } else {
       if (profile.picture && !user.photo) user.photo = profile.picture;
@@ -204,11 +293,11 @@ exports.googleAuth = async (req, res) => {
     }
 
     const accessToken = generateAccessToken(user._id);
-    const refreshToken = generateRefreshToken(user._id);
+    const refreshToken = generateRefreshToken(user._id, false);
     user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
 
-    res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTIONS);
+    res.cookie('refreshToken', refreshToken, getCookieOptions(false));
     res.json({
       message: 'Google sign-in successful',
       accessToken,
@@ -233,19 +322,26 @@ exports.forgotPassword = async (req, res) => {
     const { email } = req.body;
     const user = await User.findOne({ email });
     if (!user) {
-      return res.json({ message: 'If email exists, OTP has been sent.' });
+      return res.json({ message: 'If that email exists, an OTP has been sent.' });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     user.resetOtp = otp;
-    user.resetOtpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    user.resetOtpExpiry = new Date(Date.now() + 10 * 60 * 1000);
     await user.save({ validateBeforeSave: false });
 
-    // TODO: Send OTP via Brevo email
-    console.log(`OTP for ${email}: ${otp}`);
+    await sendPasswordResetOTP({ toEmail: user.email, toName: user.name, otp });
 
-    res.json({ message: 'If email exists, OTP has been sent.' });
+    logPasswordReset({
+      email: user.email,
+      userId: user._id,
+      ipAddress: getIP(req),
+      userAgent: getUA(req),
+    }).catch(() => {});
+
+    res.json({ message: 'If that email exists, an OTP has been sent.' });
   } catch (error) {
+    console.error('Forgot Password Error:', error);
     res.status(500).json({ message: 'Server error.' });
   }
 };
@@ -258,6 +354,14 @@ exports.resetPassword = async (req, res) => {
 
     if (!user || user.resetOtp !== otp || user.resetOtpExpiry < new Date()) {
       return res.status(400).json({ message: 'Invalid or expired OTP.' });
+    }
+
+    // Validate password policy before saving
+    const strongPassword = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(newPassword);
+    if (!strongPassword) {
+      return res.status(400).json({
+        message: 'Password must be at least 8 characters with uppercase, lowercase, and a number.',
+      });
     }
 
     user.password = newPassword;
@@ -303,7 +407,6 @@ exports.updateProfile = async (req, res) => {
     if (name) updateData.name = name;
     if (phone !== undefined) updateData.phone = phone;
 
-    // Check if file was uploaded by multer
     if (req.file && req.file.path) {
       updateData.photo = req.file.path;
     }
@@ -342,11 +445,14 @@ exports.changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: 'Both current password and new password are required.' });
+      return res.status(400).json({ message: 'Both current and new password are required.' });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: 'New password must be at least 6 characters.' });
+    const strongPassword = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(newPassword);
+    if (!strongPassword) {
+      return res.status(400).json({
+        message: 'New password must be at least 8 characters with uppercase, lowercase, and a number.',
+      });
     }
 
     const user = await User.findById(req.user.userId).select('+password');
@@ -368,4 +474,3 @@ exports.changePassword = async (req, res) => {
     res.status(500).json({ message: 'Server error during password change.' });
   }
 };
-

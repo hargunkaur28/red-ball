@@ -186,8 +186,8 @@ export default function Settings() {
           <form id="password-form" onSubmit={handlePasswordSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div><label className="block text-sm text-[#666] mb-1">Current Password</label><input name="currentPassword" type="password" required className="input-field" /></div>
-              <div><label className="block text-sm text-[#666] mb-1">New Password</label><input name="newPassword" type="password" required minLength="6" className="input-field" /></div>
-              <div><label className="block text-sm text-[#666] mb-1">Confirm New Password</label><input name="confirmPassword" type="password" required minLength="6" className="input-field" /></div>
+              <div><label className="block text-sm text-[#666] mb-1">New Password</label><input name="newPassword" type="password" required minLength="8" placeholder="8+ chars, upper, lower, number" className="input-field" /></div>
+              <div><label className="block text-sm text-[#666] mb-1">Confirm New Password</label><input name="confirmPassword" type="password" required minLength="8" className="input-field" /></div>
             </div>
             <button type="submit" disabled={changePasswordMutation.isPending} className="btn-primary mt-4 gap-2">
               {changePasswordMutation.isPending && <Loader2 size={16} className="animate-spin" />}

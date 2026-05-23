@@ -13,11 +13,11 @@ const razorpayConfig = {
   webhook_secret: process.env.RAZORPAY_WEBHOOK_SECRET,
 };
 
-// Verify Razorpay webhook signature
-exports.verifyWebhookSignature = (body, signature) => {
+// Verify Razorpay webhook signature — must receive the raw request body buffer/string
+exports.verifyWebhookSignature = (rawBody, signature) => {
   const hash = crypto
     .createHmac('sha256', razorpayConfig.webhook_secret)
-    .update(JSON.stringify(body))
+    .update(rawBody)
     .digest('hex');
   return hash === signature;
 };

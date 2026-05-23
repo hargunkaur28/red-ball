@@ -83,8 +83,8 @@ export default function Profile() {
       return;
     }
 
-    if (newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters long.');
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(newPassword)) {
+      toast.error('Password must be 8+ characters with uppercase, lowercase, and a number.');
       return;
     }
 
