@@ -53,7 +53,7 @@ const buildInvoiceHTML = (data) => {
       <div class="invoice">
         <div class="header">
           <div class="logo-section">
-            <h1>🏏 RED BALL CRICKET ACADEMY</h1>
+            <h1>🏏 RED BALL BOX CRICKET ACADEMY</h1>
             <p>123 Sports Complex, City Name</p>
             <p>GSTIN: XXXXXXXXXXXX</p>
             <p>Phone: +91 XXXXXXXXXX</p>
@@ -103,7 +103,7 @@ const buildInvoiceHTML = (data) => {
           <p><strong>Status:</strong> ${status || 'PAID'} ✓</p>
         </div>
         <div class="footer">
-          <p>Thank you for choosing Red Ball Cricket Academy!</p>
+          <p>Thank you for choosing Red Ball Box Cricket Academy!</p>
           <p>This is a computer-generated invoice.</p>
         </div>
       </div>

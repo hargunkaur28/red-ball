@@ -36,7 +36,7 @@ async function seedTestPlans(adminId) {
     { name: 'Gym', hourlyPrice: 1400, playerCapacity: 30, category: 'gym', availability: 'Monthly packages', pricingOptions: [
       { label: 'Monthly', price: 1400, unit: 'month' }, { label: '3 Months', price: 3500, unit: '3 months' }, { label: '6 Months', price: 6000, unit: '6 months' }, { label: 'Yearly', price: 10000, unit: 'year' },
     ] },
-    { name: 'Cricket Box', hourlyPrice: 600, playerCapacity: 10, category: 'cricket', availability: 'Day and premium slots', pricingOptions: [
+    { name: 'Box Cricket', hourlyPrice: 600, playerCapacity: 10, category: 'cricket', availability: 'Day and premium slots', pricingOptions: [
       { label: 'Standard Day', price: 600, unit: 'day' }, { label: 'Premium Slot', price: 800, unit: 'day' },
     ] },
     { name: 'Swimming', hourlyPrice: 200, playerCapacity: 20, category: 'swimming', availability: '6AM-8PM', pricingOptions: [

@@ -53,7 +53,7 @@ export default function Testimonials() {
     : testimonials;
 
   return (
-    <section className="bg-[#0D0D0D] py-20 md:py-28">
+    <section className="bg-white py-20 md:py-28" data-theme="light">
       <div className="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12">
         <motion.div
           initial={{ opacity: 0, y: 48 }}
@@ -64,16 +64,16 @@ export default function Testimonials() {
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
             <div>
-              <p className="uppercase tracking-[5px] text-[13px] text-[#F5A623] mb-4" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+              <p className="uppercase tracking-[5px] text-[13px] text-[#C8102E] mb-4" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                 TESTIMONIALS
               </p>
-              <h2 className="section-heading text-white">
+              <h2 className="section-heading text-[#0D0D0D]">
                 What Our Red Ball Families Are Saying
               </h2>
             </div>
             <Link
               to={isAuthenticated ? "/user/reviews" : "/login?redirectTo=/user/reviews"}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full border-2 border-white/30 text-white text-sm font-medium transition-all duration-200 hover:bg-white hover:text-black whitespace-nowrap"
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full border-2 border-black/20 text-[#0D0D0D] text-sm font-medium transition-all duration-200 hover:bg-[#0D0D0D] hover:text-white whitespace-nowrap"
               style={{ fontFamily: "'DM Sans', sans-serif" }}
             >
               Write a Review →
@@ -101,7 +101,7 @@ export default function Testimonials() {
             {visibleTestimonials.map((t, i) => (
               <SwiperSlide key={i} className="!h-auto">
                 <div
-                  className="bg-[#1A1A1A] rounded-3xl p-8 border border-white/[0.08] h-full min-h-[240px] flex flex-col justify-between transition-all duration-300 hover:-translate-y-2 hover:border-[rgba(245,166,35,0.4)] cursor-pointer group shadow-lg"
+                  className="bg-white rounded-3xl p-8 border border-black/5 shadow-md h-full min-h-[240px] flex flex-col justify-between transition-all duration-300 hover:-translate-y-2 hover:border-[#F5A623]/40 cursor-pointer group hover:shadow-xl"
                 >
                   {/* Sport Label */}
                   <div>
@@ -114,7 +114,7 @@ export default function Testimonials() {
 
                     {/* Review Text */}
                     <p
-                      className="text-white/80 text-[15px] italic leading-relaxed mb-6"
+                      className="text-black/80 text-[15px] italic leading-relaxed mb-6"
                       style={{ fontFamily: "'DM Sans', sans-serif" }}
                     >
                       "{t.text}"
@@ -130,7 +130,7 @@ export default function Testimonials() {
                     </div>
 
                     {/* Reviewer */}
-                    <p className="text-[#9CA3AF] text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                    <p className="text-black/50 text-sm font-bold" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                       — {t.name}
                     </p>
                   </div>

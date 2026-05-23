@@ -481,7 +481,7 @@ export default function ScanQR() {
         <div className="scan-instructions">
           <h3>How it works</h3>
           <ol>
-            <li>Look for the <strong>QR code</strong> displayed at the sport entrance (Badminton, Cricket, Gym, etc.)</li>
+            <li>Look for the <strong>QR code</strong> displayed at the sport entrance (Badminton, Box Cricket, Gym, etc.)</li>
             <li>Tap <strong>"Open Camera & Scan"</strong> above and point your phone at the QR code</li>
             <li>You'll be taken to the <strong>entry portal</strong> where you can check-in instantly if you have a membership</li>
             <li>No membership? You can <strong>buy one-time access</strong> or <strong>purchase a plan</strong> right from the entry screen</li>

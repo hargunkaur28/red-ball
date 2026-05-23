@@ -37,13 +37,31 @@ export default function MotivationalBanner() {
             you one step closer to your best.
           </p>
 
-          <Link
-            to="/login?mode=register"
-            className="inline-flex px-10 py-4 rounded-full bg-[#C8102E] text-white text-lg font-semibold transition-all duration-200 hover:bg-[#8B0B1E] hover:scale-[1.04] hover:shadow-[0_0_24px_rgba(200,16,46,0.5)]"
-            style={{ fontFamily: "'DM Sans', sans-serif" }}
-          >
-            Join the Academy →
-          </Link>
+          <div className="flex flex-col sm:flex-row flex-wrap justify-center items-center gap-4 mt-8">
+            <Link
+              to="/login?mode=register"
+              className="inline-flex w-full sm:w-auto justify-center px-10 py-4 rounded-full bg-[#C8102E] text-white text-lg font-semibold transition-all duration-200 hover:bg-[#8B0B1E] hover:scale-[1.04] hover:shadow-[0_0_24px_rgba(200,16,46,0.5)]"
+              style={{ fontFamily: "'DM Sans', sans-serif" }}
+            >
+              Join the Academy →
+            </Link>
+            
+            <Link
+              to="/login?mode=register"
+              className="inline-flex w-full sm:w-auto justify-center px-8 py-3.5 md:py-4 rounded-full border-2 border-white/40 text-white text-base md:text-lg font-semibold transition-all duration-200 hover:bg-white hover:text-black hover:scale-[1.04]"
+              style={{ fontFamily: "'DM Sans', sans-serif" }}
+            >
+              Sign Up
+            </Link>
+            
+            <Link
+              to="/login"
+              className="inline-flex w-full sm:w-auto justify-center px-8 py-3.5 md:py-4 rounded-full border-2 border-white/40 text-white text-base md:text-lg font-semibold transition-all duration-200 hover:bg-white hover:text-black hover:scale-[1.04]"
+              style={{ fontFamily: "'DM Sans', sans-serif" }}
+            >
+              Log In
+            </Link>
+          </div>
         </motion.div>
       </div>
     </section>

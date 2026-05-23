@@ -14,8 +14,8 @@ async function seedSports() {
       active: true,
     },
     {
-      name: 'Cricket',
-      slug: 'cricket',
+      name: 'Box Cricket',
+      slug: 'box-cricket',
       hourlyPrice: 600,
       dayPrice: 600,
       oneMonthPrice: 3000,
@@ -68,17 +68,7 @@ async function seedSports() {
       twelveMonthPrice: 25000,
       active: true,
     },
-    {
-      name: 'Football',
-      slug: 'football',
-      hourlyPrice: 800,
-      dayPrice: 800,
-      oneMonthPrice: 3000,
-      threeMonthPrice: 8000,
-      sixMonthPrice: 15000,
-      twelveMonthPrice: 28000,
-      active: true,
-    },
+
     {
       name: 'All Services',
       slug: 'all-services',
@@ -100,8 +90,17 @@ async function seedSports() {
       await Sport.create(item);
       console.log(`✅ Seeded sport: ${item.name}`);
     } else {
-      console.log(`ℹ️ Sport already exists: ${item.name}`);
+      existing.name = item.name;
+      await existing.save();
+      console.log(`✅ Updated sport name to: ${item.name}`);
     }
+  }
+  
+  // Clean up any sports that are not in the seeder list
+  const activeSlugs = sportsData.map(s => s.slug);
+  const deleteResult = await Sport.deleteMany({ slug: { $nin: activeSlugs } });
+  if (deleteResult.deletedCount > 0) {
+    console.log(`🧹 Cleaned up ${deleteResult.deletedCount} retired sport(s) from database.`);
   }
   
   console.log('🌱 Sports seeding completed!');

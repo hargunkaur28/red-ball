@@ -28,36 +28,26 @@ export default function SportCard({ sport, linkPrefix = '/sports' }) {
     >
       <Link
         to={`${linkPrefix}/${sport.slug}`}
-        className="group block relative aspect-[4/5] sm:aspect-auto sm:h-96 rounded-2xl overflow-hidden bg-[#111515] border border-white/[0.06] cursor-pointer select-none"
+        className="group block relative aspect-[4/5] sm:aspect-auto sm:h-96 rounded-2xl overflow-hidden bg-cover bg-center bg-no-repeat cursor-pointer select-none"
         style={{
+          backgroundImage: `url(${thumbnail})`,
           boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
           transition: 'box-shadow 0.3s ease, border-color 0.3s ease',
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.boxShadow = `0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px ${accentColor}40`;
-          e.currentTarget.style.borderColor = `${accentColor}60`;
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.4)';
-          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
         }}
       >
-        {/* Background image */}
-        <img
-          src={thumbnail}
-          alt={sport.name}
-          loading="lazy"
-          onError={(e) => { e.currentTarget.style.display = 'none'; }}
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-        />
-
-        {/* Gradient overlay — stronger at bottom */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30 sm:from-black sm:via-black/50 sm:to-black/10" />
-
-        {/* Subtle color tint on hover */}
+        {/* Gradient Overlays */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-black/90 group-hover:to-black/80 transition-colors duration-500" />
         <div
-          className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-500"
-          style={{ background: `radial-gradient(ellipse at bottom, ${accentColor}, transparent 70%)` }}
+          className="absolute inset-0 opacity-0 group-hover:opacity-40 transition-opacity duration-500"
+          style={{
+            background: `linear-gradient(to top, ${accentColor} 0%, transparent 60%)`,
+          }}
         />
 
         {/* Top row: icon + price badge */}

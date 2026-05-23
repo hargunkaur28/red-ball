@@ -5,6 +5,7 @@ import { ChevronDown, ArrowRight, ScanLine, Dumbbell, Trophy, Feather, Target, L
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/axios';
 import useAuthStore from '../../store/authStore';
+import SportIllustration from '../sports/SportIllustrations';
 
 const cyclingWords = ['Passionately', 'Relentlessly', 'Confidently', 'Fearlessly', 'Proudly', 'Purposefully'];
 
@@ -12,6 +13,65 @@ const heroImages = [
   'https://images.unsplash.com/photo-1531415074968-036ba1b575da?q=80&w=1920&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=1920&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1624526267942-ab0ff8a3e972?q=80&w=1920&auto=format&fit=crop',
+];
+
+const landingItems = [
+  {
+    name: 'Order Food',
+    href: '/table-portal',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-9 h-9 text-[#F5A623]">
+        <path d="M3 17h18c0-4.97-4.03-9-9-9s-9 4.03-9 9z" fill="currentColor" fillOpacity="0.1" />
+        <path d="M12 8V5a1 1 0 0 1 1-1h1M3 17h18M5 20h14" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+    color: '#df1526',
+    tagline: 'Fresh & Hot',
+    fullWidth: true,
+    image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=800&auto=format&fit=crop',
+  },
+  {
+    name: 'Box Cricket',
+    href: '/sports/box-cricket',
+    icon: <SportIllustration slug="cricket" color="#C8102E" className="w-[80%] h-[80%] drop-shadow-md" />,
+    color: '#C8102E',
+    tagline: 'Play & Train',
+  },
+  {
+    name: 'Badminton',
+    href: '/sports/badminton',
+    icon: <SportIllustration slug="badminton" color="#E84393" className="w-[80%] h-[80%] drop-shadow-md" />,
+    color: '#E84393',
+    tagline: 'AC Courts',
+  },
+  {
+    name: 'Pickleball',
+    href: '/sports/pickleball',
+    icon: <SportIllustration slug="pickleball" color="#A855F7" className="w-[80%] h-[80%] drop-shadow-md" />,
+    color: '#A855F7',
+    tagline: 'Cushioned',
+  },
+  {
+    name: 'Swimming',
+    href: '/sports/swimming',
+    icon: <SportIllustration slug="swimming" color="#0EA5E9" className="w-[80%] h-[80%] drop-shadow-md" />,
+    color: '#0EA5E9',
+    tagline: 'Heated Pool',
+  },
+  {
+    name: 'All Services',
+    href: '/sports/all-services',
+    icon: <SportIllustration slug="all" color="#F5A623" className="w-[80%] h-[80%] drop-shadow-md" />,
+    color: '#F5A623',
+    tagline: 'VIP Access',
+  },
+  {
+    name: 'Gym & Fitness',
+    href: '/sports/gym',
+    icon: <SportIllustration slug="gym" color="#F5A623" className="w-[80%] h-[80%] drop-shadow-md" />,
+    color: '#F5A623',
+    tagline: 'AC Facility',
+  },
 ];
 
 export default function HeroSection() {
@@ -72,7 +132,7 @@ export default function HeroSection() {
         >
           <img
             src={img}
-            alt="Red Ball Cricket Academy"
+            alt="Red Ball Box Cricket Academy"
             className="w-full h-full object-cover"
             loading={i === 0 ? 'eager' : 'lazy'}
           />
@@ -88,9 +148,9 @@ export default function HeroSection() {
       />
 
       {/* Hero Content */}
-      <div className="relative z-20 flex-1 flex items-center pt-24 md:pt-0 pb-8 md:pb-0 w-full">
-        <div className="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 w-full flex flex-col md:flex-row items-center justify-between gap-8 md:gap-12 w-full pt-4 md:pt-0">
-          <div className="max-w-[700px] flex-shrink-0 mt-4 md:mt-0">
+      <div className="relative z-20 flex-1 flex items-center pt-16 sm:pt-20 md:pt-24 lg:pt-28 pb-6 md:pb-12 w-full">
+        <div className="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 w-full flex flex-col md:flex-row items-center justify-between gap-6 sm:gap-8 md:gap-12 w-full pt-0">
+          <div className="max-w-[700px] flex-shrink-0 mt-0">
 
             {/* Eyebrow */}
             <motion.p
@@ -100,7 +160,7 @@ export default function HeroSection() {
               className="uppercase tracking-[6px] text-[13px] text-[#F5A623] mb-6"
               style={{ fontFamily: "'DM Sans', sans-serif" }}
             >
-              Welcome to Red Ball Cricket Academy
+              Welcome to Red Ball Box Cricket Academy
             </motion.p>
 
             {/* Main Headline — Line 1 */}
@@ -164,7 +224,7 @@ export default function HeroSection() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.5 }}
-              className="flex flex-col items-start gap-5"
+              className="flex flex-col items-start gap-3 sm:gap-4"
             >
               <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 w-full pr-4 sm:pr-0">
                 <Link
@@ -172,7 +232,7 @@ export default function HeroSection() {
                   className="w-full sm:w-auto px-6 py-3.5 sm:px-8 rounded-full bg-[#C8102E] text-white text-sm sm:text-base font-semibold transition-all duration-200 hover:bg-[#8B0B1E] hover:scale-[1.04] hover:shadow-[0_0_20px_rgba(200,16,46,0.45)] flex items-center justify-center gap-2"
                   style={{ fontFamily: "'DM Sans', sans-serif" }}
                 >
-                  🏏 Book a Ground
+                  🏏 Book a Sport
                 </Link>
                 
                 <div className="flex gap-3 w-full sm:w-auto">
@@ -208,7 +268,7 @@ export default function HeroSection() {
               {/* Desktop-only simple link */}
               <Link
                 to={isAuthenticated ? "/user/scan" : "/login?redirectTo=/user/scan"}
-                className="hidden sm:flex text-sm font-bold text-[#F5A623] hover:text-white items-center gap-2 transition-colors ml-2 mt-1"
+                className="hidden sm:flex text-sm font-bold text-[#F5A623] bg-black/40 backdrop-blur-md hover:text-black hover:bg-[#F5A623] items-center gap-2 transition-all ml-0 px-5 py-2.5 rounded-full border border-[#F5A623]/50 hover:border-[#F5A623] shadow-[0_0_15px_rgba(245,166,35,0.15)] hover:shadow-[0_0_20px_rgba(245,166,35,0.4)]"
                 style={{ fontFamily: "'DM Sans', sans-serif" }}
               >
                 <ScanLine size={18} /> Check-In via QR Code
@@ -221,64 +281,59 @@ export default function HeroSection() {
             initial={{ opacity: 0, x: 32 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.6 }}
-            className="w-full md:max-w-[400px] mt-8 md:mt-0 max-h-[50vh] md:max-h-[65vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent"
+            className="w-full md:max-w-[450px] mt-4 md:mt-0 md:max-h-none md:overflow-visible overflow-y-auto max-h-[65vh] pr-2 scrollbar-none"
           >
-            {sports.length > 0 ? (
-              <>
-                {/* Mobile View: 3x3 Grid */}
-                <div className="grid grid-cols-3 gap-2 md:hidden">
-                  {sports.filter(s => s.slug !== 'coaching' && s.name.toLowerCase() !== 'coaching').slice(0, 9).map((sport, idx) => (
-                    <Link 
-                      to={`/sports/${sport.slug}`}
-                      key={`mob-${sport._id}`} 
-                    >
-                      <motion.div 
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.4, delay: 0.7 + idx * 0.1 }}
-                        className="bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl p-2 sm:p-4 flex flex-col items-center justify-center text-center hover:bg-black/60 hover:border-[#C8102E] hover:shadow-[0_0_20px_rgba(200,16,46,0.2)] transition-all duration-300 group aspect-square"
-                      >
-                        <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-1.5 sm:mb-3 group-hover:scale-110 group-hover:bg-[#C8102E]/20 group-hover:text-[#C8102E] group-hover:border-[#C8102E]/50 transition-all duration-300 [&>svg]:w-4 [&>svg]:h-4 sm:[&>svg]:w-6 sm:[&>svg]:h-6">
-                          {getSportIcon(sport.name)}
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full">
+              {landingItems.map((item, idx) => (
+                <motion.div
+                  key={item.name}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.7 + idx * 0.08 }}
+                  className={item.fullWidth ? 'col-span-2' : ''}
+                >
+                  <Link
+                    to={item.href}
+                    className={`relative overflow-hidden p-3 sm:p-4 flex items-center hover:scale-[1.04] transition-all duration-300 shadow-2xl group cursor-pointer ${
+                      item.fullWidth
+                        ? 'rounded-[20px] flex-row justify-between h-[76px] sm:h-[95px] bg-cover bg-center bg-no-repeat'
+                        : 'rounded-2xl flex-row gap-2.5 sm:gap-3.5 h-[68px] sm:h-[84px] bg-black/30 backdrop-blur-md hover:bg-black/50 border border-white/10 hover:border-white/20 hover:shadow-[0_10px_25px_rgba(200,16,46,0.25)]'
+                    }`}
+                    style={item.image ? { backgroundImage: `url(${item.image})` } : {}}
+                  >
+                    {item.fullWidth ? (
+                      <>
+                        <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/80 to-transparent z-0" />
+                        <div className="relative z-10 flex items-center justify-between w-full">
+                          <div className="flex items-center gap-3 sm:gap-4">
+                            <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center bg-black/30 shrink-0">
+                              {item.icon}
+                            </div>
+                            <div>
+                              <h3 className="text-white font-extrabold text-[15px] sm:text-base leading-tight group-hover:text-[#F5A623] transition-colors">{item.name}</h3>
+                              <p className="text-[#F5A623] text-[10px] sm:text-[11px] uppercase tracking-widest font-extrabold mt-0.5">{item.tagline}</p>
+                            </div>
+                          </div>
+                          <span className="px-3 py-1.5 sm:px-4 sm:py-2 bg-[#df1526] hover:bg-[#8B0B1E] text-white text-[10px] sm:text-xs font-black uppercase tracking-wider rounded-full transition-colors flex items-center gap-1 shrink-0 shadow-lg">
+                            Order Now
+                          </span>
                         </div>
-                        <h3 className="text-white font-bold text-[10px] sm:text-[13px] leading-tight group-hover:text-[#F5A623] transition-colors line-clamp-1">{sport.name}</h3>
-                        <p className="text-white/40 text-[7px] sm:text-[9px] uppercase tracking-widest font-bold mt-1 group-hover:text-white/70">Play</p>
-                      </motion.div>
-                    </Link>
-                  ))}
-                </div>
-
-                {/* Desktop View: Vertical List */}
-                <div className="hidden md:flex flex-col gap-3">
-                  {sports.filter(s => s.slug !== 'coaching' && s.name.toLowerCase() !== 'coaching').map((sport, idx) => (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 16 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.4, delay: 0.7 + idx * 0.1 }}
-                      key={`desk-${sport._id}`} 
-                      className="bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex items-center justify-between hover:bg-black/50 hover:border-white/20 transition-all group"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl shadow-inner shadow-white/5">
-                          {getSportIcon(sport.name)}
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-[14px] sm:rounded-2xl border border-white/10 bg-black/40 flex items-center justify-center shrink-0">
+                          {item.icon}
                         </div>
-                        <div>
-                          <h3 className="text-white font-bold text-lg leading-tight group-hover:text-[#F5A623] transition-colors">{sport.name}</h3>
-                          <p className="text-white/50 text-[10px] uppercase tracking-wider font-bold">Play & Train</p>
+                        <div className="text-left">
+                          <h3 className="text-white font-extrabold text-[13px] sm:text-[15px] leading-tight group-hover:text-[#F5A623] transition-colors">{item.name}</h3>
+                          <p className="text-white/45 text-[8.5px] sm:text-[9px] uppercase tracking-wider font-semibold mt-0.5">{item.tagline}</p>
                         </div>
-                      </div>
-                      <Link to={`/sports/${sport.slug}`} className="px-4 py-2 bg-white/10 hover:bg-[#C8102E] text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors border border-white/10 hover:border-[#C8102E] flex items-center gap-1 shrink-0">
-                        Book <ArrowRight size={14} />
-                      </Link>
-                    </motion.div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl p-6 text-center w-full">
-                <p className="text-white/60 text-sm font-bold uppercase tracking-widest">Loading Sports...</p>
-              </div>
-            )}
+                      </>
+                    )}
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
           </motion.div>
         </div>
       </div>

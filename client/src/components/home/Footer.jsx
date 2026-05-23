@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 const programs = [
-  { label: 'Cricket', href: '#sports' },
-  { label: 'Swimming', href: '#sports' },
-  { label: 'Badminton', href: '#sports' },
-  { label: 'Football', href: '#sports' },
-  { label: 'Gym & Fitness', href: '#sports' },
+  { label: 'Box Cricket', to: '/sports/box-cricket' },
+  { label: 'Swimming', to: '/sports/swimming' },
+  { label: 'Badminton', to: '/sports/badminton' },
+  { label: 'Pickleball', to: '/sports/pickleball' },
+  { label: 'Gym & Fitness', to: '/sports/gym' },
   { label: 'Facility Rentals', href: '#sports' },
 ];
 
@@ -64,7 +64,7 @@ export default function Footer() {
   };
 
   return (
-    <footer className="bg-[#0D0D0D]">
+    <footer className="bg-[#F9F6F1]" data-theme="light">
 
       {/* Footer Columns */}
       <div className="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 py-12 md:py-16">
@@ -80,24 +80,24 @@ export default function Footer() {
                   <path d="M8 6c2 3 2 9 0 12M16 6c-2 3-2 9 0 12" stroke="#FFF" strokeWidth="1.2" fill="none"/>
                 </svg>
               </div>
-              <span className="text-white text-lg" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>
+              <span className="text-[#0D0D0D] text-lg" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>
                 Red Ball
               </span>
             </div>
-            <p className="text-[#9CA3AF] text-sm italic mb-5" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+            <p className="text-[#0D0D0D]/60 text-sm italic mb-5" style={{ fontFamily: "'DM Sans', sans-serif" }}>
               "Where Every Delivery Counts."
             </p>
             <div className="flex items-center gap-3">
               <a href="https://instagram.com" target="_blank" rel="noopener noreferrer"
-                 className="social-icon text-[#9CA3AF] hover:text-[#C8102E] hover:scale-[1.2] transition-all duration-200">
+                 className="social-icon text-[#0D0D0D]/50 hover:text-[#C8102E] hover:scale-[1.2] transition-all duration-200">
                 <InstagramIcon />
               </a>
               <a href="https://facebook.com" target="_blank" rel="noopener noreferrer"
-                 className="social-icon text-[#9CA3AF] hover:text-[#C8102E] hover:scale-[1.2] transition-all duration-200">
+                 className="social-icon text-[#0D0D0D]/50 hover:text-[#C8102E] hover:scale-[1.2] transition-all duration-200">
                 <FacebookIcon />
               </a>
               <a href="https://wa.me/919350076653" target="_blank" rel="noopener noreferrer"
-                 className="social-icon text-[#9CA3AF] hover:text-[#C8102E] hover:scale-[1.2] transition-all duration-200">
+                 className="social-icon text-[#0D0D0D]/50 hover:text-[#C8102E] hover:scale-[1.2] transition-all duration-200">
                 <WhatsAppIcon />
               </a>
             </div>
@@ -105,15 +105,21 @@ export default function Footer() {
 
           {/* Col 2 — Programs */}
           <div>
-            <h4 className="text-white font-bold text-sm uppercase tracking-[2px] mb-5" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+            <h4 className="text-[#0D0D0D] font-bold text-sm uppercase tracking-[2px] mb-5" style={{ fontFamily: "'DM Sans', sans-serif" }}>
               Programs
             </h4>
             <ul className="space-y-2.5">
               {programs.map((item) => (
                 <li key={item.label}>
-                  <a href={item.href} className="text-[#9CA3AF] text-sm hover:text-white transition-colors" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                    {item.label}
-                  </a>
+                  {item.to ? (
+                    <Link to={item.to} className="text-[#0D0D0D]/70 text-sm hover:text-[#C8102E] transition-colors" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                      {item.label}
+                    </Link>
+                  ) : (
+                    <a href={item.href} className="text-[#0D0D0D]/70 text-sm hover:text-[#C8102E] transition-colors" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                      {item.label}
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>
@@ -121,18 +127,18 @@ export default function Footer() {
 
           {/* Col 3 — Quick Links */}
           <div>
-            <h4 className="text-white font-bold text-sm uppercase tracking-[2px] mb-5" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+            <h4 className="text-[#0D0D0D] font-bold text-sm uppercase tracking-[2px] mb-5" style={{ fontFamily: "'DM Sans', sans-serif" }}>
               Quick Links
             </h4>
             <ul className="space-y-2.5">
               {quickLinks.map((item) => (
                 <li key={item.label}>
                   {item.to ? (
-                    <Link to={item.to} className="text-[#9CA3AF] text-sm hover:text-white transition-colors" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                    <Link to={item.to} className="text-[#0D0D0D]/70 text-sm hover:text-[#C8102E] transition-colors" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                       {item.label}
                     </Link>
                   ) : (
-                    <a href={item.href} className="text-[#9CA3AF] text-sm hover:text-white transition-colors" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                    <a href={item.href} className="text-[#0D0D0D]/70 text-sm hover:text-[#C8102E] transition-colors" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                       {item.label}
                     </a>
                   )}
@@ -143,15 +149,15 @@ export default function Footer() {
 
           {/* Col 4 — Contact */}
           <div>
-            <h4 className="text-white font-bold text-sm uppercase tracking-[2px] mb-5" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+            <h4 className="text-[#0D0D0D] font-bold text-sm uppercase tracking-[2px] mb-5" style={{ fontFamily: "'DM Sans', sans-serif" }}>
               Contact
             </h4>
-            <ul className="space-y-2.5 text-sm text-[#9CA3AF]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+            <ul className="space-y-2.5 text-sm text-[#0D0D0D]/70" style={{ fontFamily: "'DM Sans', sans-serif" }}>
               <li>
-                <a href="tel:+919350076653" className="hover:text-white transition-colors">+91 93500 76653</a>
+                <a href="tel:+919350076653" className="hover:text-[#C8102E] transition-colors">+91 93500 76653</a>
               </li>
               <li>
-                <a href="mailto:redballcricketground@gmail.com" className="hover:text-white transition-colors">redballcricketground@gmail.com</a>
+                <a href="mailto:redballcricketground@gmail.com" className="hover:text-[#C8102E] transition-colors">redballcricketground@gmail.com</a>
               </li>
               <li className="pt-1 leading-relaxed">
                 Sector 22-D, Jhajjar Road, near Village-Maina Rohtak, Haryana 124001
@@ -164,15 +170,15 @@ export default function Footer() {
       </div>
 
       {/* Footer Bottom Bar */}
-      <div className="border-t border-white/[0.08]">
+      <div className="border-t border-black/5">
         <div className="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 py-5 flex flex-col md:flex-row items-center justify-between gap-3">
-          <p className="text-[#9CA3AF] text-xs text-center" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-            © 2025 Red Ball Cricket Academy. All Rights Reserved.
+          <p className="text-[#0D0D0D]/50 text-xs text-center" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+            © 2025 Red Ball Box Cricket Academy. All Rights Reserved.
           </p>
-          <div className="flex items-center gap-4 text-xs text-[#9CA3AF]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-            <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
+          <div className="flex items-center gap-4 text-xs text-[#0D0D0D]/50" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+            <a href="#" className="hover:text-[#C8102E] transition-colors">Privacy Policy</a>
             <span>·</span>
-            <a href="#" className="hover:text-white transition-colors">Terms & Conditions</a>
+            <a href="#" className="hover:text-[#C8102E] transition-colors">Terms & Conditions</a>
           </div>
         </div>
       </div>

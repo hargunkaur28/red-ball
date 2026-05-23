@@ -12,12 +12,12 @@ const navLinks = [
 ];
 
 const dropdownSports = [
-  { label: 'Cricket', href: '/sports/cricket', color: '#C8102E' },
+  { label: 'Box Cricket', href: '/sports/box-cricket', color: '#C8102E' },
   { label: 'Swimming', href: '/sports/swimming', color: '#0EA5E9' },
   { label: 'Badminton', href: '/sports/badminton', color: '#8B5CF6' },
   { label: 'Gym', href: '/sports/gym', color: '#F59E0B' },
-  { label: 'Table Tennis', href: '/sports/table-tennis', color: '#F97316' },
   { label: 'Pickleball', href: '/sports/pickleball', color: '#A855F7' },
+  { label: 'All Services', href: '/sports/all-services', color: '#F5A623' },
 ];
 
 export default function Navbar() {
@@ -28,27 +28,38 @@ export default function Navbar() {
   const { isAuthenticated, user, logout } = useAuthStore();
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 80);
-
-    // Intersection Observer to detect light sections
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const intersectingLight = entries.some(entry => entry.isIntersecting);
-        setIsLightSection(intersectingLight);
-      },
-      {
-        rootMargin: '-80px 0px -90% 0px', // Check top 80px (navbar height)
-        threshold: 0
+    const onScroll = () => {
+      setScrolled(window.scrollY > 80);
+      
+      const sections = document.querySelectorAll('section, [data-theme]');
+      let activeTheme = null;
+      
+      // Check which section is currently under the navbar (around y=60)
+      for (const section of sections) {
+        const rect = section.getBoundingClientRect();
+        if (rect.top <= 60 && rect.bottom >= 60) {
+          const theme = section.getAttribute('data-theme');
+          if (theme) {
+            activeTheme = theme;
+          } else if (section.tagName.toLowerCase() === 'section') {
+            if (!activeTheme) {
+              activeTheme = 'dark';
+            }
+          }
+        }
       }
-    );
+      
+      // The hero section at the very top might not trigger the above if we're at scrollY=0
+      // Default to dark (since hero is dark) if nothing matches
+      setIsLightSection(activeTheme === 'light');
+    };
 
-    const lightSections = document.querySelectorAll('[data-theme="light"]');
-    lightSections.forEach(section => observer.observe(section));
-
-    window.addEventListener('scroll', onScroll);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    // Run once on mount
+    onScroll();
+    
     return () => {
       window.removeEventListener('scroll', onScroll);
-      observer.disconnect();
     };
   }, []);
 
@@ -84,7 +95,7 @@ export default function Navbar() {
               className={`${logoColor} text-lg tracking-[2px] uppercase hidden sm:block transition-colors duration-300`}
               style={{ fontFamily: "'Bebas Neue', sans-serif" }}
             >
-              Red Ball Cricket Academy
+              Red Ball Box Cricket Academy
             </span>
           </Link>
 

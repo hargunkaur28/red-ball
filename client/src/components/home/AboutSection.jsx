@@ -68,14 +68,14 @@ export default function AboutSection() {
               <h2
                 className="section-heading text-[#0D0D0D]"
               >
-                About Red Ball Cricket Academy
+                About Red Ball Box Cricket Academy
               </h2>
 
               <p
                 className="text-lg text-[#6B7280] leading-relaxed"
                 style={{ fontFamily: "'DM Sans', sans-serif" }}
               >
-                At Red Ball Cricket Academy, we believe sport has the power to transform
+                At Red Ball Box Cricket Academy, we believe sport has the power to transform
                 lives. Whether you're a weekend player, a competitive athlete, or a family
                 looking for a great outing — our expert coaches, premium grounds, and
                 world-class facilities are here for you.

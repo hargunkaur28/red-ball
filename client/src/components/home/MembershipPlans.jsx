@@ -52,7 +52,7 @@ const plans = [
 ];
 
 const features = [
-  'Choose your sports (Cricket · Swimming · Gym · Badminton · Football)',
+  'Choose your sports (Box Cricket · Swimming · Gym · Badminton · Football)',
   'Priority ground booking',
   'GST receipt emailed (Brevo)',
   'Restaurant member discount',
@@ -80,7 +80,7 @@ export default function MembershipPlans() {
   const [activePlan, setActivePlan] = useState('18,000');
 
   return (
-    <section id="membership" className="bg-[#F9F6F1] py-20 md:py-28">
+    <section id="membership" className="bg-[#0D0D0D] py-20 md:py-28">
       <div className="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12">
         {/* Header */}
         <motion.div
@@ -93,10 +93,10 @@ export default function MembershipPlans() {
           <p className="uppercase tracking-[5px] text-[13px] text-[#C8102E] mb-4" style={{ fontFamily: "'DM Sans', sans-serif" }}>
             MEMBERSHIP
           </p>
-          <h2 className="section-heading text-[#0D0D0D] mb-4">
+          <h2 className="section-heading text-white mb-4">
             Choose Your Plan
           </h2>
-          <p className="text-lg text-[#9CA3AF] max-w-[600px] mx-auto" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+          <p className="text-lg text-white/45 max-w-[600px] mx-auto" style={{ fontFamily: "'DM Sans', sans-serif" }}>
             Subscribe and choose which sports to include. Flexible billing, GST receipts, and exclusive member perks.
           </p>
         </motion.div>
@@ -120,8 +120,8 @@ export default function MembershipPlans() {
                 onMouseLeave={() => setActivePlan('18,000')}
                 className={`rounded-2xl p-6 sm:p-8 relative transition-all duration-300 cursor-default ${
                   isActive
-                    ? 'bg-[#C8102E] text-white md:scale-[1.05] shadow-2xl z-10'
-                    : 'bg-white text-[#0D0D0D] border border-gray-200'
+                    ? 'bg-[#C8102E] text-white md:scale-[1.05] shadow-[0_15px_40px_rgba(200,16,46,0.3)] z-10'
+                    : 'bg-[#151515] text-white border border-white/5'
                 }`}
               >
                 {/* Badge */}
@@ -133,7 +133,7 @@ export default function MembershipPlans() {
                 )}
  
                 {/* Plan name */}
-                <h3 className="text-2xl sm:text-3xl font-heading mb-2">
+                <h3 className="text-2xl sm:text-3xl font-heading mb-2 text-white">
                   {plan.name}
                 </h3>
  
@@ -142,23 +142,23 @@ export default function MembershipPlans() {
                   <span className={`text-4xl sm:text-5xl md:text-6xl font-heading font-extrabold tracking-tight ${isActive ? 'text-white' : 'text-[#C8102E]'}`}>
                     ₹{plan.price}
                   </span>
-                  <span className={`text-sm sm:text-base font-medium ${isActive ? 'text-white/70' : 'text-[#9CA3AF]'}`} style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                  <span className={`text-sm sm:text-base font-medium ${isActive ? 'text-white/70' : 'text-white/45'}`} style={{ fontFamily: "'DM Sans', sans-serif" }}>
                     {plan.duration}
                   </span>
                 </div>
-                <p className={`text-xs sm:text-sm mb-6 ${isActive ? 'text-white/60' : 'text-[#9CA3AF]'}`} style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                <p className={`text-xs sm:text-sm mb-6 ${isActive ? 'text-white/60' : 'text-white/45'}`} style={{ fontFamily: "'DM Sans', sans-serif" }}>
                   {plan.billing}
                 </p>
  
                 {/* Divider */}
-                <div className={`h-px mb-6 ${isActive ? 'bg-white/20' : 'bg-gray-200'}`} />
+                <div className={`h-px mb-6 ${isActive ? 'bg-white/20' : 'bg-white/10'}`} />
  
                 {/* Features */}
                 <div className="space-y-3 mb-8">
                   {features.map((feat, i) => (
                     <div key={i} className="flex items-start gap-3">
                       <Check size={18} className={`shrink-0 mt-0.5 ${isActive ? 'text-[#F5A623]' : 'text-green-500'}`} />
-                      <span className={`text-[15px] ${isActive ? 'text-white/80' : 'text-[#4B5563]'}`} style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                      <span className={`text-[15px] ${isActive ? 'text-white/80' : 'text-white/70'}`} style={{ fontFamily: "'DM Sans', sans-serif" }}>
                         {feat}
                       </span>
                     </div>
@@ -191,12 +191,12 @@ export default function MembershipPlans() {
           className="grid grid-cols-4 gap-2 md:gap-6"
         >
           {perks.map((perk) => (
-            <div key={perk.title} className="text-center p-2.5 sm:p-4 md:p-6 rounded-xl bg-white border border-gray-100 shadow-sm flex flex-col items-center justify-start min-w-0">
+            <div key={perk.title} className="text-center p-2.5 sm:p-4 md:p-6 rounded-xl bg-[#151515] border border-white/5 shadow-[0_15px_40px_rgba(0,0,0,0.5)] flex flex-col items-center justify-start min-w-0">
               <div className="text-[#C8102E] mb-1 md:mb-3 flex justify-center scale-90 sm:scale-100 shrink-0">{perk.icon}</div>
-              <h4 className="font-bold text-[#0D0D0D] text-[10px] sm:text-xs md:text-sm mb-1 line-clamp-2 md:line-clamp-1 leading-tight w-full" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+              <h4 className="font-bold text-white text-[10px] sm:text-xs md:text-sm mb-1 line-clamp-2 md:line-clamp-1 leading-tight w-full" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                 {perk.title}
               </h4>
-              <p className="text-[9px] sm:text-xs text-[#9CA3AF] line-clamp-3 leading-tight w-full" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+              <p className="text-[9px] sm:text-xs text-white/45 line-clamp-3 leading-tight w-full" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                 {perk.desc}
               </p>
             </div>

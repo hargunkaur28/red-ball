@@ -18,15 +18,15 @@ const FALLBACKS = {
   },
   cricket: {
     icon: '🏏',
-    tagline: 'Where Champions Are Made.',
+    tagline: 'Where Box Cricket Champions Are Made.',
     description:
-      'Full-size cricket ground with turf pitches, practice nets, and coaching zones. Red Ball is Chandigarh\'s premier cricket training destination — from grassroots development to professional-level drills.',
-    features: ['Turf Pitches', 'Practice Nets', 'Coaching', 'Fielding Zones', 'Floodlights', 'Box Cricket'],
-    chips: ['Outdoor Ground', 'Floodlit'],
-    thumbnail: 'https://images.unsplash.com/photo-1531415074968-036ba1b575da?q=80&w=600&auto=format&fit=crop',
-    heroImage: 'https://images.unsplash.com/photo-1531415074968-036ba1b575da?q=80&w=1400&auto=format&fit=crop',
+      'Premium box cricket arenas with artificial turf, nets, high floodlights, and coaching zones. Red Ball is Rohtak\'s premier box cricket training and recreational play destination.',
+    features: ['Turf Pitch', 'Practice Nets', 'Coaching', 'Floodlights', 'Box Cricket Cage'],
+    chips: ['Box Cricket Arena', 'Floodlit'],
+    thumbnail: 'https://images.unsplash.com/photo-1607734834519-d8576ae60ea6?q=80&w=600&auto=format&fit=crop',
+    heroImage: 'https://images.unsplash.com/photo-1607734834519-d8576ae60ea6?q=80&w=1400&auto=format&fit=crop',
     images: [
-      'https://images.unsplash.com/photo-1531415074968-036ba1b575da?q=80&w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1607734834519-d8576ae60ea6?q=80&w=800&auto=format&fit=crop',
       'https://images.unsplash.com/photo-1540747913346-19212a4b423a?q=80&w=800&auto=format&fit=crop',
     ],
     color: '#C8102E',
@@ -61,21 +61,6 @@ const FALLBACKS = {
     ],
     color: '#F5A623',
   },
-  football: {
-    icon: '⚽',
-    tagline: 'Play Beautiful. Play Here.',
-    description:
-      'Astroturf and natural grass football pitches for 5-a-side, 7-a-side, and full 11-a-side matches. Ideal for casual games, corporate events, and structured training sessions.',
-    features: ['Astroturf Pitch', 'Natural Grass', '5-a-side Setup', 'Changing Rooms', 'Floodlights', 'Goal Posts'],
-    chips: ['Outdoor', 'Floodlit', '5-a-side Available'],
-    thumbnail: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=600&auto=format&fit=crop',
-    heroImage: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=1400&auto=format&fit=crop',
-    images: [
-      'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=800&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=800&auto=format&fit=crop',
-    ],
-    color: '#22C55E',
-  },
   pickleball: {
     icon: '🎾',
     tagline: 'The Fastest Growing Sport.',
@@ -90,19 +75,19 @@ const FALLBACKS = {
     ],
     color: '#A855F7',
   },
-  'table-tennis': {
-    icon: '🏓',
-    tagline: 'Speed Meets Precision.',
+  'all-services': {
+    icon: '👑',
+    tagline: 'The Ultimate Access Pass.',
     description:
-      'Professional table tennis tables in a dedicated, air-conditioned hall. Whether you are perfecting your serve or playing a friendly match, our TT zone offers the ideal environment for every level.',
-    features: ['Professional Tables', 'AC Hall', 'Paddles & Balls', 'Coaching Available', 'Tournament Tables', 'Beginner Friendly'],
-    chips: ['Indoor', 'AC Hall', 'Equipment Provided'],
-    thumbnail: 'https://images.unsplash.com/photo-1611251126112-45f7ce43b12e?q=80&w=600&auto=format&fit=crop',
-    heroImage: 'https://images.unsplash.com/photo-1611251126112-45f7ce43b12e?q=80&w=1400&auto=format&fit=crop',
+      'Gain VIP entry to all sports facilities at Red Ball Academy. Unlimited bookings for Box Cricket, Badminton, Pickleball, Swimming Pool, and Gym. Your absolute all-access pass to fitness and premium sports.',
+    features: ['Access All Sports', 'VIP Priority Booking', 'Custom Performance Logs', 'Personalized Support', 'Unlock All Events'],
+    chips: ['All Access', 'VIP Perks', 'Best Value'],
+    thumbnail: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?q=80&w=600&auto=format&fit=crop',
+    heroImage: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?q=80&w=1400&auto=format&fit=crop',
     images: [
-      'https://images.unsplash.com/photo-1611251126112-45f7ce43b12e?q=80&w=800&auto=format&fit=crop',
+      'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?q=80&w=800&auto=format&fit=crop',
     ],
-    color: '#F97316',
+    color: '#F5A623',
   },
 };
 

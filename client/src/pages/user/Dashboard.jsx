@@ -195,7 +195,7 @@ export default function UserDashboard() {
             <p className="text-sm text-white/50 mt-1">
               {activeSession
                 ? `You're checked in for ${activeSession.sport || 'this sport'}. Scan the same sport QR when you leave to check out.`
-                : 'Scan the QR code at any sport court (Cricket, Badminton, Pickleball, Gym) for instant entry validation and automated check-in.'}
+                : 'Scan the QR code at any sport court (Box Cricket, Badminton, Pickleball, Gym) for instant entry validation and automated check-in.'}
             </p>
           </div>
         </div>

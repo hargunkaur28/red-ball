@@ -7,10 +7,10 @@ import FacilityRentals from '../components/home/FacilityRentals';
 
 import AboutSection from '../components/home/AboutSection';
 import ValuesMarquee from '../components/home/ValuesMarquee';
+import FeaturedMenu from '../components/home/FeaturedMenu';
 import RestaurantTeaser from '../components/home/RestaurantTeaser';
 import MembershipPlans from '../components/home/MembershipPlans';
 import Testimonials from '../components/home/Testimonials';
-import PortalCTA from '../components/home/PortalCTA';
 import MotivationalBanner from '../components/home/MotivationalBanner';
 import ContactSection from '../components/home/ContactSection';
 import Footer from '../components/home/Footer';
@@ -64,37 +64,27 @@ export default function Home() {
           <FacilityRentals />
         </FlowSection>
 
+        <FlowSection id="section-featured-menu" theme="light">
+          <FeaturedMenu />
+        </FlowSection>
+        <FlowSection id="section-restaurant" theme="dark">
+          <RestaurantTeaser />
+        </FlowSection>
+
         <div id="section-about" data-theme="light">
           <AboutSection />
         </div>
         <ValuesMarquee />
-        <FlowSection id="section-restaurant">
-          <RestaurantTeaser />
-        </FlowSection>
-        <FlowSection id="section-membership" theme="light">
+        <FlowSection id="section-membership" theme="dark">
           <MembershipPlans />
         </FlowSection>
         <Testimonials />
-        <div id="section-portal" data-theme="light">
-          <PortalCTA />
-        </div>
         <MotivationalBanner />
         <ContactSection />
         <Footer />
         <ScrollToTop />
         <WhatsAppFloat />
 
-        {/* Floating manual trigger to let users/reviewers replay the cinematic landing animation on-demand */}
-        <div className="fixed bottom-6 left-6 z-50">
-          <button
-            onClick={replayLandingAnimation}
-            className="flex items-center gap-2 px-4 py-3 rounded-full bg-black/80 hover:bg-[#C8102E] backdrop-blur-md text-white border border-white/10 shadow-2xl transition-all duration-300 hover:scale-105 group cursor-pointer font-body text-xs font-bold uppercase tracking-wider"
-            title="Replay Cinematic Landing Animation"
-          >
-            <span className="text-base">🎬</span>
-            <span className="hidden sm:inline">Replay Intro</span>
-          </button>
-        </div>
       </motion.div>
     </div>
   );
