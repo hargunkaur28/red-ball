@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronDown, ArrowRight, ScanLine, Dumbbell, Trophy, Feather, Target, Layers, Camera, LogIn, X } from 'lucide-react';
@@ -360,6 +361,7 @@ export default function HeroSection() {
 
     {/* Hidden camera input — triggers native camera on mobile */}
     <input
+      id="hero-camera-input"
       ref={cameraInputRef}
       type="file"
       accept="image/*"
@@ -368,20 +370,21 @@ export default function HeroSection() {
       onChange={() => setShowCheckInMenu(false)}
     />
 
-    {/* Check-In options popup — rendered outside <section> to avoid transform clipping */}
-    {showCheckInMenu && (
+    {/* Portal renders popup into document.body — bypasses any CSS filter/transform containing blocks */}
+    {showCheckInMenu && createPortal(
       <>
-        <div className="fixed inset-0 z-60 bg-black/40 backdrop-blur-sm" onClick={() => setShowCheckInMenu(false)} />
-        <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-61 bg-[#111] border border-white/10 rounded-2xl p-4 shadow-2xl w-67.5">
+        <div className="fixed inset-0 z-9998 bg-black/40 backdrop-blur-sm" onClick={() => setShowCheckInMenu(false)} />
+        <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-9999 bg-[#111] border border-white/10 rounded-2xl p-4 shadow-2xl" style={{ width: 270 }}>
           <div className="flex items-center justify-between mb-3">
             <p className="text-white text-sm font-bold">How do you want to check in?</p>
             <button onClick={() => setShowCheckInMenu(false)} className="text-white/40 hover:text-white transition-colors">
               <X size={16} />
             </button>
           </div>
-          <button
-            onClick={() => { cameraInputRef.current?.click(); setShowCheckInMenu(false); }}
-            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/8 transition-all text-left mb-2 border border-white/5 hover:border-white/15"
+          <label
+            htmlFor="hero-camera-input"
+            onClick={() => setShowCheckInMenu(false)}
+            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/8 transition-all cursor-pointer mb-2 border border-white/5 hover:border-white/15"
           >
             <div className="w-9 h-9 rounded-xl bg-[#0EA5E9]/15 flex items-center justify-center shrink-0">
               <Camera size={18} className="text-[#0EA5E9]" />
@@ -390,7 +393,7 @@ export default function HeroSection() {
               <p className="text-white text-sm font-semibold leading-tight">Open Camera</p>
               <p className="text-white/40 text-xs mt-0.5">Scan the QR code at the gate</p>
             </div>
-          </button>
+          </label>
           <Link
             to="/login"
             onClick={() => setShowCheckInMenu(false)}
@@ -405,7 +408,8 @@ export default function HeroSection() {
             </div>
           </Link>
         </div>
-      </>
+      </>,
+      document.body
     )}
     </>
   );
