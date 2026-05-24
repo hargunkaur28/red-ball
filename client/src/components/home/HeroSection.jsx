@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronDown, ArrowRight, ScanLine, Dumbbell, Trophy, Feather, Target, Layers, Camera, LogIn, X } from 'lucide-react';
@@ -79,6 +79,7 @@ export default function HeroSection() {
   const { isAuthenticated, user } = useAuthStore();
 
   const [showCheckInMenu, setShowCheckInMenu] = useState(false);
+  const cameraInputRef = useRef(null);
 
   const handleCheckIn = () => {
     if (isAuthenticated) {
@@ -133,6 +134,7 @@ export default function HeroSection() {
   const line2Words = useMemo(() => 'Play. Train. Dominate.'.split(' '), []);
 
   return (
+    <>
     <section id="hero" className="relative w-full min-h-[100dvh] md:h-screen overflow-hidden flex flex-col">
       {/* Background Images with fade */}
       {heroImages.map((img, i) => (
@@ -285,45 +287,6 @@ export default function HeroSection() {
                 <ScanLine size={18} /> Check-In via QR Code
               </button>
 
-              {/* Check-In options popup for non-logged-in users */}
-              {showCheckInMenu && (
-                <>
-                  <div className="fixed inset-0 z-60 bg-black/40 backdrop-blur-sm" onClick={() => setShowCheckInMenu(false)} />
-                  <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-61 bg-[#111] border border-white/10 rounded-2xl p-4 shadow-2xl w-67.5">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-white text-sm font-bold">How do you want to check in?</p>
-                      <button onClick={() => setShowCheckInMenu(false)} className="text-white/40 hover:text-white transition-colors">
-                        <X size={16} />
-                      </button>
-                    </div>
-                    <button
-                      onClick={() => { window.open('https://lens.google.com/', '_blank', 'noopener,noreferrer'); setShowCheckInMenu(false); }}
-                      className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/8 transition-all text-left mb-2 border border-white/5 hover:border-white/15"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-[#0EA5E9]/15 flex items-center justify-center shrink-0">
-                        <Camera size={18} className="text-[#0EA5E9]" />
-                      </div>
-                      <div>
-                        <p className="text-white text-sm font-semibold leading-tight">Open Camera</p>
-                        <p className="text-white/40 text-xs mt-0.5">Scan the QR code at the gate</p>
-                      </div>
-                    </button>
-                    <Link
-                      to="/login"
-                      onClick={() => setShowCheckInMenu(false)}
-                      className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/8 transition-all border border-white/5 hover:border-white/15"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-gold/15 flex items-center justify-center shrink-0">
-                        <LogIn size={18} className="text-gold" />
-                      </div>
-                      <div>
-                        <p className="text-white text-sm font-semibold leading-tight">Login / Sign Up</p>
-                        <p className="text-white/40 text-xs mt-0.5">Access your account & passes</p>
-                      </div>
-                    </Link>
-                  </div>
-                </>
-              )}
             </motion.div>
           </div>
 
@@ -394,5 +357,56 @@ export default function HeroSection() {
         <ChevronDown size={32} className="text-white animate-bounce-chevron" />
       </div>
     </section>
+
+    {/* Hidden camera input — triggers native camera on mobile */}
+    <input
+      ref={cameraInputRef}
+      type="file"
+      accept="image/*"
+      capture="environment"
+      className="hidden"
+      onChange={() => setShowCheckInMenu(false)}
+    />
+
+    {/* Check-In options popup — rendered outside <section> to avoid transform clipping */}
+    {showCheckInMenu && (
+      <>
+        <div className="fixed inset-0 z-60 bg-black/40 backdrop-blur-sm" onClick={() => setShowCheckInMenu(false)} />
+        <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-61 bg-[#111] border border-white/10 rounded-2xl p-4 shadow-2xl w-67.5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-white text-sm font-bold">How do you want to check in?</p>
+            <button onClick={() => setShowCheckInMenu(false)} className="text-white/40 hover:text-white transition-colors">
+              <X size={16} />
+            </button>
+          </div>
+          <button
+            onClick={() => { cameraInputRef.current?.click(); setShowCheckInMenu(false); }}
+            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/8 transition-all text-left mb-2 border border-white/5 hover:border-white/15"
+          >
+            <div className="w-9 h-9 rounded-xl bg-[#0EA5E9]/15 flex items-center justify-center shrink-0">
+              <Camera size={18} className="text-[#0EA5E9]" />
+            </div>
+            <div>
+              <p className="text-white text-sm font-semibold leading-tight">Open Camera</p>
+              <p className="text-white/40 text-xs mt-0.5">Scan the QR code at the gate</p>
+            </div>
+          </button>
+          <Link
+            to="/login"
+            onClick={() => setShowCheckInMenu(false)}
+            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/8 transition-all border border-white/5 hover:border-white/15"
+          >
+            <div className="w-9 h-9 rounded-xl bg-gold/15 flex items-center justify-center shrink-0">
+              <LogIn size={18} className="text-gold" />
+            </div>
+            <div>
+              <p className="text-white text-sm font-semibold leading-tight">Login / Sign Up</p>
+              <p className="text-white/40 text-xs mt-0.5">Access your account & passes</p>
+            </div>
+          </Link>
+        </div>
+      </>
+    )}
+    </>
   );
 }

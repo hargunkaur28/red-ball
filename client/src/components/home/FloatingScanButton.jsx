@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ScanLine, Camera, LogIn, X } from 'lucide-react';
@@ -9,6 +9,7 @@ export default function FloatingScanButton() {
   const [showMenu, setShowMenu] = useState(false);
   const { isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
+  const cameraInputRef = useRef(null);
 
   useEffect(() => {
     const onScroll = () => setVisible(window.scrollY > window.innerHeight * 0.8);
@@ -26,6 +27,14 @@ export default function FloatingScanButton() {
 
   return (
     <>
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={() => setShowMenu(false)}
+      />
       <AnimatePresence>
         {visible && (
           <motion.div
@@ -75,7 +84,7 @@ export default function FloatingScanButton() {
                 </button>
               </div>
               <button
-                onClick={() => { window.open('https://lens.google.com/', '_blank', 'noopener,noreferrer'); setShowMenu(false); }}
+                onClick={() => { cameraInputRef.current?.click(); setShowMenu(false); }}
                 className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/8 transition-all text-left mb-2 border border-white/5 hover:border-white/15"
               >
                 <div className="w-9 h-9 rounded-xl bg-[#0EA5E9]/15 flex items-center justify-center shrink-0">
