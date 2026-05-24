@@ -351,12 +351,10 @@ export default function TablePortal({ embedded = false }) {
 
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity shrink-0">
-            <div className="w-9 h-9 sm:w-11 sm:h-11 bg-[#C8102E] text-white rounded-xl flex items-center justify-center font-black text-base sm:text-xl tracking-tighter shadow-lg">
-              RB
-            </div>
+            <img src="/logo.png" alt="Red Ball Academy" className="w-9 h-9 sm:w-11 sm:h-11 object-contain shrink-0" />
             <div className="hidden sm:block">
               <h1 className="font-bold text-xl tracking-wide leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-                RED BALL SPORTS CLUB
+                RED BALL ACADEMY
               </h1>
               <p className="text-[10px] text-[#F5A623] font-bold tracking-widest uppercase mt-0.5">
                 WHERE GREAT FOOD MEETS GREAT GAMES

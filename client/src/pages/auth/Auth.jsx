@@ -128,12 +128,18 @@ body { background: #080808; }
   position: absolute;
   top: 32px;
   left: 36px;
-  z-index: 10;
-  width: 52px;
-  height: 52px;
+  z-index: 30;
+  width: 64px;
+  height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.rb-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.8));
 }
 
 .brand-content {
@@ -467,7 +473,7 @@ body { background: #080808; }
   .brand-title { font-size: 44px; }
   .brand-desc { display: none; }
   .feature-cards { display: none; }
-  .rb-logo { top: 20px; left: 24px; width: 44px; height: 44px; font-size: 16px; }
+  .rb-logo { top: 16px; left: 20px; width: 52px; height: 52px; }
   .form-inner { max-width: 100%; }
   .brand-divider { display: none; }
   .back-btn { position: relative; bottom: auto; left: auto; transform: none; margin: 0 auto 40px auto; width: fit-content; z-index: 100; }
@@ -693,7 +699,7 @@ export default function Auth() {
             ))}
 
             <Link to="/" className="rb-logo hover:scale-105 transition-transform duration-200" title="Back to Home">
-              <img src="/logo.png" alt="Red Ball Academy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              <img src="/logo.png" alt="Red Ball Academy" />
             </Link>
 
             <div className="brand-content">

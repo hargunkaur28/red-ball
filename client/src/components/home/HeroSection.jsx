@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ChevronDown, ArrowRight, ScanLine, Dumbbell, Trophy, Feather, Target, Layers } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -75,6 +75,17 @@ const landingItems = [
 ];
 
 export default function HeroSection() {
+  const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuthStore();
+
+  const handleMobileCheckIn = () => {
+    if (isAuthenticated) {
+      navigate('/user/scan');
+    } else {
+      window.open('https://lens.google.com/', '_blank', 'noopener,noreferrer');
+    }
+  };
+
   const getSportIcon = (name) => {
     const n = name.toLowerCase();
     if (n.includes('gym') || n.includes('fitness')) return <Dumbbell size={22} className="text-[#F5A623]" />;
@@ -84,8 +95,6 @@ export default function HeroSection() {
     if (n.includes('all')) return <Layers size={22} className="text-[#8B5CF6]" />;
     return <Trophy size={22} className="text-[#F5A623]" />;
   };
-
-  const { isAuthenticated, user } = useAuthStore();
   const [wordIndex, setWordIndex] = useState(0);
   const [animClass, setAnimClass] = useState('word-enter');
   const [bgIndex, setBgIndex] = useState(0);
@@ -255,13 +264,13 @@ export default function HeroSection() {
                   )}
                   
                   {/* Mobile-only QR Button */}
-                  <Link
-                    to={isAuthenticated ? "/user/scan" : "/login?redirectTo=/user/scan"}
+                  <button
+                    onClick={handleMobileCheckIn}
                     className="flex-1 justify-center flex sm:hidden items-center px-3 py-3.5 rounded-full border-2 border-white/20 bg-white/10 backdrop-blur-sm text-white text-sm font-semibold transition-all hover:bg-white/20 gap-2"
                     style={{ fontFamily: "'DM Sans', sans-serif" }}
                   >
                     <ScanLine size={18} className="shrink-0" /> Check-In
-                  </Link>
+                  </button>
                 </div>
               </div>
               

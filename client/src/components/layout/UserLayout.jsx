@@ -120,9 +120,9 @@ export default function UserLayout() {
           <button onClick={() => setMobileOpen(true)} className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-white/76">
             <Menu size={20} />
           </button>
-          <Link to="/" className="text-center">
-            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#df1526]">Red Ball</p>
-            <p className="text-sm font-black text-white">Academy</p>
+          <Link to="/" className="flex items-center gap-2">
+            <img src="/logo.png" alt="Red Ball Academy" className="w-8 h-8 object-contain" />
+            <span className="text-sm font-black text-white tracking-wide" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>Red Ball Academy</span>
           </Link>
           <Link to="/user/scan" className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#C8102E] text-white shadow-lg shadow-red-950/30">
             <ScanLine size={20} />

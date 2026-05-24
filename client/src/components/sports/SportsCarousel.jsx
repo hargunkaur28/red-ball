@@ -97,14 +97,14 @@ export default function SportsCarousel({ sports = [], linkPrefix = '/sports', sh
         <div className="flex-shrink-0 w-4" />
       </div>
 
-      {/* Right arrow */}
+      {/* Right arrow — always visible on mobile, hover-only on desktop */}
       {showArrows && (
         <button
           onClick={() => scroll(1)}
           aria-label="Scroll right"
-          className="hidden lg:flex absolute -right-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-[#1A1A1A] border border-white/10 items-center justify-center text-white/70 hover:text-white hover:border-white/30 transition-all opacity-0 group-hover/carousel:opacity-100 shadow-xl"
+          className="flex absolute right-1 lg:-right-5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-black/60 lg:bg-dark-card border border-white/20 items-center justify-center text-white/80 hover:text-white hover:border-white/40 transition-all lg:opacity-0 lg:group-hover/carousel:opacity-100 shadow-xl backdrop-blur-sm"
         >
-          <ChevronRight size={20} />
+          <ChevronRight size={16} className="lg:w-5 lg:h-5" />
         </button>
       )}
 
