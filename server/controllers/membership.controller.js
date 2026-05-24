@@ -548,7 +548,7 @@ exports.publicVerifyPayment = async (req, res) => {
       token = jwt.sign(
         { userId: user._id, role: user.role },
         process.env.ACCESS_SECRET || process.env.JWT_SECRET || 'fallback_secret',
-        { expiresIn: '15m' }
+        { expiresIn: '30d' }
       );
     }
 

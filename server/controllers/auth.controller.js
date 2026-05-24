@@ -29,7 +29,7 @@ const getCookieOptions = (rememberMe) => ({
 // Keep a stable options object for logout/clear (30-day baseline)
 const REFRESH_COOKIE_OPTIONS = getCookieOptions(false);
 
-const generateAccessToken = (userId) => jwt.sign({ userId }, ACCESS_SECRET, { expiresIn: '15m' });
+const generateAccessToken = (userId) => jwt.sign({ userId }, ACCESS_SECRET, { expiresIn: '30d' });
 const generateRefreshToken = (userId, rememberMe) =>
   jwt.sign({ userId }, REFRESH_SECRET, { expiresIn: rememberMe ? '90d' : '30d' });
 

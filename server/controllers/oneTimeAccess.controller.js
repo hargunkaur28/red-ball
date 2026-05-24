@@ -18,7 +18,7 @@ const REFRESH_COOKIE_OPTIONS = {
 };
 
 const generateAccessToken = (userId) => {
-  return jwt.sign({ userId }, ACCESS_SECRET, { expiresIn: '15m' });
+  return jwt.sign({ userId }, ACCESS_SECRET, { expiresIn: '30d' });
 };
 
 const generateRefreshToken = (userId) => {

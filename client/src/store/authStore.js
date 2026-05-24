@@ -38,22 +38,30 @@ const useAuthStore = create((set, get) => ({
   },
 
   checkAuth: async () => {
+    const refreshURL = import.meta.env.VITE_API_URL
+      ? `${import.meta.env.VITE_API_URL}/auth/refresh`
+      : '/api/auth/refresh';
+
+    const tryRefresh = async () => {
+      const res = await fetch(refreshURL, { method: 'POST', credentials: 'include' });
+      if (!res.ok) throw new Error('refresh failed');
+      const d = await res.json();
+      localStorage.setItem('accessToken', d.accessToken);
+    };
+
+    const isTokenExpired = (token) => {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.exp * 1000 < Date.now();
+      } catch {
+        return true;
+      }
+    };
+
     try {
       const token = localStorage.getItem('accessToken');
-      if (!token) {
-        const refreshURL = import.meta.env.VITE_API_URL
-          ? `${import.meta.env.VITE_API_URL}/auth/refresh`
-          : '/api/auth/refresh';
-        const refresh = await fetch(refreshURL, {
-          method: 'POST',
-          credentials: 'include',
-        });
-        if (!refresh.ok) {
-          set({ isLoading: false });
-          return;
-        }
-        const refreshData = await refresh.json();
-        localStorage.setItem('accessToken', refreshData.accessToken);
+      if (!token || isTokenExpired(token)) {
+        await tryRefresh();
       }
       const { data } = await api.get('/auth/me');
       set({ user: data.user, isAuthenticated: true, isLoading: false });
