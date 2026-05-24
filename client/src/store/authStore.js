@@ -94,6 +94,16 @@ const useAuthStore = create((set, get) => ({
     return data;
   },
 
+  updatePhone: async (phone) => {
+    const fd = new FormData();
+    fd.append('phone', phone);
+    const { data } = await api.put('/auth/profile', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    set({ user: data.user });
+    return data;
+  },
+
   changePassword: async (passwordData) => {
     const { data } = await api.put('/auth/change-password', passwordData);
     return data;

@@ -471,7 +471,7 @@ export default function Dashboard() {
         transition={{ delay: 0.7, duration: 0.5 }}
         className="text-center text-xs text-[#9CA3AF] mt-6"
       >
-        Red Ball Cricket Academy — Super Admin Panel
+        Red Ball Academy — Super Admin Panel
       </motion.p>
     </div>
   );

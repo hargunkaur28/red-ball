@@ -11,6 +11,7 @@ import api from '../../lib/axios';
 import { formatCurrency } from '../../lib/utils';
 import useAuthStore from '../../store/authStore';
 import { getSportFallback } from './sportFallbacks';
+import PhoneCollectModal from '../shared/PhoneCollectModal';
 
 export default function OneTimeBookingModal({ sport, isOpen, onClose }) {
   const navigate = useNavigate();
@@ -20,6 +21,7 @@ export default function OneTimeBookingModal({ sport, isOpen, onClose }) {
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
 
   const fallback = getSportFallback(sport?.slug || sport?.name || '');
   const accentColor = fallback.color || '#C8102E';
@@ -86,6 +88,10 @@ export default function OneTimeBookingModal({ sport, isOpen, onClose }) {
 
   const handlePurchase = async () => {
     if (!sport?._id) return toast.error('Sport not selected.');
+    if (isAuthenticated && !user?.phone) {
+      setShowPhoneModal(true);
+      return;
+    }
     if (!isAuthenticated && (!details.name || !details.email || !details.phone)) {
       return toast.error('Please fill in all contact fields.');
     }
@@ -166,7 +172,17 @@ export default function OneTimeBookingModal({ sport, isOpen, onClose }) {
     }
   };
 
-  return createPortal(
+  return (
+    <>
+    <PhoneCollectModal
+      open={showPhoneModal}
+      onClose={() => setShowPhoneModal(false)}
+      onSuccess={(phone) => {
+        setDetails(d => ({ ...d, phone }));
+        setShowPhoneModal(false);
+      }}
+    />
+    {createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
@@ -370,5 +386,7 @@ export default function OneTimeBookingModal({ sport, isOpen, onClose }) {
       )}
     </AnimatePresence>,
     document.body
+  )}
+    </>
   );
 }

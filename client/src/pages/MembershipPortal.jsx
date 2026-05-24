@@ -8,6 +8,7 @@ import api from '../lib/axios';
 import { formatCurrency } from '../lib/utils';
 import useAuthStore from '../store/authStore';
 import { queryClient } from '../lib/queryClient';
+import PhoneCollectModal from '../components/shared/PhoneCollectModal';
 
 export default function MembershipPortal({ embedded = false }) {
   const [searchParams] = useSearchParams();
@@ -25,6 +26,7 @@ export default function MembershipPortal({ embedded = false }) {
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
 
   const googleButtonRef = useCallback((node) => {
     if (!node) return;
@@ -169,6 +171,10 @@ export default function MembershipPortal({ embedded = false }) {
       toast.error('Please select a membership plan.');
       return;
     }
+    if (isAuthenticated && !user?.phone) {
+      setShowPhoneModal(true);
+      return;
+    }
     if (!isAuthenticated && (!details.name || !details.email || !details.phone)) {
       toast.error('Please complete all contact fields.');
       return;
@@ -247,6 +253,14 @@ export default function MembershipPortal({ embedded = false }) {
 
   return (
     <div className={`${embedded ? 'min-h-[500px] rounded-2xl overflow-hidden' : 'min-h-screen'} bg-[#0D0D0D] text-[#EAEAEA] font-sans selection:bg-[#df1526]/30 relative pb-20`}>
+      <PhoneCollectModal
+        open={showPhoneModal}
+        onClose={() => setShowPhoneModal(false)}
+        onSuccess={(phone) => {
+          setDetails(d => ({ ...d, phone }));
+          setShowPhoneModal(false);
+        }}
+      />
       <div className="fixed top-0 left-0 w-full h-[500px] bg-gradient-to-b from-[#df1526]/5 to-transparent pointer-events-none" />
 
       {/* Header */}

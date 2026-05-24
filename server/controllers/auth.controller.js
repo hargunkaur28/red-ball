@@ -15,7 +15,9 @@ if (!ACCESS_SECRET || !REFRESH_SECRET) {
 const COOKIE_BASE = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
-  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+  // 'none' required in prod because frontend (Vercel) and backend (Render) are on different domains.
+  // 'strict' blocks cross-origin cookie sending entirely, causing refresh to fail every 15 min.
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
 };
 
 // rememberMe=true → 90 days; default → 30 days

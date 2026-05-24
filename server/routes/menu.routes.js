@@ -13,5 +13,7 @@ router.put('/items/:id', auth, authorize('superadmin', 'admin', 'manager'), uplo
 router.delete('/items/:id', auth, authorize('superadmin', 'admin', 'manager'), mc.deleteItem);
 router.post('/categories', auth, authorize('superadmin', 'admin', 'manager'), mc.createCategory);
 router.put('/categories/:id', auth, authorize('superadmin', 'admin', 'manager'), mc.updateCategory);
+router.delete('/categories/:id', auth, authorize('superadmin', 'admin', 'manager'), mc.deleteCategory);
+router.put('/categories/rename', auth, authorize('superadmin', 'admin', 'manager'), mc.renameCategory);
 
 module.exports = router;

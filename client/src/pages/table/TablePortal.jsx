@@ -9,6 +9,7 @@ import useCartStore from '../../store/cartStore';
 import useAuthStore from '../../store/authStore';
 import { formatCurrency } from '../../lib/utils';
 import { toast } from 'sonner';
+import PhoneCollectModal from '../../components/shared/PhoneCollectModal';
 
 export default function TablePortal({ embedded = false }) {
   const navigate = useNavigate();
@@ -64,6 +65,7 @@ export default function TablePortal({ embedded = false }) {
   const [orderType, setOrderType] = useState('pickup');
   const [customer, setCustomer] = useState({ name: '', phone: '', address: '', lat: '', lng: '' });
   const [paymentMethod, setPaymentMethod] = useState('razorpay');
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [selectedTable, setSelectedTable] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(false);
@@ -75,9 +77,10 @@ export default function TablePortal({ embedded = false }) {
 
   const qc = useQueryClient();
 
-  const { data, isLoading } = useQuery({ 
-    queryKey: ['tables-public-list'], 
-    queryFn: () => api.get('/tables/public-list').then(r => r.data) 
+  const { data, isLoading } = useQuery({
+    queryKey: ['tables-public-list'],
+    queryFn: () => api.get('/tables/public-list').then(r => r.data),
+    staleTime: 5 * 60 * 1000,
   });
 
   const tables = data?.tables || [];
@@ -92,9 +95,10 @@ export default function TablePortal({ embedded = false }) {
 
 
 
-  const { data: menuData } = useQuery({ 
-    queryKey: ['menu'], 
-    queryFn: () => api.get('/menu').then(r => r.data) 
+  const { data: menuData } = useQuery({
+    queryKey: ['menu'],
+    queryFn: () => api.get('/menu').then(r => r.data),
+    staleTime: 10 * 60 * 1000,
   });
 
   const menuItems = menuData?.items || [];
@@ -217,7 +221,11 @@ export default function TablePortal({ embedded = false }) {
       toast.error('Cart is empty.');
       return;
     }
-    
+    if (isAuthenticated && !user?.phone) {
+      setShowPhoneModal(true);
+      return;
+    }
+
     if (paymentMethod === 'razorpay') {
       if (!scriptLoaded || !window.Razorpay) {
         toast.error('Razorpay SDK failed to load. Please refresh.');
@@ -866,8 +874,18 @@ export default function TablePortal({ embedded = false }) {
 
       {/* Footer info */}
       <footer className="max-w-6xl mx-auto w-full text-center text-[10px] sm:text-xs text-gray-600 border-t border-white/5 pt-4 sm:pt-6 z-10">
-        Red Ball Cricket Academy © {new Date().getFullYear()} • Secure Digital Table Ordering System
+        Red Ball Academy © {new Date().getFullYear()} • Secure Digital Table Ordering System
       </footer>
+
+      <PhoneCollectModal
+        open={showPhoneModal}
+        onClose={() => setShowPhoneModal(false)}
+        onSuccess={(phone) => {
+          setCustomer(c => ({ ...c, phone }));
+          setShowPhoneModal(false);
+        }}
+        theme="dark"
+      />
     </div>
   );
 }

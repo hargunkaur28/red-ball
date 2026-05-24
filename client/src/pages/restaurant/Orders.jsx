@@ -101,12 +101,46 @@ export default function RestaurantOrders() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, status, paymentStatus }) => api.put(`/orders/${id}/status`, { status, paymentStatus }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['restaurant-orders'] }); toast.success('Order updated.'); },
+    onMutate: async ({ id, status, paymentStatus }) => {
+      await qc.cancelQueries({ queryKey: ['restaurant-orders'] });
+      const previous = qc.getQueryData(['restaurant-orders']);
+      qc.setQueryData(['restaurant-orders'], (old) => {
+        if (!old?.orders) return old;
+        return {
+          ...old,
+          orders: old.orders.map(o =>
+            o._id === id
+              ? { ...o, ...(status && { status }), ...(paymentStatus && { paymentStatus }) }
+              : o
+          ),
+        };
+      });
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      qc.setQueryData(['restaurant-orders'], context.previous);
+      toast.error('Failed to update order. Please try again.');
+    },
+    onSettled: () => { qc.invalidateQueries({ queryKey: ['restaurant-orders'] }); },
   });
 
   const cancelMutation = useMutation({
     mutationFn: ({ id, reason }) => api.put(`/orders/${id}/cancel`, { reason, refund: false }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['restaurant-orders'] }); toast.success('Order cancelled.'); },
+    onMutate: async ({ id }) => {
+      await qc.cancelQueries({ queryKey: ['restaurant-orders'] });
+      const previous = qc.getQueryData(['restaurant-orders']);
+      qc.setQueryData(['restaurant-orders'], (old) => {
+        if (!old?.orders) return old;
+        return { ...old, orders: old.orders.map(o => o._id === id ? { ...o, status: 'cancelled' } : o) };
+      });
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      qc.setQueryData(['restaurant-orders'], context.previous);
+      toast.error('Failed to cancel order.');
+    },
+    onSettled: () => { qc.invalidateQueries({ queryKey: ['restaurant-orders'] }); },
+    onSuccess: () => toast.success('Order cancelled.'),
   });
 
   const prepTimeMutation = useMutation({
@@ -291,7 +325,7 @@ export default function RestaurantOrders() {
             </div>
             <button
               onClick={() => updateMutation.mutate({ id: order._id, paymentStatus: 'paid' })}
-              className="px-2.5 py-1 bg-[#C8102E] text-white rounded-lg text-[10px] font-black shadow hover:bg-[#A00D24] transition-all"
+              className="px-2.5 py-1 bg-[#C8102E] text-white rounded-lg text-[10px] font-black shadow hover:bg-[#A00D24] transition-all cursor-pointer"
             >
               Mark Paid
             </button>
@@ -378,7 +412,7 @@ export default function RestaurantOrders() {
               {nextStatus[status] && (
                 <button
                   onClick={() => updateMutation.mutate({ id: order._id, status: nextStatus[status] })}
-                  className={`flex-1 py-2.5 rounded-xl text-xs font-extrabold shadow-md transition-all flex items-center justify-center gap-1.5 ${
+                  className={`flex-1 py-2.5 rounded-xl text-xs font-extrabold shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     status === 'new' ? 'bg-blue-600 hover:bg-blue-700 text-white' :
                     status === 'preparing' ? 'bg-[#F5A623] hover:bg-[#E09410] text-black font-black' :
                     'bg-green-600 hover:bg-green-700 text-white'
@@ -390,7 +424,7 @@ export default function RestaurantOrders() {
               {status === 'new' && (
                 <button
                   onClick={() => cancelMutation.mutate({ id: order._id, reason: 'Rejected by kitchen' })}
-                  className="px-3 py-2.5 rounded-xl bg-red-100 hover:bg-red-200 text-red-600 font-bold transition-all"
+                  className="px-3 py-2.5 rounded-xl bg-red-100 hover:bg-red-200 text-red-600 font-bold transition-all cursor-pointer"
                   title="Reject Order"
                 >
                   <X size={16} />
@@ -543,7 +577,7 @@ export default function RestaurantOrders() {
                         <td className="px-6 py-4">
                           <p className="text-sm font-extrabold font-mono">{formatCurrency(order.totalAmount)}</p>
                           {isManualPending ? (
-                            <button onClick={() => updateMutation.mutate({ id: order._id, paymentStatus: 'paid' })} className="text-[10px] font-bold text-white bg-[#C8102E] px-2 py-1 rounded shadow mt-1">Mark Paid</button>
+                            <button onClick={() => updateMutation.mutate({ id: order._id, paymentStatus: 'paid' })} className="text-[10px] font-bold text-white bg-[#C8102E] px-2 py-1 rounded shadow mt-1 cursor-pointer">Mark Paid</button>
                           ) : (
                             <span className="inline-flex text-[10px] font-bold uppercase tracking-wider text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-200 mt-1">
                               <CheckCircle size={10} className="mr-1" /> {order.paymentMethod}
@@ -556,7 +590,7 @@ export default function RestaurantOrders() {
                               {nextStatus[order.status] && (
                                 <button
                                   onClick={() => updateMutation.mutate({ id: order._id, status: nextStatus[order.status] })}
-                                  className={`px-3 py-2 rounded-lg text-xs font-bold transition-all shadow-sm ${
+                                  className={`px-3 py-2 rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer ${
                                     order.status === 'new' ? 'bg-blue-600 hover:bg-blue-700 text-white' :
                                     order.status === 'preparing' ? 'bg-[#F5A623] hover:bg-[#E09410] text-black' :
                                     'bg-green-600 hover:bg-green-700 text-white'
@@ -568,7 +602,7 @@ export default function RestaurantOrders() {
                               {order.status === 'new' && (
                                 <button
                                   onClick={() => cancelMutation.mutate({ id: order._id, reason: 'Rejected by kitchen' })}
-                                  className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-all border border-red-100"
+                                  className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-all border border-red-100 cursor-pointer"
                                 >
                                   <X size={14} />
                                 </button>

@@ -226,25 +226,29 @@ exports.validateCheckIn = async (userId, sportName) => {
     isAllServices: entitlement.isAllServices,
   };
 
-  // Determine source: membership or prepaid pass
+  // Determine source: prepaid pass takes priority over membership so it gets consumed first
   let entitlementSource = 'membership';
   let matchingPass = null;
 
-  // Check if user has active membership covering this sport
-  const hasMembershipCoverage = entitlement.entitlementType !== 'none' &&
-    (entitlement.isAllServices || entitlement.allowedSports.includes(resolvedSportSlug)) &&
-    entitlement.activeMemberships.length > 0;
+  // Check for an unused prepaid pass for this sport first
+  matchingPass = await OneTimeAccess.findOne({
+    userId,
+    sportId: sportObj._id,
+    accessStatus: 'unused',
+    expiresAt: { $gt: new Date() }
+  });
 
-  if (!hasMembershipCoverage) {
-    // If not covered by membership, check if we have a prepaid pass
-    matchingPass = await OneTimeAccess.findOne({
-      userId,
-      sportId: sportObj._id,
-      accessStatus: 'unused',
-      expiresAt: { $gt: new Date() }
-    });
+  if (matchingPass) {
+    entitlementSource = 'one-time-play';
+    baseEntitlement.entitlementType = 'one-time-play';
+    baseEntitlement.concurrentSessionLimit = 1;
+  } else {
+    // Fall back to membership coverage
+    const hasMembershipCoverage = entitlement.entitlementType !== 'none' &&
+      (entitlement.isAllServices || entitlement.allowedSports.includes(resolvedSportSlug)) &&
+      entitlement.activeMemberships.length > 0;
 
-    if (!matchingPass) {
+    if (!hasMembershipCoverage) {
       return {
         allowed: false,
         reason: 'No active membership or unused prepaid pass found. Please purchase entry.',
@@ -252,10 +256,6 @@ exports.validateCheckIn = async (userId, sportName) => {
         activeSessions: [],
       };
     }
-
-    entitlementSource = 'one-time-play';
-    baseEntitlement.entitlementType = 'one-time-play';
-    baseEntitlement.concurrentSessionLimit = 1;
   }
 
   // 3. Fetch currently active sessions (checkOutTime is null and sessionStatus is Active)

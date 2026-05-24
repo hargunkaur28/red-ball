@@ -6,7 +6,7 @@ import api from '../../lib/axios';
 import useAuthStore from '../../store/authStore';
 import { formatCurrency } from '../../lib/utils';
 import socket from '../../lib/socket';
-import { Trophy, Calendar, Utensils, Clock, AlertTriangle, CheckCircle, QrCode, TimerReset, User } from 'lucide-react';
+import { Trophy, Calendar, Utensils, Clock, AlertTriangle, CheckCircle, QrCode, TimerReset, User, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
 const formatSessionClock = (milliseconds) => {
@@ -52,7 +52,7 @@ export default function UserDashboard() {
     queryKey: ['my-passes'],
     queryFn: () => api.get('/onetimeaccess/my-passes').then(r => r.data),
     enabled: !!user?.id,
-    refetchInterval: 30000,
+    refetchInterval: 8000,
   });
 
   const passesList = useMemo(() => passesData?.passes || [], [passesData]);
@@ -384,7 +384,7 @@ export default function UserDashboard() {
 
                     <div className="mt-5 flex items-center gap-2">
                       <Link
-                        to={`/entry/${sportSlug}`}
+                        to="/user/scan"
                         className="flex-1 px-4 py-2.5 rounded-xl bg-[#C8102E] hover:bg-[#a80e27] text-white text-xs font-extrabold text-center transition-colors flex items-center justify-center gap-1.5"
                       >
                         <QrCode size={14} /> Scan QR to Start Session
@@ -405,27 +405,51 @@ export default function UserDashboard() {
               }
 
               if (pass.accessStatus === 'active') {
+                const sessionStartMs = pass.usedAt ? new Date(pass.usedAt).getTime() : now;
+                const endsAtMs = sessionStartMs + (pass.allowedDurationMinutes || 60) * 60000;
+                const passRemainingMs = endsAtMs - now;
+                const isPassOvertime = passRemainingMs < 0;
+                const passTimerColor = isPassOvertime
+                  ? 'text-red-400'
+                  : passRemainingMs < 5 * 60000
+                    ? 'text-orange-400'
+                    : passRemainingMs < 15 * 60000
+                      ? 'text-amber-400'
+                      : 'text-green-400';
+                const passBorderColor = isPassOvertime
+                  ? 'border-red-500/30 bg-red-500/5'
+                  : passRemainingMs < 5 * 60000
+                    ? 'border-orange-500/30 bg-orange-500/5'
+                    : 'border-[#C8102E]/30 bg-[#2a050b]/20';
+
                 return (
                   <motion.div
                     key={pass._id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="relative overflow-hidden rounded-2xl bg-[#2a050b]/20 border border-[#C8102E]/30 p-5 shadow-lg flex flex-col justify-between"
+                    className={`relative overflow-hidden rounded-2xl border p-5 shadow-lg flex flex-col justify-between ${passBorderColor}`}
                   >
-                    <div className="absolute top-0 right-0 px-3 py-1 bg-[#C8102E]/20 border-b border-l border-[#C8102E]/30 rounded-bl-xl text-[10px] font-extrabold text-[#C8102E] uppercase tracking-wider animate-pulse">
-                      Active Now
+                    <div className={`absolute top-0 right-0 px-3 py-1 border-b border-l rounded-bl-xl text-[10px] font-extrabold uppercase tracking-wider animate-pulse ${
+                      isPassOvertime
+                        ? 'bg-red-500/20 border-red-500/30 text-red-400'
+                        : 'bg-[#C8102E]/20 border-[#C8102E]/30 text-[#C8102E]'
+                    }`}>
+                      {isPassOvertime ? 'Overtime' : 'Session Active'}
                     </div>
+
                     <div>
                       <h4 className="text-base font-bold text-white uppercase tracking-tight">{sportName} Pass</h4>
-                      <p className="text-xs text-neutral-400 mt-1">Session currently active</p>
+                      <p className="text-xs text-neutral-400 mt-1">
+                        Checked in at {pass.usedAt ? new Date(pass.usedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                      </p>
 
-                      <div className="mt-4 flex items-center gap-2 text-xs">
-                        <Clock size={13} className="text-green-400" />
-                        <span className="text-neutral-400">Used at:</span>
-                        <span className="font-semibold text-neutral-200">
-                          {pass.usedAt ? new Date(pass.usedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '-'}
-                        </span>
+                      <div className={`mt-4 text-3xl font-black tabular-nums ${passTimerColor}`}>
+                        {formatSessionClock(passRemainingMs)}
                       </div>
+                      <p className="text-xs text-neutral-500 mt-1">
+                        {pass.allowedDurationMinutes || 60} min allowed
+                        {isPassOvertime ? ' · Overtime charges active' : ''}
+                      </p>
                     </div>
 
                     <div className="mt-5">
@@ -436,6 +460,56 @@ export default function UserDashboard() {
                         <QrCode size={14} /> Scan QR to Check Out
                       </Link>
                     </div>
+                  </motion.div>
+                );
+              }
+
+              if (pass.accessStatus === 'completed' || pass.accessStatus === 'expired') {
+                const isExpired = pass.accessStatus === 'expired';
+                const sessionDate = pass.usedAt || pass.updatedAt;
+                return (
+                  <motion.div
+                    key={pass._id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="relative overflow-hidden rounded-2xl bg-white/3 border border-white/10 p-5 shadow-lg flex flex-col justify-between"
+                  >
+                    <div className={`absolute top-0 right-0 px-3 py-1 border-b border-l rounded-bl-xl text-[10px] font-extrabold uppercase tracking-wider ${
+                      isExpired
+                        ? 'bg-red-500/10 border-red-500/20 text-red-400'
+                        : 'bg-green-500/10 border-green-500/20 text-green-400'
+                    }`}>
+                      {isExpired ? 'Expired' : 'Session Over'}
+                    </div>
+
+                    <div>
+                      <h4 className="text-base font-bold text-white uppercase tracking-tight">{sportName} Pass</h4>
+                      <p className="text-xs text-neutral-400 mt-1">
+                        {isExpired ? 'Pass expired unused' : '1-Hour Prepaid Session Completed'}
+                      </p>
+
+                      {!isExpired && (
+                        <div className="mt-4 flex items-center gap-2 text-xs text-neutral-400">
+                          <CheckCircle size={13} className="text-green-500 shrink-0" />
+                          <span>
+                            {sessionDate
+                              ? `Played on ${new Date(sessionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} at ${new Date(sessionDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
+                              : 'Session completed'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {!isExpired && (
+                      <div className="mt-5 flex items-center gap-2">
+                        <Link
+                          to="/user/reviews"
+                          className="flex-1 px-4 py-2.5 rounded-xl bg-white/8 border border-white/12 text-white text-xs font-extrabold text-center transition-colors hover:bg-white/12 flex items-center justify-center gap-1.5"
+                        >
+                          <Star size={13} /> Rate Your Session
+                        </Link>
+                      </div>
+                    )}
                   </motion.div>
                 );
               }

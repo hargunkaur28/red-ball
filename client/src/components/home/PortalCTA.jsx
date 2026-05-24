@@ -25,7 +25,7 @@ export default function PortalCTA() {
           transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
         >
           <h2 className="section-heading text-white mb-6">
-            Welcome to the Red Ball Box Cricket Academy Portal
+            Welcome to the Red Ball Academy Portal
           </h2>
 
           <p className="text-lg text-white/45 leading-relaxed mb-10 max-w-[600px] mx-auto" style={{ fontFamily: "'DM Sans', sans-serif" }}>

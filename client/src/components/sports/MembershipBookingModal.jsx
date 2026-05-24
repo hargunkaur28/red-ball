@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../lib/axios';
 import { formatCurrency } from '../../lib/utils';
 import useAuthStore from '../../store/authStore';
+import PhoneCollectModal from '../shared/PhoneCollectModal';
 
 export default function MembershipBookingModal({ plan, isOpen, onClose }) {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ export default function MembershipBookingModal({ plan, isOpen, onClose }) {
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
 
   // Sync auth user details
   useEffect(() => {
@@ -82,6 +84,10 @@ export default function MembershipBookingModal({ plan, isOpen, onClose }) {
 
   const handlePurchase = async () => {
     if (!plan?._id) return toast.error('Plan not selected.');
+    if (isAuthenticated && !user?.phone) {
+      setShowPhoneModal(true);
+      return;
+    }
     if (!isAuthenticated && (!details.name || !details.email || !details.phone)) {
       return toast.error('Please fill in all contact fields.');
     }
@@ -160,7 +166,17 @@ export default function MembershipBookingModal({ plan, isOpen, onClose }) {
     }
   };
 
-  return createPortal(
+  return (
+    <>
+    <PhoneCollectModal
+      open={showPhoneModal}
+      onClose={() => setShowPhoneModal(false)}
+      onSuccess={(phone) => {
+        setDetails(d => ({ ...d, phone }));
+        setShowPhoneModal(false);
+      }}
+    />
+    {createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
@@ -350,5 +366,7 @@ export default function MembershipBookingModal({ plan, isOpen, onClose }) {
       )}
     </AnimatePresence>,
     document.body
+  )}
+    </>
   );
 }

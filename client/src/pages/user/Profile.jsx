@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { Camera, Lock, Eye, EyeOff, Save, KeyRound, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 export default function Profile() {
   const { user, updateProfile, changePassword, deleteAccount } = useAuthStore();
@@ -64,9 +64,7 @@ export default function Profile() {
 
     try {
       await updateProfile(formData);
-      toast.success('Profile details updated successfully.', {
-        style: { background: '#0D0D0D', color: '#FFF', border: '1px solid rgba(223,21,38,0.3)' }
-      });
+      toast.success('Changes saved successfully.');
       setPhotoFile(null);
       setPhotoPreview(null);
     } catch (err) {

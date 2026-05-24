@@ -68,9 +68,7 @@ export default function SuperAdminLayout() {
       {/* Logo Header */}
       <div className="flex items-center justify-between px-5 h-16 border-b border-[#EAEAEA] shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#C8102E] to-[#8B0B1E] flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-md">
-            RB
-          </div>
+          <img src="/logo.png" alt="Red Ball Academy" className="w-9 h-9 object-contain shrink-0" />
           <div className="flex flex-col">
             <span className="text-sm font-semibold text-[#111111] leading-tight">Red Ball</span>
             <span className="text-[10px] font-medium text-[#C8102E] tracking-wider uppercase">Super Admin</span>

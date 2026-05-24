@@ -5,6 +5,7 @@ import { AlertCircle, ArrowLeft, BadgeCheck, Check, Clock, CreditCard, Loader2, 
 import api from '../lib/axios';
 import useAuthStore from '../store/authStore';
 import { toast } from 'sonner';
+import PhoneCollectModal from '../components/shared/PhoneCollectModal';
 
 const css = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
@@ -653,6 +654,7 @@ export default function EntryPortal() {
   const [selectedOption, setSelectedOption] = useState(null);
   const [authMode, setAuthMode] = useState('signup');
   const [details, setDetails] = useState({ name: '', email: '', phone: '', password: '' });
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
 
   const handleSelectOption = (option) => {
     if (!isAuthenticated) {
@@ -890,6 +892,10 @@ export default function EntryPortal() {
 
   const handleStartPayment = async () => {
     if (!selectedOption) return;
+    if (isAuthenticated && !user?.phone) {
+      setShowPhoneModal(true);
+      return;
+    }
     setActionLoading(true);
     try {
       const signedIn = await ensureSignedIn();
@@ -1141,6 +1147,14 @@ export default function EntryPortal() {
           </main>
         </div>
       </div>
+      <PhoneCollectModal
+        open={showPhoneModal}
+        onClose={() => setShowPhoneModal(false)}
+        onSuccess={(phone) => {
+          setDetails(d => ({ ...d, phone }));
+          setShowPhoneModal(false);
+        }}
+      />
     </>
   );
 }

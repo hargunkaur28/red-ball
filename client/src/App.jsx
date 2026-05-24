@@ -78,6 +78,12 @@ export default function App() {
   useEffect(() => {
     checkAuth();
 
+    // Keep server warm — ping every 10 min to prevent cold starts on free hosting tiers
+    const apiBase = import.meta.env.VITE_API_URL || '/api';
+    const ping = () => fetch(`${apiBase}/health`).catch(() => {});
+    ping();
+    const keepAlive = setInterval(ping, 10 * 60 * 1000);
+
     // Connect socket on app load
     connectSocket();
 
@@ -94,6 +100,7 @@ export default function App() {
 
     return () => {
       socket.offAny(handleGlobalEvent);
+      clearInterval(keepAlive);
     };
   }, []);
 

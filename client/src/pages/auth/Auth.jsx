@@ -131,17 +131,9 @@ body { background: #080808; }
   z-index: 10;
   width: 52px;
   height: 52px;
-  background: #C8102E;
-  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 900;
-  font-size: 19px;
-  letter-spacing: -1px;
-  color: #fff;
-  box-shadow: 0 4px 20px rgba(200,16,46,0.55), 0 0 0 1px rgba(255,255,255,0.1);
 }
 
 .brand-content {
@@ -700,7 +692,9 @@ export default function Auth() {
               />
             ))}
 
-            <Link to="/" className="rb-logo hover:scale-105 transition-transform duration-200" title="Back to Home">RB</Link>
+            <Link to="/" className="rb-logo hover:scale-105 transition-transform duration-200" title="Back to Home">
+              <img src="/logo.png" alt="Red Ball Academy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            </Link>
 
             <div className="brand-content">
               <AnimatePresence mode="wait">

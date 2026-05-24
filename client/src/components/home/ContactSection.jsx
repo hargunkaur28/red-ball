@@ -151,7 +151,7 @@ export default function ContactSection() {
                 style={{ border: 0, borderRadius: '12px', minHeight: '500px' }}
                 allowFullScreen
                 loading="lazy"
-                title="Red Ball Box Cricket Academy Location"
+                title="Red Ball Academy Location"
               />
             </div>
 

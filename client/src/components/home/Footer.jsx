@@ -173,7 +173,7 @@ export default function Footer() {
       <div className="border-t border-black/5">
         <div className="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 py-5 flex flex-col md:flex-row items-center justify-between gap-3">
           <p className="text-[#0D0D0D]/50 text-xs text-center" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-            © 2025 Red Ball Box Cricket Academy. All Rights Reserved.
+            © 2025 Red Ball Academy. All Rights Reserved.
           </p>
           <div className="flex items-center gap-4 text-xs text-[#0D0D0D]/50" style={{ fontFamily: "'DM Sans', sans-serif" }}>
             <a href="#" className="hover:text-[#C8102E] transition-colors">Privacy Policy</a>

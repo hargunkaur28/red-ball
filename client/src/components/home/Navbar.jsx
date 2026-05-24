@@ -84,18 +84,16 @@ export default function Navbar() {
 
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-full bg-[#C8102E] flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-200">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" fill="#FFFFFF" opacity="0.2"/>
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="none" stroke="#FFF" strokeWidth="1.5"/>
-                <path d="M8 6c2 3 2 9 0 12M16 6c-2 3-2 9 0 12" stroke="#FFF" strokeWidth="1.2" fill="none"/>
-              </svg>
-            </div>
+            <img
+              src="/logo.png"
+              alt="Red Ball Academy"
+              className="w-10 h-10 object-contain group-hover:scale-105 transition-transform duration-200"
+            />
             <span
               className={`${logoColor} text-lg tracking-[2px] uppercase hidden sm:block transition-colors duration-300`}
               style={{ fontFamily: "'Bebas Neue', sans-serif" }}
             >
-              Red Ball Box Cricket Academy
+              Red Ball Academy
             </span>
           </Link>
 

@@ -3,6 +3,7 @@ const Attendance = require('../models/Attendance');
 const MembershipPlan = require('../models/MembershipPlan');
 const OneTimePlay = require('../models/OneTimePlay');
 const SlotBooking = require('../models/SlotBooking');
+const OneTimeAccess = require('../models/OneTimeAccess');
 const User = require('../models/User');
 
 // GET /api/super-admin/memberships - Manage and view memberships with attendance aggregation
@@ -311,21 +312,49 @@ exports.getOneTimeEntries = async (req, res) => {
       if (endDate) sbQuery.createdAt.$lte = new Date(endDate);
     }
 
-    const [otpCount, sbCount] = await Promise.all([
+    // Build filters for OneTimeAccess (Prepaid Online Passes)
+    const otaQuery = {};
+    if (sport) {
+      // match via populated sportId — fetch all and filter below
+      // (pre-filter by status is possible)
+    }
+    if (paymentStatus && paymentStatus !== 'paid') {
+      otaQuery._id = null; // OTA passes are always paid at purchase
+    }
+    if (status && !['completed', 'active', 'unused', 'expired', 'cancelled'].includes(status)) {
+      otaQuery._id = null;
+    } else if (status) {
+      otaQuery.accessStatus = status;
+    }
+    if (startDate || endDate) {
+      otaQuery.purchasedAt = {};
+      if (startDate) otaQuery.purchasedAt.$gte = new Date(startDate);
+      if (endDate) otaQuery.purchasedAt.$lte = new Date(endDate);
+    }
+
+    const [otpCount, sbCount, otaCount] = await Promise.all([
       OneTimePlay.countDocuments(otpQuery),
-      SlotBooking.countDocuments(sbQuery)
+      SlotBooking.countDocuments(sbQuery),
+      OneTimeAccess.countDocuments(otaQuery),
     ]);
 
-    const total = otpCount + sbCount;
+    const total = otpCount + sbCount + otaCount;
     const skipCount = (parseInt(page) - 1) * parseInt(limit);
     const limitCount = parseInt(limit);
 
     // Fetch the most recent elements up to skip + limit to merge correctly in memory
     const fetchLimit = skipCount + limitCount;
 
-    const [otps, sbs] = await Promise.all([
+    const [otps, sbs, otas] = await Promise.all([
       OneTimePlay.find(otpQuery).sort({ date: -1, createdAt: -1 }).limit(fetchLimit).lean(),
-      SlotBooking.find(sbQuery).populate('slotId').sort({ createdAt: -1 }).limit(fetchLimit).lean()
+      SlotBooking.find(sbQuery).populate('slotId').sort({ createdAt: -1 }).limit(fetchLimit).lean(),
+      OneTimeAccess.find(otaQuery)
+        .populate('userId', 'name phone email')
+        .populate('sportId', 'name')
+        .populate('attendanceId')
+        .sort({ purchasedAt: -1 })
+        .limit(fetchLimit)
+        .lean(),
     ]);
 
     // Normalize POS Walk-ins
@@ -391,8 +420,51 @@ exports.getOneTimeEntries = async (req, res) => {
       notes: sb.notes || ''
     }));
 
+    // Normalize Prepaid Online Passes (OneTimeAccess)
+    const normalizedOtas = otas
+      .filter(ota => {
+        // Client-side sport/search filter since we can't easily pre-filter populated fields
+        if (sport && ota.sportId?.name?.toLowerCase() !== sport.toLowerCase()) return false;
+        if (search) {
+          const q = search.toLowerCase();
+          const name = ota.userId?.name?.toLowerCase() || '';
+          const phone = ota.userId?.phone || '';
+          const email = ota.userId?.email?.toLowerCase() || '';
+          if (!name.includes(q) && !phone.includes(q) && !email.includes(q)) return false;
+        }
+        return true;
+      })
+      .map(ota => {
+        const att = ota.attendanceId;
+        return {
+          _id: ota._id,
+          type: 'prepaid-pass',
+          bookingId: `OTA-${String(ota._id).slice(-6).toUpperCase()}`,
+          playerName: ota.userId?.name || 'Online User',
+          playerPhone: ota.userId?.phone || 'N/A',
+          sport: ota.sportId?.name || 'Sport',
+          date: ota.purchasedAt,
+          duration: att?.actualDurationMinutes || att?.duration || ota.allowedDurationMinutes,
+          ratePerHour: ota.hourlyRateSnapshot,
+          amount: ota.hourlyRateSnapshot,
+          gstAmount: 0,
+          totalAmount: ota.hourlyRateSnapshot,
+          paymentStatus: 'paid',
+          status: ota.accessStatus,
+          allowedDurationMinutes: ota.allowedDurationMinutes,
+          actualDurationMinutes: att?.actualDurationMinutes || att?.duration || null,
+          overtimeMinutes: att?.overtimeMinutes || 0,
+          lateAmount: att?.lateAmount || 0,
+          feeCollectionStatus: att?.feeCollectionStatus || 'Not Applicable',
+          createdAt: ota.purchasedAt,
+          checkInTime: att?.checkInTime || ota.usedAt,
+          checkOutTime: att?.checkOutTime,
+          notes: 'Online Prepaid Pass',
+        };
+      });
+
     // Merge and sort by date descending
-    const merged = [...normalizedOtps, ...normalizedSbs].sort(
+    const merged = [...normalizedOtps, ...normalizedSbs, ...normalizedOtas].sort(
       (a, b) => new Date(b.date) - new Date(a.date)
     );
 
@@ -407,6 +479,65 @@ exports.getOneTimeEntries = async (req, res) => {
     });
   } catch (error) {
     console.error('getOneTimeEntries error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/super-admin/users
+exports.getUsers = async (req, res) => {
+  try {
+    const { search = '', page = 1, limit = 20, role = 'user', membershipStatus = '' } = req.query;
+    const limitNum = Math.min(parseInt(limit) || 20, 100);
+    const skip = (parseInt(page) - 1) * limitNum;
+
+    const query = { role };
+    if (search) {
+      const re = new RegExp(search, 'i');
+      query.$or = [{ name: re }, { email: re }, { phone: re }];
+    }
+
+    // If filtering by membership status, find matching user IDs first
+    if (membershipStatus === 'none') {
+      const usersWithMembership = await Membership.distinct('studentId');
+      query._id = { $nin: usersWithMembership };
+    } else if (membershipStatus) {
+      const matchingUserIds = await Membership.distinct('studentId', { status: membershipStatus });
+      query._id = { $in: matchingUserIds };
+    }
+
+    const [users, total] = await Promise.all([
+      User.find(query)
+        .select('name email phone role isActive createdAt photo')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      User.countDocuments(query),
+    ]);
+
+    // Attach ALL memberships per user
+    const userIds = users.map(u => u._id);
+    const memberships = await Membership.find({ studentId: { $in: userIds } })
+      .select('studentId status startDate endDate planId')
+      .populate('planId', 'name')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const membershipsByUser = {};
+    memberships.forEach(m => {
+      const uid = m.studentId.toString();
+      if (!membershipsByUser[uid]) membershipsByUser[uid] = [];
+      membershipsByUser[uid].push(m);
+    });
+
+    const result = users.map(u => ({
+      ...u,
+      memberships: membershipsByUser[u._id.toString()] || [],
+    }));
+
+    res.json({ success: true, users: result, total, page: parseInt(page), totalPages: Math.ceil(total / limitNum) });
+  } catch (error) {
+    console.error('getUsers error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

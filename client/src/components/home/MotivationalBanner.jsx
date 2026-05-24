@@ -32,7 +32,7 @@ export default function MotivationalBanner() {
             className="text-white/75 text-lg leading-relaxed mb-10 max-w-[700px] mx-auto"
             style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
-            Join Red Ball Cricket Academy — where champions are crafted. Whether you're
+            Join Red Ball Academy — where champions are crafted. Whether you're
             a beginner or aiming for competitive greatness, every session brings
             you one step closer to your best.
           </p>

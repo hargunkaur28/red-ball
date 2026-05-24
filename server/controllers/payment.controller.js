@@ -149,10 +149,14 @@ exports.verifyPayment = async (req, res) => {
     const payment = await Payment.findOne({ razorpayOrderId });
     if (!payment) return res.status(404).json({ message: 'Payment not found.' });
 
-    // Fetch payment details from Razorpay to verify amount and status
-    const paymentDetails = await fetchPaymentDetails(razorpayPaymentId);
-    if (paymentDetails.status !== 'captured' && paymentDetails.status !== 'authorized') {
-      return res.status(400).json({ message: 'Payment not completed by Razorpay.' });
+    // Fetch payment details from Razorpay to verify amount and status (best-effort)
+    try {
+      const paymentDetails = await fetchPaymentDetails(razorpayPaymentId);
+      if (paymentDetails.status !== 'captured' && paymentDetails.status !== 'authorized') {
+        return res.status(400).json({ message: 'Payment not completed by Razorpay.' });
+      }
+    } catch (fetchErr) {
+      console.warn('Razorpay payment fetch failed (proceeding after signature verification):', fetchErr.message);
     }
 
     // Update payment record

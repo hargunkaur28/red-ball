@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../lib/axios';
 import { formatCurrency, formatDate, getStatusColor } from '../../lib/utils';
@@ -16,6 +16,7 @@ import {
   DollarSign,
   Loader2,
   User,
+  CheckCircle,
 } from 'lucide-react';
 
 /* ─── helpers ─── */
@@ -82,7 +83,19 @@ function SkeletonRow({ cols = 10 }) {
 
 /* ─── main page ─── */
 export default function OneTime() {
-  const [activeTab, setActiveTab] = useState('bookings'); // 'bookings' or 'passes'
+  const [activeTab, setActiveTab] = useState('passes'); // 'bookings' or 'passes'
+  const qc = useQueryClient();
+
+  const handleMarkCompleted = async (e, passId) => {
+    e.stopPropagation();
+    try {
+      await api.patch(`/onetimeaccess/admin/passes/${passId}/mark-completed`);
+      toast.success('Pass marked as completed.');
+      qc.invalidateQueries({ queryKey: ['admin-flexible-passes'] });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update pass.');
+    }
+  };
 
   /* filter state */
   const [search, setSearch] = useState('');
@@ -231,9 +244,9 @@ export default function OneTime() {
     'Sport',
     'Purchased At',
     'Expiry Date',
-    'Status / Details',
-    'Late Amount',
-    'Payment Status',
+    'Status',
+    'Check In',
+    'Check Out',
   ];
 
   const currentBookingStatusOptions =
@@ -321,16 +334,6 @@ export default function OneTime() {
       {/* Tabs */}
       <div className="flex border-b border-[#EAEAEA] mb-6">
         <button
-          onClick={() => handleTabChange('bookings')}
-          className={`py-3 px-6 font-medium text-sm border-b-2 transition-all ${
-            activeTab === 'bookings'
-              ? 'border-black text-black'
-              : 'border-transparent text-[#666666] hover:text-black'
-          }`}
-        >
-          Legacy Bookings
-        </button>
-        <button
           onClick={() => handleTabChange('passes')}
           className={`py-3 px-6 font-medium text-sm border-b-2 transition-all ${
             activeTab === 'passes'
@@ -338,7 +341,17 @@ export default function OneTime() {
               : 'border-transparent text-[#666666] hover:text-black'
           }`}
         >
-          One-Time Flexible Access
+          Prepaid Passes
+        </button>
+        <button
+          onClick={() => handleTabChange('bookings')}
+          className={`py-3 px-6 font-medium text-sm border-b-2 transition-all ${
+            activeTab === 'bookings'
+              ? 'border-black text-black'
+              : 'border-transparent text-[#666666] hover:text-black'
+          }`}
+        >
+          All Entries
         </button>
       </div>
 
@@ -594,10 +607,12 @@ export default function OneTime() {
                           className={`badge ${
                             entry.type === 'walk-in'
                               ? 'badge-success'
-                              : 'badge-info'
+                              : entry.type === 'prepaid-pass'
+                                ? 'badge-warning'
+                                : 'badge-info'
                           }`}
                         >
-                          {entry.type === 'walk-in' ? 'Walk-in' : 'Online'}
+                          {entry.type === 'walk-in' ? 'Walk-in' : entry.type === 'prepaid-pass' ? 'Prepaid' : 'Online'}
                         </span>
                       </td>
                       <td className="px-4 py-3 font-medium text-[#111]">
@@ -706,39 +721,33 @@ export default function OneTime() {
                           {formatDateTime(pass.expiresAt)}
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`badge ${getStatusBadge(pass.accessStatus)} mr-2 capitalize`}>
-                            {pass.accessStatus}
-                          </span>
-                          {pass.accessStatus === 'active' && attendance.checkInTime && (
-                            <span className="text-xs text-[#666]">
-                              Checked in: {formatTime(attendance.checkInTime)}
+                          <div className="flex items-center gap-2">
+                            <span className={`badge ${getStatusBadge(pass.accessStatus)} capitalize`}>
+                              {pass.accessStatus}
                             </span>
-                          )}
-                          {pass.accessStatus === 'completed' && attendance.checkInTime && (
-                            <span className="text-xs text-[#666]">
-                              {formatTime(attendance.checkInTime)} - {formatTime(attendance.checkOutTime)} ({attendance.actualDurationMinutes || attendance.duration || 60}m)
-                            </span>
-                          )}
-                          {pass.accessStatus === 'unused' && (
-                            <span className="text-xs text-[#888]">
-                              Expires {formatDate(pass.expiresAt)}
-                            </span>
-                          )}
+                            {attendance.lateAmount > 0 && (
+                              <span className="text-xs font-semibold text-red-600">+{formatCurrency(attendance.lateAmount)} OT</span>
+                            )}
+                            {(pass.accessStatus === 'unused' || pass.accessStatus === 'active') && (
+                              <button
+                                onClick={(e) => handleMarkCompleted(e, pass._id)}
+                                className="text-[10px] font-bold text-[#666] border border-[#DDD] rounded px-1.5 py-0.5 hover:border-green-500 hover:text-green-600 transition-colors whitespace-nowrap"
+                                title="Mark session as completed"
+                              >
+                                <CheckCircle size={10} className="inline mr-0.5" />Mark Used
+                              </button>
+                            )}
+                          </div>
                         </td>
-                        <td className="px-4 py-3 font-mono text-xs font-semibold">
-                          {attendance.lateAmount > 0 ? (
-                            <span className="text-red-600">{formatCurrency(attendance.lateAmount)}</span>
-                          ) : (
-                            <span className="text-[#666]">₹0</span>
-                          )}
+                        <td className="px-4 py-3 font-mono text-xs text-[#555]">
+                          {attendance.checkInTime ? formatTime(attendance.checkInTime) : '—'}
                         </td>
-                        <td className="px-4 py-3">
-                          <span className={`badge ${payment.status === 'paid' ? 'badge-success' : 'badge-warning'} capitalize`}>
-                            {payment.status || 'pending'}
-                          </span>
-                          <span className="text-xs text-[#666] ml-2 font-mono">
-                            ({payment.paymentMode || 'cash'})
-                          </span>
+                        <td className="px-4 py-3 font-mono text-xs text-[#555]">
+                          {attendance.checkOutTime ? formatTime(attendance.checkOutTime) : (
+                            pass.accessStatus === 'active'
+                              ? <span className="text-amber-600 font-semibold">In session</span>
+                              : '—'
+                          )}
                         </td>
                       </motion.tr>
                     );

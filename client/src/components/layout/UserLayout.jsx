@@ -71,7 +71,7 @@ export default function UserLayout() {
     <>
       <div className="flex items-center justify-between px-4 h-16 border-b border-white/10 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#df1526] to-[#C8102E] flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-red-950/30">RB</div>
+          <img src="/logo.png" alt="Red Ball Academy" className="w-9 h-9 object-contain" />
           <span className="text-sm font-semibold text-white">Red Ball Academy</span>
         </div>
         <button onClick={() => setMobileOpen(false)} className="lg:hidden w-8 h-8 rounded-lg flex items-center justify-center text-white/60"><X size={18} /></button>

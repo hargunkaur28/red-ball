@@ -200,10 +200,11 @@ export default function TableOrder() {
   }, [qc, tableId]);
 
   // Fetch Table Details
-  const { data: tableData } = useQuery({ 
-    queryKey: ['table-public', tableId], 
+  const { data: tableData } = useQuery({
+    queryKey: ['table-public', tableId],
     queryFn: () => api.get(`/tables/${tableId}/public`).then(r => r.data),
-    retry: false
+    retry: false,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Fetch Live Table Orders
@@ -215,9 +216,10 @@ export default function TableOrder() {
   });
 
   // Fetch Live Menu Items from backend API
-  const { data: menuData } = useQuery({ 
-    queryKey: ['menu'], 
-    queryFn: () => api.get('/menu').then(r => r.data) 
+  const { data: menuData } = useQuery({
+    queryKey: ['menu'],
+    queryFn: () => api.get('/menu').then(r => r.data),
+    staleTime: 10 * 60 * 1000,
   });
 
   const placeOrder = async () => {

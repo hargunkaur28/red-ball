@@ -4,8 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../lib/axios';
 import { formatCurrency, formatDate, getStatusColor, getInitials } from '../../lib/utils';
 import {
-  Search, Filter, ChevronLeft, ChevronRight, X,
-  CreditCard, Calendar, Clock, User, Loader2,
+  Search, ChevronLeft, ChevronRight, X,
+  CreditCard, User, Loader2, Users, CheckCircle, AlertCircle, Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -67,6 +67,8 @@ const PLAN_TYPE_OPTIONS = [
 
 // ═══════════════════════════════════════════════════════════
 export default function Memberships() {
+  const [activeTab, setActiveTab] = useState('memberships');
+
   // ── filter state ──────────────────────────────────────
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
@@ -75,6 +77,17 @@ export default function Memberships() {
   const [page, setPage] = useState(1);
   const [selectedMembership, setSelectedMembership] = useState(null);
   const limit = 10;
+
+  // ── users tab state ───────────────────────────────────
+  const [userSearch, setUserSearch] = useState('');
+  const [userPage, setUserPage] = useState(1);
+  const [userMembershipFilter, setUserMembershipFilter] = useState('');
+  const [expandedUser, setExpandedUser] = useState(null);
+  const [debouncedUserSearch, setDebouncedUserSearch] = useState('');
+  const userSearchTimer = useMemo(() => (val) => {
+    const id = setTimeout(() => { setDebouncedUserSearch(val); setUserPage(1); }, 400);
+    return () => clearTimeout(id);
+  }, []);
 
   // debounced search term
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -113,6 +126,23 @@ export default function Memberships() {
     keepPreviousData: true,
     onError: () => toast.error('Failed to load memberships'),
   });
+
+  // ── users query ───────────────────────────────────────
+  const { data: usersData, isLoading: usersLoading } = useQuery({
+    queryKey: ['super-admin-users', debouncedUserSearch, userPage, userMembershipFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams({ page: userPage, limit: 20 });
+      if (debouncedUserSearch) params.set('search', debouncedUserSearch);
+      if (userMembershipFilter) params.set('membershipStatus', userMembershipFilter);
+      const res = await api.get(`/super-admin/users?${params}`);
+      return res.data;
+    },
+    enabled: activeTab === 'users',
+    staleTime: 60 * 1000,
+  });
+  const users = usersData?.users || [];
+  const userTotal = usersData?.total || 0;
+  const userTotalPages = usersData?.totalPages || 1;
 
   const memberships = data?.memberships || [];
   const total = data?.total || 0;
@@ -192,12 +222,37 @@ export default function Memberships() {
   return (
     <div className="min-h-screen">
       {/* ── Page header ─────────────────────────────────── */}
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-2xl font-semibold text-[#111] font-[Inter]">Memberships</h1>
-        <p className="text-sm text-text-muted mt-1">View and track all membership records across academies</p>
+        <p className="text-sm text-text-muted mt-1">View and track all membership records and registered users</p>
+      </div>
+
+      {/* ── Tabs ────────────────────────────────────────── */}
+      <div className="flex gap-1 border-b border-dark-border mb-6">
+        <button
+          onClick={() => setActiveTab('memberships')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all border-b-2 -mb-px ${
+            activeTab === 'memberships'
+              ? 'text-primary border-primary'
+              : 'text-[#666] border-transparent hover:text-[#111]'
+          }`}
+        >
+          <CreditCard size={15} /> Memberships
+        </button>
+        <button
+          onClick={() => setActiveTab('users')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all border-b-2 -mb-px ${
+            activeTab === 'users'
+              ? 'text-primary border-primary'
+              : 'text-[#666] border-transparent hover:text-[#111]'
+          }`}
+        >
+          <Users size={15} /> Users
+        </button>
       </div>
 
       {/* ── Filter bar ──────────────────────────────────── */}
+      {activeTab === 'memberships' && (<>
       <div className="card mb-6">
         <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center">
           {/* Search */}
@@ -452,6 +507,217 @@ export default function Memberships() {
           Something went wrong while loading memberships. Please try again.
         </div>
       )}
+      </>)}
+
+      {/* ══════════════════════════════════════════════════
+          Users Tab
+         ══════════════════════════════════════════════════ */}
+      {activeTab === 'users' && (
+        <div>
+          {/* Search + Filter */}
+          <div className="card mb-6">
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+              <div className="relative flex-1 min-w-60">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                <input
+                  type="text"
+                  placeholder="Search by name, email, or phone…"
+                  value={userSearch}
+                  onChange={e => { setUserSearch(e.target.value); userSearchTimer(e.target.value); }}
+                  className="input-field pl-9"
+                />
+              </div>
+              <select
+                value={userMembershipFilter}
+                onChange={e => { setUserMembershipFilter(e.target.value); setUserPage(1); }}
+                className="input-field w-auto min-w-45"
+              >
+                <option value="">All Users</option>
+                <option value="active">Active Membership</option>
+                <option value="expired">Expired Membership</option>
+                <option value="pending">Pending Membership</option>
+                <option value="frozen">Frozen Membership</option>
+                <option value="cancelled">Cancelled Membership</option>
+                <option value="none">No Membership</option>
+              </select>
+              {(userSearch || userMembershipFilter) && (
+                <button
+                  onClick={() => { setUserSearch(''); setDebouncedUserSearch(''); setUserMembershipFilter(''); setUserPage(1); }}
+                  className="btn-ghost text-xs gap-1 shrink-0"
+                >
+                  <X size={14} /> Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="card p-0 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-dark-border bg-[#FAFAFA]">
+                    <th className="text-left px-4 py-3 font-medium text-[#666] text-xs uppercase tracking-wider">User</th>
+                    <th className="text-left px-4 py-3 font-medium text-[#666] text-xs uppercase tracking-wider">Email</th>
+                    <th className="text-left px-4 py-3 font-medium text-[#666] text-xs uppercase tracking-wider">Phone</th>
+                    <th className="text-left px-4 py-3 font-medium text-[#666] text-xs uppercase tracking-wider">Membership Plan</th>
+                    <th className="text-left px-4 py-3 font-medium text-[#666] text-xs uppercase tracking-wider">Status</th>
+                    <th className="text-left px-4 py-3 font-medium text-[#666] text-xs uppercase tracking-wider">Expires</th>
+                    <th className="text-left px-4 py-3 font-medium text-[#666] text-xs uppercase tracking-wider">Joined</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usersLoading ? (
+                    [...Array(8)].map((_, i) => (
+                      <tr key={i} className="border-b border-dark-hover">
+                        {[...Array(7)].map((__, j) => (
+                          <td key={j} className="px-4 py-4"><div className="skeleton h-4 w-24" /></td>
+                        ))}
+                      </tr>
+                    ))
+                  ) : users.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-16">
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="w-16 h-16 rounded-full bg-[#F5F5F5] flex items-center justify-center">
+                            <Users size={28} className="text-text-muted" />
+                          </div>
+                          <p className="text-[#111] font-medium">No users found</p>
+                          <p className="text-xs text-text-muted">Users will appear here once they register.</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    users.map(u => {
+                      const mList = u.memberships || [];
+                      const isMultiple = mList.length > 1;
+                      const primaryM = mList.find(m => m.status === 'active') || mList[0] || null;
+                      const isExpanded = expandedUser === u._id;
+
+                      const statusColors = {
+                        active: 'bg-green-50 text-green-700 border-green-200',
+                        expired: 'bg-red-50 text-red-600 border-red-200',
+                        pending: 'bg-amber-50 text-amber-700 border-amber-200',
+                        frozen: 'bg-blue-50 text-blue-700 border-blue-200',
+                        cancelled: 'bg-gray-100 text-gray-500 border-gray-200',
+                      };
+
+                      const StatusBadge = ({ m }) => m ? (
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${statusColors[m.status] || 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+                          {m.status === 'active' ? <CheckCircle size={11} /> : m.status === 'expired' ? <AlertCircle size={11} /> : <Clock size={11} />}
+                          {m.status.charAt(0).toUpperCase() + m.status.slice(1)}
+                        </span>
+                      ) : <span className="text-xs text-text-muted">—</span>;
+
+                      return (
+                        <>
+                          <motion.tr
+                            key={u._id}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.15 }}
+                            onClick={() => isMultiple && setExpandedUser(isExpanded ? null : u._id)}
+                            className={`border-b border-dark-hover transition-colors ${isMultiple ? 'cursor-pointer hover:bg-blue-50/40' : 'hover:bg-[#FAFAFA]'}`}
+                          >
+                            {/* User */}
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                {u.photo ? (
+                                  <img src={u.photo} alt={u.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                                ) : (
+                                  <div className="w-8 h-8 rounded-full bg-[#111] text-white flex items-center justify-center text-xs font-semibold shrink-0">
+                                    {getInitials(u.name)}
+                                  </div>
+                                )}
+                                <span className="font-medium text-[#111] truncate max-w-35">{u.name || '—'}</span>
+                              </div>
+                            </td>
+                            {/* Email */}
+                            <td className="px-4 py-3 text-[#444] text-xs">{u.email || '—'}</td>
+                            {/* Phone */}
+                            <td className="px-4 py-3 text-[#444]">{u.phone || <span className="text-text-muted italic text-xs">Not set</span>}</td>
+                            {/* Plan */}
+                            <td className="px-4 py-3">
+                              {isMultiple ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold cursor-pointer">
+                                  <Users size={11} /> {mList.length} Memberships {isExpanded ? '▲' : '▼'}
+                                </span>
+                              ) : primaryM ? (
+                                <span className="font-medium text-[#111]">{primaryM.planId?.name || '—'}</span>
+                              ) : (
+                                <span className="text-text-muted text-xs">No membership</span>
+                              )}
+                            </td>
+                            {/* Status */}
+                            <td className="px-4 py-3">
+                              {isMultiple ? (
+                                <span className="text-xs text-text-muted">—</span>
+                              ) : (
+                                <StatusBadge m={primaryM} />
+                              )}
+                            </td>
+                            {/* Expires */}
+                            <td className="px-4 py-3 text-[#444] text-xs">
+                              {isMultiple ? '—' : (primaryM?.endDate ? formatDate(primaryM.endDate) : '—')}
+                            </td>
+                            {/* Joined */}
+                            <td className="px-4 py-3 text-[#444] text-xs">{formatDate(u.createdAt)}</td>
+                          </motion.tr>
+
+                          {/* Expanded memberships row */}
+                          {isMultiple && isExpanded && (
+                            <tr key={`${u._id}-expanded`} className="border-b border-dark-hover bg-blue-50/20">
+                              <td colSpan={7} className="px-6 py-3">
+                                <div className="space-y-2">
+                                  {mList.map((m, idx) => (
+                                    <div key={idx} className="flex items-center gap-4 bg-white border border-dark-border rounded-lg px-4 py-2.5 text-sm">
+                                      <span className="font-medium text-[#111] flex-1">{m.planId?.name || '—'}</span>
+                                      <StatusBadge m={m} />
+                                      <span className="text-xs text-text-muted whitespace-nowrap">
+                                        {formatDate(m.startDate)} → {formatDate(m.endDate)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {!usersLoading && userTotal > 0 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-dark-border">
+                <p className="text-xs text-text-muted">
+                  Showing <span className="font-medium text-[#111]">{Math.min((userPage - 1) * 20 + 1, userTotal)}–{Math.min(userPage * 20, userTotal)}</span> of{' '}
+                  <span className="font-medium text-[#111]">{userTotal}</span> users
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setUserPage(p => Math.max(1, p - 1))}
+                    disabled={userPage <= 1}
+                    className="p-1.5 rounded-lg hover:bg-[#F5F5F5] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    onClick={() => setUserPage(p => Math.min(userTotalPages, p + 1))}
+                    disabled={userPage >= userTotalPages}
+                    className="p-1.5 rounded-lg hover:bg-[#F5F5F5] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ════════════════════════════════════════════════════
           Detail Drawer
@@ -500,7 +766,7 @@ function DrawerContent({ membership: m, onClose }) {
   return (
     <>
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#EAEAEA]">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-dark-border">
         <h2 className="text-lg font-semibold text-[#111] font-[Inter]">Membership Details</h2>
         <button
           onClick={onClose}
@@ -532,7 +798,7 @@ function DrawerContent({ membership: m, onClose }) {
         {/* ── Plan details ─────────────────────────────── */}
         <section>
           <h3 className="text-xs font-semibold text-[#999] uppercase tracking-wider mb-3">Plan Details</h3>
-          <div className="bg-[#FAFAFA] border border-[#F0F0F0] rounded-xl p-4 space-y-2.5">
+          <div className="bg-[#FAFAFA] border border-dark-hover rounded-xl p-4 space-y-2.5">
             <DetailRow label="Plan Name" value={plan.name || '—'} />
             <DetailRow label="Duration" value={plan.duration ? `${plan.duration} days` : '—'} />
             <DetailRow label="Price" value={plan.price ? formatCurrency(plan.price) : '—'} />
@@ -576,7 +842,7 @@ function DrawerContent({ membership: m, onClose }) {
               {m.renewalHistory.map((r, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between bg-[#FAFAFA] border border-[#F0F0F0] rounded-lg px-4 py-2.5 text-sm"
+                  className="flex items-center justify-between bg-[#FAFAFA] border border-dark-hover rounded-lg px-4 py-2.5 text-sm"
                 >
                   <div className="flex items-center gap-2">
                     <Clock size={14} className="text-text-muted" />
@@ -598,7 +864,7 @@ function DrawerContent({ membership: m, onClose }) {
 // ─── Tiny reusable pieces ─────────────────────────────────
 function InfoCard({ icon, label, value }) {
   return (
-    <div className="bg-[#FAFAFA] border border-[#F0F0F0] rounded-xl px-3 py-2.5">
+    <div className="bg-[#FAFAFA] border border-dark-hover rounded-xl px-3 py-2.5">
       <div className="flex items-center gap-1.5 mb-1 text-text-muted">
         {icon}
         <span className="text-[10px] uppercase tracking-wider font-medium">{label}</span>
@@ -619,7 +885,7 @@ function DetailRow({ label, value }) {
 
 function StatCard({ label, value, small }) {
   return (
-    <div className="bg-[#FAFAFA] border border-[#F0F0F0] rounded-xl px-3 py-3 text-center">
+    <div className="bg-[#FAFAFA] border border-dark-hover rounded-xl px-3 py-3 text-center">
       <p className={`font-bold text-[#111] ${small ? 'text-xs' : 'text-xl'}`}>{value}</p>
       <p className="text-[10px] text-text-muted uppercase tracking-wider mt-1">{label}</p>
     </div>

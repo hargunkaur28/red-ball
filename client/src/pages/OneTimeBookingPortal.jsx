@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import api from '../lib/axios';
 import { formatCurrency } from '../lib/utils';
 import useAuthStore from '../store/authStore';
+import PhoneCollectModal from '../components/shared/PhoneCollectModal';
 
 export default function OneTimeBookingPortal({ embedded = false }) {
   const [searchParams] = useSearchParams();
@@ -25,6 +26,7 @@ export default function OneTimeBookingPortal({ embedded = false }) {
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(null);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
 
   const googleButtonRef = useCallback((node) => {
     if (!node) return;
@@ -132,6 +134,10 @@ export default function OneTimeBookingPortal({ embedded = false }) {
     e.preventDefault();
     if (!selectedSportId) {
       toast.error('Please select a sport.');
+      return;
+    }
+    if (isAuthenticated && !user?.phone) {
+      setShowPhoneModal(true);
       return;
     }
     if (!isAuthenticated && (!details.name || !details.email || !details.phone)) {
@@ -497,5 +503,13 @@ export default function OneTimeBookingPortal({ embedded = false }) {
         </div>
       </div>
     </div>
+    <PhoneCollectModal
+      open={showPhoneModal}
+      onClose={() => setShowPhoneModal(false)}
+      onSuccess={(phone) => {
+        setDetails(d => ({ ...d, phone }));
+        setShowPhoneModal(false);
+      }}
+    />
   );
 }

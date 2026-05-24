@@ -15,5 +15,6 @@ router.get('/my-passes', auth, controller.getMyPasses);
 router.post('/purchase-order', optionalAuth, controller.purchaseOrder);
 router.post('/verify-purchase', optionalAuth, controller.verifyPurchase);
 router.get('/admin/passes', auth, authorize('superadmin', 'admin', 'manager', 'receptionist'), controller.getAdminPasses);
+router.patch('/admin/passes/:id/mark-completed', auth, authorize('superadmin', 'admin'), controller.markPassCompleted);
 
 module.exports = router;

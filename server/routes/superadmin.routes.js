@@ -8,5 +8,6 @@ const superadminController = require('../controllers/superadmin.controller');
 router.get('/memberships', auth, authorize('superadmin'), superadminController.getMemberships);
 router.get('/overtime-sessions', auth, authorize('superadmin'), superadminController.getOvertimeSessions);
 router.get('/one-time', auth, authorize('superadmin'), superadminController.getOneTimeEntries);
+router.get('/users', auth, authorize('superadmin'), superadminController.getUsers);
 
 module.exports = router;

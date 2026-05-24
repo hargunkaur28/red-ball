@@ -95,10 +95,14 @@ exports.verifyPurchase = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid payment signature.' });
     }
 
-    // 2. Fetch Razorpay Payment Details
-    const paymentDetails = await fetchPaymentDetails(razorpayPaymentId);
-    if (paymentDetails.status !== 'captured' && paymentDetails.status !== 'authorized') {
-      return res.status(400).json({ success: false, message: 'Payment not completed by Razorpay.' });
+    // 2. Fetch Razorpay Payment Details (best-effort — HMAC signature above is the security gate)
+    try {
+      const paymentDetails = await fetchPaymentDetails(razorpayPaymentId);
+      if (paymentDetails.status !== 'captured' && paymentDetails.status !== 'authorized') {
+        return res.status(400).json({ success: false, message: 'Payment not completed by Razorpay.' });
+      }
+    } catch (fetchErr) {
+      console.warn('Razorpay payment fetch failed (proceeding after signature verification):', fetchErr.message);
     }
 
     // 3. Idempotency Check using Razorpay Payment ID or Order ID
@@ -242,6 +246,23 @@ exports.getMyPasses = async (req, res) => {
       .sort({ purchasedAt: -1 });
 
     res.json({ success: true, passes });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PATCH /api/onetimeaccess/admin/passes/:id/mark-completed
+exports.markPassCompleted = async (req, res) => {
+  try {
+    const pass = await OneTimeAccess.findById(req.params.id);
+    if (!pass) return res.status(404).json({ success: false, message: 'Pass not found.' });
+    if (pass.accessStatus === 'completed') {
+      return res.status(400).json({ success: false, message: 'Pass is already completed.' });
+    }
+    pass.accessStatus = 'completed';
+    if (!pass.usedAt) pass.usedAt = new Date();
+    await pass.save();
+    res.json({ success: true, message: 'Pass marked as completed.', pass });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

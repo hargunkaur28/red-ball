@@ -18,7 +18,6 @@ import {
   ChefHat,
   ArrowRight,
   Eye,
-  Download,
   Utensils
 } from 'lucide-react';
 import socket from '../../lib/socket';
@@ -272,10 +271,6 @@ export default function RestaurantOrders() {
           <p className="text-xs text-gray-500 font-medium">
             Showing {filteredOrders.length} orders {filterDate ? `for ${new Date(filterDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}` : 'for all time'}
           </p>
-          <button className="flex items-center gap-2 text-xs font-bold text-gray-600 hover:text-black">
-            <Download size={14} />
-            Export Report
-          </button>
         </div>
       </div>
 

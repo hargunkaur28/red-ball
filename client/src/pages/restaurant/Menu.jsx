@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../lib/axios';
 import PageHeader from '../../components/shared/PageHeader';
 import { formatCurrency } from '../../lib/utils';
-import { CheckCircle2, XCircle, Plus, Trash2, Sparkles, Flame, Clock, Search } from 'lucide-react';
+import { CheckCircle2, XCircle, Plus, Trash2, Sparkles, Flame, Clock, Search, Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 const emptyForm = { 
@@ -32,6 +32,8 @@ export default function Menu() {
   const [editId, setEditId] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [renamingCategory, setRenamingCategory] = useState(null); // { from: string }
+  const [renameValue, setRenameValue] = useState('');
 
   const { data } = useQuery({ 
     queryKey: ['menu'], 
@@ -75,6 +77,17 @@ export default function Menu() {
       qc.invalidateQueries({ queryKey: ['menu'] });
       toast.success('Item archived successfully');
     }
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: ({ from, to }) => api.put('/menu/categories/rename', { from, to }),
+    onSuccess: (_, { from, to }) => {
+      qc.invalidateQueries({ queryKey: ['menu'] });
+      setRenamingCategory(null);
+      if (categoryFilter === from) setCategoryFilter(to);
+      toast.success(`Category renamed to "${to}"`);
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Rename failed'),
   });
 
   const openEdit = (item) => {
@@ -128,7 +141,7 @@ export default function Menu() {
             onClick={() => { setEditId(null); setForm({ ...emptyForm }); setDrawerOpen(true); }}
           >
             <Plus size={18} />
-            <span>+ Add Premium Dish</span>
+            <span>Add Premium Dish</span>
           </button>
         }
       />
@@ -156,15 +169,56 @@ export default function Menu() {
           All Dishes
         </button>
         {CATEGORIES_LIST.map(c => (
-          <button 
-            key={c} 
-            onClick={() => setCategoryFilter(c)} 
-            className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all capitalize ${
-              categoryFilter === c ? 'bg-[#C8102E] text-white shadow-md scale-105' : 'bg-white text-gray-600 border hover:bg-gray-50'
-            }`}
-          >
-            {c}
-          </button>
+          renamingCategory?.from === c ? (
+            <div key={c} className="flex items-center gap-1">
+              <input
+                autoFocus
+                value={renameValue}
+                onChange={e => setRenameValue(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && renameValue.trim() && renameValue.trim() !== c)
+                    renameMutation.mutate({ from: c, to: renameValue.trim() });
+                  if (e.key === 'Escape') setRenamingCategory(null);
+                }}
+                className="px-3 py-1.5 rounded-full text-xs font-extrabold border-2 border-primary outline-none w-36 text-black"
+              />
+              <button
+                onClick={() => {
+                  const to = renameValue.trim();
+                  if (to && to !== c) renameMutation.mutate({ from: c, to });
+                  else setRenamingCategory(null);
+                }}
+                disabled={renameMutation.isPending}
+                className="p-1.5 rounded-full bg-green-100 text-green-700 hover:bg-green-200 cursor-pointer"
+              >
+                <Check size={13} />
+              </button>
+              <button
+                onClick={() => setRenamingCategory(null)}
+                className="p-1.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 cursor-pointer"
+              >
+                <X size={13} />
+              </button>
+            </div>
+          ) : (
+            <div key={c} className="group flex items-center gap-0.5">
+              <button
+                onClick={() => setCategoryFilter(c)}
+                className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all capitalize ${
+                  categoryFilter === c ? 'bg-primary text-white shadow-md scale-105' : 'bg-white text-gray-600 border hover:bg-gray-50'
+                }`}
+              >
+                {c}
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setRenamingCategory({ from: c }); setRenameValue(c); }}
+                className="opacity-0 group-hover:opacity-100 p-1 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
+                title="Rename category"
+              >
+                <Pencil size={11} />
+              </button>
+            </div>
+          )
         ))}
       </div>
 

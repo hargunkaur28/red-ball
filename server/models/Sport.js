@@ -116,4 +116,7 @@ sportSchema.pre('save', async function (next) {
   next();
 });
 
+sportSchema.index({ active: 1, deletedAt: 1 });
+sportSchema.index({ slug: 1, active: 1, deletedAt: 1 });
+
 module.exports = mongoose.model('Sport', sportSchema);

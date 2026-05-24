@@ -195,3 +195,22 @@ exports.updateCategory = async (req, res) => {
     res.json({ category });
   } catch (error) { res.status(500).json({ message: 'Server error.' }); }
 };
+
+exports.deleteCategory = async (req, res) => {
+  try {
+    const count = await MenuItem.countDocuments({ categoryId: req.params.id, isActive: true });
+    if (count > 0) return res.status(400).json({ message: `Cannot delete — ${count} item(s) still use this category.` });
+    await MenuCategory.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ message: 'Server error.' }); }
+};
+
+// Rename all items from one category string to another (merges duplicates)
+exports.renameCategory = async (req, res) => {
+  try {
+    const { from, to } = req.body;
+    if (!from || !to) return res.status(400).json({ message: 'Both from and to are required.' });
+    const result = await MenuItem.updateMany({ category: from }, { $set: { category: to } });
+    res.json({ success: true, updated: result.modifiedCount });
+  } catch (error) { res.status(500).json({ message: 'Server error.' }); }
+};
