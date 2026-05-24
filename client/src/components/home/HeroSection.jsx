@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronDown, ArrowRight, ScanLine, Dumbbell, Trophy, Feather, Target, Layers, Camera, LogIn, X } from 'lucide-react';
+import { ChevronDown, ArrowRight, ScanLine, Dumbbell, Trophy, Feather, Target, Layers, LogIn } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/axios';
 import useAuthStore from '../../store/authStore';
@@ -80,7 +80,6 @@ export default function HeroSection() {
   const { isAuthenticated, user } = useAuthStore();
 
   const [showCheckInMenu, setShowCheckInMenu] = useState(false);
-  const cameraInputRef = useRef(null);
 
   const handleCheckIn = () => {
     if (isAuthenticated) {
@@ -359,54 +358,31 @@ export default function HeroSection() {
       </div>
     </section>
 
-    {/* Hidden camera input — triggers native camera on mobile */}
-    <input
-      id="hero-camera-input"
-      ref={cameraInputRef}
-      type="file"
-      accept="image/*"
-      capture="environment"
-      className="hidden"
-      onChange={() => setShowCheckInMenu(false)}
-    />
-
-    {/* Portal renders popup into document.body — bypasses any CSS filter/transform containing blocks */}
+    {/* Portal renders popup into document.body — bypasses CSS filter/transform containing blocks in Home.jsx */}
     {showCheckInMenu && createPortal(
       <>
         <div className="fixed inset-0 z-9998 bg-black/40 backdrop-blur-sm" onClick={() => setShowCheckInMenu(false)} />
-        <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-9999 bg-[#111] border border-white/10 rounded-2xl p-4 shadow-2xl" style={{ width: 270 }}>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-white text-sm font-bold">How do you want to check in?</p>
-            <button onClick={() => setShowCheckInMenu(false)} className="text-white/40 hover:text-white transition-colors">
-              <X size={16} />
-            </button>
+        <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-9999 bg-[#111] border border-white/10 rounded-2xl p-5 shadow-2xl text-center" style={{ width: 280 }}>
+          <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center mx-auto mb-3">
+            <ScanLine size={22} className="text-primary" />
           </div>
-          <label
-            htmlFor="hero-camera-input"
-            onClick={() => setShowCheckInMenu(false)}
-            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/8 transition-all cursor-pointer mb-2 border border-white/5 hover:border-white/15"
-          >
-            <div className="w-9 h-9 rounded-xl bg-[#0EA5E9]/15 flex items-center justify-center shrink-0">
-              <Camera size={18} className="text-[#0EA5E9]" />
-            </div>
-            <div>
-              <p className="text-white text-sm font-semibold leading-tight">Open Camera</p>
-              <p className="text-white/40 text-xs mt-0.5">Scan the QR code at the gate</p>
-            </div>
-          </label>
+          <p className="text-white font-bold text-sm mb-1">Check-In requires an account</p>
+          <p className="text-white/40 text-xs mb-4 leading-relaxed">
+            Login or sign up to access the QR scanner and check into your sessions.
+          </p>
           <Link
-            to="/login"
+            to="/login?redirectTo=/user/scan"
             onClick={() => setShowCheckInMenu(false)}
-            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/8 transition-all border border-white/5 hover:border-white/15"
+            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-primary hover:bg-[#a60d25] text-white text-sm font-bold transition-all mb-2"
           >
-            <div className="w-9 h-9 rounded-xl bg-gold/15 flex items-center justify-center shrink-0">
-              <LogIn size={18} className="text-gold" />
-            </div>
-            <div>
-              <p className="text-white text-sm font-semibold leading-tight">Login / Sign Up</p>
-              <p className="text-white/40 text-xs mt-0.5">Access your account & passes</p>
-            </div>
+            <LogIn size={16} /> Login / Sign Up
           </Link>
+          <button
+            onClick={() => { window.open('https://lens.google.com/', '_blank', 'noopener,noreferrer'); setShowCheckInMenu(false); }}
+            className="text-white/30 text-xs hover:text-white/60 transition-colors mt-1"
+          >
+            or scan manually with phone camera / Google Lens
+          </button>
         </div>
       </>,
       document.body
