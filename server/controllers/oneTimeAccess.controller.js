@@ -5,6 +5,7 @@ const User = require('../models/User');
 const { getEffectiveConfig } = require('../utils/sessionCalculator');
 const { invalidateEntitlementCache } = require('../utils/entitlementEngine');
 const { createRazorpayOrder, verifyPaymentSignature, fetchPaymentDetails } = require('../config/razorpay');
+const { sendAdminPaymentAlert } = require('../utils/emailService');
 const jwt = require('jsonwebtoken');
 
 const ACCESS_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_secure_123';
@@ -196,7 +197,23 @@ exports.verifyPurchase = async (req, res) => {
     // 7. Invalidate Entitlement cache
     invalidateEntitlementCache(userId);
 
-    // 8. Generate JWT if guest checkout (to log them in automatically)
+    // 8. Notify admin of new one-time pass purchase (fire-and-forget)
+    if (process.env.ADMIN_NOTIFICATION_EMAIL) {
+      const istTimestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+      sendAdminPaymentAlert({
+        adminEmail: process.env.ADMIN_NOTIFICATION_EMAIL,
+        payerName: resolvedUser.name,
+        payerEmail: resolvedUser.email,
+        payerPhone: resolvedUser.phone,
+        paymentType: `One-Time Pass — ${sport.name}`,
+        amount: amount,
+        paymentMode: 'Razorpay',
+        invoiceNumber: `OTA-${pass._id.toString().slice(-6).toUpperCase()}`,
+        timestamp: istTimestamp,
+      }).catch((err) => console.error('Admin alert email failed:', err.message));
+    }
+
+    // 9. Generate JWT if guest checkout (to log them in automatically)
     let authResponse = {};
     if (!req.user) {
       const accessToken = generateAccessToken(resolvedUser._id);

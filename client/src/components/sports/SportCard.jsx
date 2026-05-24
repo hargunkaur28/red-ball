@@ -12,11 +12,12 @@ export default function SportCard({ sport, linkPrefix = '/sports' }) {
   const accentColor = fallback.color || '#C8102E';
 
   const isHourly = sport.hourlyPrice > 0;
-  const isThreeMonth = !isHourly && sport.threeMonthPrice > 0;
-  const priceValue = isHourly 
-    ? `${formatCurrency(sport.hourlyPrice)}/hr` 
-    : isThreeMonth 
-    ? `${formatCurrency(sport.threeMonthPrice)}/3mo` 
+  const monthlyEquiv = sport.oneMonthPrice || (sport.threeMonthPrice ? Math.round(sport.threeMonthPrice / 3) : 0);
+  const hasMonthly = !isHourly && monthlyEquiv > 0;
+  const priceValue = isHourly
+    ? `${formatCurrency(sport.hourlyPrice)}/hr`
+    : hasMonthly
+    ? `${formatCurrency(monthlyEquiv)}/mo`
     : 'View Plans';
 
   return (
@@ -56,7 +57,7 @@ export default function SportCard({ sport, linkPrefix = '/sports' }) {
             className="px-2 py-1 sm:px-2.5 sm:py-1 rounded-xl sm:rounded-full text-[10px] sm:text-[11px] font-bold shadow-lg backdrop-blur-sm flex flex-col sm:block text-center sm:text-left whitespace-nowrap"
             style={{ background: `${accentColor}CC`, color: '#fff' }}
           >
-            {(isHourly || isThreeMonth) && (
+            {(isHourly || hasMonthly) && (
               <span className="text-[8px] sm:text-inherit opacity-80 uppercase sm:normal-case block sm:inline leading-[1.1] sm:mr-1">From</span>
             )}
             <span className="leading-[1.1]">{priceValue}</span>

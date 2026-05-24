@@ -12,8 +12,12 @@ const reviewSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['food', 'sports', 'coaching', 'facilities'],
+    enum: ['food', 'sports', 'coaching', 'facilities', 'membership', 'one-time'],
     required: true,
+  },
+  subCategory: {
+    type: String,
+    trim: true,
   },
   rating: {
     type: Number,
