@@ -282,6 +282,7 @@ export default function OneTimeBookingPortal({ embedded = false }) {
   }
 
   return (
+    <>
     <div className={`${embedded ? 'min-h-0 rounded-2xl' : 'min-h-screen'} bg-[#0A0D0D] text-white p-4 md:p-8 flex items-center justify-center`}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
@@ -511,5 +512,6 @@ export default function OneTimeBookingPortal({ embedded = false }) {
         setShowPhoneModal(false);
       }}
     />
+    </>
   );
 }
