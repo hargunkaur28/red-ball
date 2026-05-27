@@ -33,10 +33,10 @@ export default function SportDetailsSection({ sport }) {
           </h2>
           <a
             href="#booking"
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-white text-xs font-bold tracking-wide transition-all hover:opacity-90 hover:scale-105 shrink-0"
+            className="lg:hidden inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-white text-xs font-bold tracking-wide transition-all hover:opacity-90 hover:scale-105 shrink-0"
             style={{ background: accentColor }}
           >
-            Book Now ↓
+            Book Now ↑
           </a>
         </div>
       </div>
@@ -54,10 +54,10 @@ export default function SportDetailsSection({ sport }) {
         {description}
       </p>
 
-      {/* Rental equipment callout */}
+      {/* Rental equipment callout — hidden on mobile (shown separately above booking) */}
       {rentalText && (
         <div
-          className="rounded-2xl p-4 flex items-center gap-3"
+          className="hidden lg:flex rounded-2xl p-4 items-center gap-3"
           style={{ background: `${accentColor}12`, border: `1px solid ${accentColor}35` }}
         >
           <span className="text-2xl shrink-0">🎒</span>

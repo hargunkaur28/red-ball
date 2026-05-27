@@ -59,6 +59,8 @@ export default function SportDetailPage({ embedded = false }) {
   }
 
   const fallback = getSportFallback(sport.slug || sport.name);
+  const rentalText = sport.rentalEquipment || fallback.rentalEquipment || '';
+  const accentColor = fallback.color || '#C8102E';
   const backHref = embedded ? '/user/book-slots' : '/book-slots';
 
   return (
@@ -84,15 +86,31 @@ export default function SportDetailPage({ embedded = false }) {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-14">
+        {/* Mobile-only rental callout — shown above booking buttons */}
+        {rentalText && (
+          <div
+            className="lg:hidden mb-6 rounded-2xl p-4 flex items-center gap-3"
+            style={{ background: `${accentColor}12`, border: `1px solid ${accentColor}35` }}
+          >
+            <span className="text-2xl shrink-0">🎒</span>
+            <div>
+              <p className="font-bold text-sm" style={{ color: accentColor, fontFamily: "'DM Sans', sans-serif" }}>Equipment Rental</p>
+              <p className="text-white/65 text-xs mt-0.5 leading-relaxed" style={{ fontFamily: "'DM Sans', sans-serif" }}>{rentalText}</p>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-start">
 
-          {/* Left — details */}
-          <SportDetailsSection sport={sport} />
+          {/* Left — details: below booking on mobile, left on desktop */}
+          <div className="order-2 lg:order-1">
+            <SportDetailsSection sport={sport} />
+          </div>
 
-          {/* Right — booking */}
+          {/* Right — booking: first on mobile, right on desktop */}
           <div
             id="booking"
-            className="lg:sticky lg:top-8 rounded-3xl p-6 sm:p-8"
+            className="order-1 lg:order-2 lg:sticky lg:top-8 rounded-3xl p-6 sm:p-8"
             style={{
               background: 'rgba(255,255,255,0.02)',
               border: '1px solid rgba(255,255,255,0.05)',
