@@ -82,6 +82,10 @@ const sportSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  rentalEquipment: {
+    type: String,
+    default: '',
+  },
 }, {
   timestamps: true,
 });

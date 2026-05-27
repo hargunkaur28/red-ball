@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth.middleware');
 const authorize = require('../middleware/role.middleware');
 const sportController = require('../controllers/sport.controller');
+const upload = require('../middleware/upload.middleware');
 
 const optionalAuth = async (req, res, next) => {
   const hasBearerToken = req.headers.authorization?.startsWith('Bearer ');
@@ -17,8 +18,8 @@ router.get('/public', sportController.getPublicSports);
 router.get('/public/:slug', sportController.getPublicSportBySlug);
 router.get('/', auth, authorize('superadmin'), sportController.getAllSports);
 router.get('/:id', auth, authorize('superadmin'), sportController.getSportById);
-router.post('/', auth, authorize('superadmin'), sportController.createSport);
-router.put('/:id', auth, authorize('superadmin'), sportController.updateSport);
+router.post('/', auth, authorize('superadmin'), upload.single('imageFile'), sportController.createSport);
+router.put('/:id', auth, authorize('superadmin'), upload.single('imageFile'), sportController.updateSport);
 router.delete('/:id', auth, authorize('superadmin'), sportController.deleteSport);
 router.patch('/:id/toggle', auth, authorize('superadmin'), sportController.toggleActive);
 router.post('/:id/regenerate-qr', auth, authorize('superadmin'), sportController.regenerateQR);

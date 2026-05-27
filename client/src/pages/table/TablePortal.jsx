@@ -72,6 +72,7 @@ export default function TablePortal({ embedded = false }) {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedItemSize, setSelectedItemSize] = useState(null);
   const [showCartNotif, setShowCartNotif] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -98,8 +99,14 @@ export default function TablePortal({ embedded = false }) {
   const { data: menuData } = useQuery({
     queryKey: ['menu'],
     queryFn: () => api.get('/menu').then(r => r.data),
-    staleTime: 10 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
+
+  const openItemModal = (item) => {
+    setSelectedItem(item);
+    setSelectedItemSize(item.sizes?.[0] || { label: 'Regular', price: item.price || 199 });
+  };
 
   const menuItems = menuData?.items || [];
 
@@ -467,7 +474,7 @@ export default function TablePortal({ embedded = false }) {
                       {/* Clickable Area */}
                       <div className="flex-1 flex flex-col">
                         {/* Immersive Image Header */}
-                        <div className="relative aspect-square sm:h-48 overflow-hidden bg-gradient-to-br from-[#161616] to-[#2D1215] cursor-pointer sm:cursor-auto" onClick={() => setSelectedItem(item)}>
+                        <div className="relative aspect-square sm:h-48 overflow-hidden bg-gradient-to-br from-[#161616] to-[#2D1215] cursor-pointer" onClick={() => openItemModal(item)}>
                           <img 
                             src={item.image} 
                             alt={item.name} 
@@ -512,8 +519,8 @@ export default function TablePortal({ embedded = false }) {
                         {/* Content Details Area */}
                         <div className="p-4 flex flex-col justify-between grow">
                           <div>
-                            {/* Nutrition stats strip */}
-                            {(item.protein || item.calories) && (
+                            {/* Nutrition stats strip — only if showNutrition is enabled */}
+                            {item.showNutrition && (item.protein || item.calories) && (
                               <div className="hidden sm:flex text-[#F5A623] font-bold text-xs tracking-wider mb-2 items-center gap-2">
                                 {item.protein && <span>⚡ {item.protein}g Protein</span>}
                                 {item.protein && item.calories && <span>•</span>}
@@ -541,16 +548,23 @@ export default function TablePortal({ embedded = false }) {
 
                           {item.isAvailable && (
                             <div className="w-full sm:w-auto flex justify-center sm:justify-end">
-                              {qty > 0 ? (
+                              {item.sizes?.length > 1 ? (
+                                <button
+                                  onClick={() => openItemModal(item)}
+                                  className="w-full sm:px-4 px-4 py-1.5 bg-[#C8102E] hover:bg-[#A60D25] text-white text-xs font-black tracking-widest uppercase rounded-full transition-colors"
+                                >
+                                  SELECT SIZE
+                                </button>
+                              ) : qty > 0 ? (
                                 <div className="flex items-center gap-2 bg-black rounded-full p-1 border border-white/10 shadow-lg w-fit">
-                                  <button 
+                                  <button
                                     onClick={() => updateQuantity(item._id, sizeLabel, qty - 1)}
                                     className="w-6 h-6 rounded-full bg-[#222] text-white hover:bg-[#333] flex items-center justify-center font-bold text-xs"
                                   >
                                     −
                                   </button>
                                   <span className="text-xs font-bold text-white min-w-[14px] text-center">{qty}</span>
-                                  <button 
+                                  <button
                                     onClick={() => updateQuantity(item._id, sizeLabel, qty + 1)}
                                     className="w-6 h-6 rounded-full bg-[#C8102E] text-white hover:bg-[#A60D25] flex items-center justify-center font-bold text-xs"
                                   >
@@ -558,9 +572,9 @@ export default function TablePortal({ embedded = false }) {
                                   </button>
                                 </div>
                               ) : (
-                                <button 
+                                <button
                                   onClick={() => {
-                                    addItem({ menuItemId: item._id, name: item.name, size: sizeLabel, price: price, quantity: 1 });
+                                    addItem({ menuItemId: item._id, name: item.name, size: sizeLabel, price, quantity: 1 });
                                     setShowCartNotif(true);
                                     setTimeout(() => setShowCartNotif(false), 3000);
                                   }}
@@ -790,23 +804,23 @@ export default function TablePortal({ embedded = false }) {
         )}
       </AnimatePresence>
 
-      {/* Item Details Modal for Mobile */}
+      {/* Item Details Modal */}
       <AnimatePresence>
         {selectedItem && (
           <>
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }} 
-              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 md:hidden" 
-              onClick={() => setSelectedItem(null)} 
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+              onClick={() => setSelectedItem(null)}
             />
-            <motion.div 
-              initial={{ y: '100%' }} 
-              animate={{ y: 0 }} 
-              exit={{ y: '100%' }} 
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
               transition={{ type: "spring", damping: 26, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-[#161616] rounded-t-3xl max-h-[80vh] overflow-y-auto shadow-2xl border-t border-white/10 md:hidden"
+              className="fixed bottom-0 left-0 right-0 z-50 bg-[#161616] rounded-t-3xl max-h-[85vh] overflow-y-auto shadow-2xl border-t border-white/10"
             >
               <div className="max-w-xl mx-auto p-6 text-white">
                 <div className="flex items-center justify-between mb-4">
@@ -815,33 +829,69 @@ export default function TablePortal({ embedded = false }) {
                     <X size={20} />
                   </button>
                 </div>
-                
-                <div className="mb-4">
-                  <img src={selectedItem.image} alt={selectedItem.name} className="w-full aspect-square object-cover rounded-2xl mb-4" />
-                </div>
 
-                <div className="space-y-3 mb-6">
-                  <div className="flex items-center gap-2">
+                <img src={selectedItem.image} alt={selectedItem.name} className="w-full aspect-video object-cover rounded-2xl mb-4" />
+
+                <div className="space-y-4 mb-6">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className={`px-3 py-1 rounded text-xs font-black tracking-wider text-white ${selectedItem.isVeg ? 'bg-green-600' : 'bg-red-600'}`}>
                       {selectedItem.isVeg ? 'Veg' : 'Non-Veg'}
                     </span>
-                    <span className="px-3 py-1 bg-[#C8102E] text-white rounded-full text-sm font-bold">
-                      {formatCurrency(selectedItem.sizes?.[0]?.price || selectedItem.price)}
+                    <span className="px-3 py-1 bg-[#C8102E] text-white rounded-full text-sm font-bold font-mono">
+                      {formatCurrency(selectedItemSize?.price ?? selectedItem.sizes?.[0]?.price ?? selectedItem.price)}
                     </span>
                   </div>
-                  
-                  {(selectedItem.protein || selectedItem.calories) && (
+
+                  {selectedItem.showNutrition && (selectedItem.protein || selectedItem.calories) && (
                     <div className="text-[#F5A623] font-bold text-sm flex items-center gap-2">
                       {selectedItem.protein && <span>⚡ {selectedItem.protein}g Protein</span>}
                       {selectedItem.protein && selectedItem.calories && <span>•</span>}
                       {selectedItem.calories && <span>{selectedItem.calories} kcal</span>}
                     </div>
                   )}
-                  
-                  <p className="text-gray-300 text-sm leading-relaxed">
-                    {selectedItem.description}
-                  </p>
+
+                  <p className="text-gray-300 text-sm leading-relaxed">{selectedItem.description}</p>
+
+                  {/* Size Selection */}
+                  {selectedItem.sizes?.length > 1 && (
+                    <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
+                      <p className="text-xs font-black text-[#F5A623] uppercase tracking-widest">Choose Your Size</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {selectedItem.sizes.map(s => (
+                          <button
+                            key={s.label}
+                            onClick={() => setSelectedItemSize(s)}
+                            className={`py-3 px-4 rounded-xl text-xs font-black transition-all border-2 flex flex-col items-center gap-0.5 ${
+                              selectedItemSize?.label === s.label
+                                ? 'bg-[#C8102E] border-[#C8102E] text-white shadow-lg scale-[1.03]'
+                                : 'bg-black/40 border-white/10 text-gray-300 hover:border-white/30'
+                            }`}
+                          >
+                            <span>{s.label}</span>
+                            <span className="font-mono text-sm">{formatCurrency(s.price)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                <button
+                  onClick={() => {
+                    const size = selectedItemSize || selectedItem.sizes?.[0] || { label: 'Regular', price: selectedItem.price || 199 };
+                    addItem({ menuItemId: selectedItem._id, name: selectedItem.name, size: size.label, price: size.price, quantity: 1 });
+                    setShowCartNotif(true);
+                    setTimeout(() => setShowCartNotif(false), 3000);
+                    setSelectedItem(null);
+                    toast.success('Added to cart!');
+                  }}
+                  className="w-full py-4 bg-[#C8102E] hover:bg-[#A60D25] text-white font-black text-sm uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg"
+                >
+                  <ShoppingBag size={16} />
+                  {selectedItemSize
+                    ? `Add ${selectedItemSize.label} (${formatCurrency(selectedItemSize.price)}) to Cart`
+                    : 'Add to Cart'}
+                </button>
               </div>
             </motion.div>
           </>

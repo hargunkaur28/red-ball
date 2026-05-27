@@ -9,6 +9,7 @@ export default function SportCard({ sport, linkPrefix = '/sports' }) {
   const thumbnail = sport.thumbnail || fallback.thumbnail;
   const icon = sport.icon || fallback.icon;
   const tagline = sport.tagline || fallback.tagline;
+  const rentalText = sport.rentalEquipment || fallback.rentalEquipment || '';
   const accentColor = fallback.color || '#C8102E';
 
   const isHourly = sport.hourlyPrice > 0;
@@ -70,11 +71,16 @@ export default function SportCard({ sport, linkPrefix = '/sports' }) {
             {tagline}
           </p>
           <h3
-            className="text-white text-lg sm:text-2xl font-black leading-tight mb-2 sm:mb-3 truncate"
+            className="text-white text-lg sm:text-2xl font-black leading-tight mb-1 truncate"
             style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1px' }}
           >
             {sport.name}
           </h3>
+          {rentalText && (
+            <p className="text-white/60 text-[9px] sm:text-[10px] font-semibold mb-2 sm:mb-3 leading-tight">
+              {rentalText}
+            </p>
+          )}
           <div
             className="inline-flex items-center justify-center sm:justify-start gap-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full transition-all duration-300 group-hover:gap-2.5"
             style={{

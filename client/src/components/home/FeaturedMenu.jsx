@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Flame } from 'lucide-react';
 import api from '../../lib/axios';
 
@@ -15,6 +15,7 @@ const itemVariants = {
 };
 
 export default function FeaturedMenu() {
+  const navigate = useNavigate();
   const { data: menuData, isLoading } = useQuery({
     queryKey: ['public-menu-featured'],
     queryFn: () => api.get('/menu').then((r) => r.data),
@@ -60,7 +61,8 @@ export default function FeaturedMenu() {
             <motion.div
               key={item._id}
               variants={itemVariants}
-              className="bg-white border border-black/5 shadow-sm rounded-xl md:rounded-[24px] overflow-hidden group hover:border-black/10 hover:shadow-[0_15px_40px_rgba(0,0,0,0.1)] transition-all duration-300 flex flex-col"
+              onClick={() => navigate('/table-portal')}
+              className="bg-white border border-black/5 shadow-sm rounded-xl md:rounded-[24px] overflow-hidden group hover:border-black/10 hover:shadow-[0_15px_40px_rgba(0,0,0,0.1)] transition-all duration-300 flex flex-col cursor-pointer"
             >
               <div className="relative h-32 sm:h-40 md:h-56 overflow-hidden">
                 <img
@@ -72,7 +74,7 @@ export default function FeaturedMenu() {
                   <p className="text-[#C8102E] font-bold text-[10px] md:text-sm" style={{ fontFamily: "'DM Sans', sans-serif" }}>₹{item.price || item.sizes?.[0]?.price}</p>
                 </div>
               </div>
-              
+
               <div className="p-3 md:p-6 flex-1 flex flex-col bg-white">
                 <div className="flex items-center gap-1.5 md:gap-2 mb-2 md:mb-3">
                   <div className={`w-2.5 h-2.5 md:w-3 md:h-3 shrink-0 rounded-sm shadow-sm ${item.isVeg ? 'bg-green-500' : 'bg-red-500'}`} />
@@ -86,12 +88,14 @@ export default function FeaturedMenu() {
                 <p className="hidden md:block text-[#6B7280] text-sm line-clamp-2 mb-5 flex-1">
                   {item.description}
                 </p>
-                
-                <div className="hidden md:flex flex-col md:flex-row md:items-center gap-1 md:gap-4 text-[9px] md:text-xs font-bold text-black/40 mt-auto">
-                  <span>{item.calories} CAL</span>
-                  <span className="hidden md:block w-1 h-1 rounded-full bg-black/20" />
-                  <span>{item.protein}G PRO</span>
-                </div>
+
+                {item.showNutrition && (
+                  <div className="hidden md:flex flex-col md:flex-row md:items-center gap-1 md:gap-4 text-[9px] md:text-xs font-bold text-black/40 mt-auto">
+                    <span>{item.calories} CAL</span>
+                    <span className="hidden md:block w-1 h-1 rounded-full bg-black/20" />
+                    <span>{item.protein}G PRO</span>
+                  </div>
+                )}
               </div>
             </motion.div>
           ))}

@@ -61,6 +61,10 @@ const menuItemSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  showNutrition: {
+    type: Boolean,
+    default: false,
+  },
   preparationTime: {
     type: Number,
     default: 15,

@@ -4,6 +4,7 @@ const FALLBACKS = {
   badminton: {
     icon: '🏸',
     tagline: 'Fast. Precise. Electrifying.',
+    rentalEquipment: '🏸 Racket & Shuttle available for renting',
     description:
       'Professional indoor badminton courts with premium synthetic flooring, LED tournament lighting, and proper net standards. Whether you are a weekend warrior or training for competition, our courts deliver the performance surface you deserve.',
     features: ['Indoor Courts', 'Coaching Available', 'Equipment Rental', 'Beginner Friendly', 'LED Lighting', 'AC Courts'],
@@ -19,8 +20,25 @@ const FALLBACKS = {
   cricket: {
     icon: '🏏',
     tagline: 'Where Box Cricket Champions Are Made.',
+    rentalEquipment: '🏏 Bat & Ball available for renting',
     description:
-      'Premium box cricket arenas with artificial turf, nets, high floodlights, and coaching zones. Red Ball is Rohtak\'s premier box cricket training and recreational play destination.',
+      "Premium box cricket arenas with artificial turf, nets, high floodlights, and coaching zones. Red Ball is Rohtak's premier box cricket training and recreational play destination.",
+    features: ['Turf Pitch', 'Practice Nets', 'Coaching', 'Floodlights', 'Box Cricket Cage'],
+    chips: ['Box Cricket Arena', 'Floodlit'],
+    thumbnail: 'https://mediarelations.gwu.edu/sites/g/files/zaxdzs5306/files/2024-06/adobestock_510555809.jpeg',
+    heroImage: 'https://mediarelations.gwu.edu/sites/g/files/zaxdzs5306/files/2024-06/adobestock_510555809.jpeg',
+    images: [
+      'https://mediarelations.gwu.edu/sites/g/files/zaxdzs5306/files/2024-06/adobestock_510555809.jpeg',
+      'https://images.unsplash.com/photo-1540747913346-19212a4b423a?q=80&w=800&auto=format&fit=crop',
+    ],
+    color: '#C8102E',
+  },
+  'box-cricket': {
+    icon: '🏏',
+    tagline: 'Where Box Cricket Champions Are Made.',
+    rentalEquipment: '🏏 Bat & Ball available for renting',
+    description:
+      "Premium box cricket arenas with artificial turf, nets, high floodlights, and coaching zones. Red Ball is Rohtak's premier box cricket training and recreational play destination.",
     features: ['Turf Pitch', 'Practice Nets', 'Coaching', 'Floodlights', 'Box Cricket Cage'],
     chips: ['Box Cricket Arena', 'Floodlit'],
     thumbnail: 'https://mediarelations.gwu.edu/sites/g/files/zaxdzs5306/files/2024-06/adobestock_510555809.jpeg',
@@ -34,6 +52,7 @@ const FALLBACKS = {
   swimming: {
     icon: '🏊',
     tagline: 'Dive Into Excellence.',
+    rentalEquipment: '🤿 Kickboards & floats available for use',
     description:
       'Olympic-standard swimming pool with temperature-controlled water, lap lanes, and a dedicated shallow zone for beginners. Professional instructors available for all age groups — from toddlers to competitive swimmers.',
     features: ['Lap Lanes', 'Temperature Controlled', 'Shallow Beginner Zone', 'Certified Coaches', 'Changing Rooms', 'All Ages Welcome'],
@@ -49,6 +68,7 @@ const FALLBACKS = {
   gym: {
     icon: '🏋️',
     tagline: 'Forge Your Strength.',
+    rentalEquipment: '🏋️ Wide range of equipment available',
     description:
       'A fully equipped strength and conditioning facility with modern machines, free weights, cardio equipment, and dedicated functional training zones. Personal trainers available to build customised plans for your goals.',
     features: ['Free Weights', 'Cardio Zone', 'Strength Machines', 'Functional Training', 'Personal Training', 'Locker Rooms'],
@@ -64,6 +84,7 @@ const FALLBACKS = {
   pickleball: {
     icon: '🎾',
     tagline: 'The Fastest Growing Sport.',
+    rentalEquipment: '🎾 Paddle & Ball available for renting',
     description:
       'Dedicated pickleball courts with premium cushioned flooring, proper net heights, and great lighting. Join the fastest-growing sport in India — fun for all ages, perfect for singles and doubles.',
     features: ['Dedicated Courts', 'Cushioned Flooring', 'Paddles Available', 'Coaching Sessions', 'Beginner Programs', 'Tournament Play'],
@@ -78,6 +99,7 @@ const FALLBACKS = {
   'all-services': {
     icon: '👑',
     tagline: 'The Ultimate Access Pass.',
+    rentalEquipment: '',
     description:
       'Gain VIP entry to all sports facilities at Red Ball Academy. Unlimited bookings for Box Cricket, Badminton, Pickleball, Swimming Pool, and Gym. Your absolute all-access pass to fitness and premium sports.',
     features: ['Access All Sports', 'VIP Priority Booking', 'Custom Performance Logs', 'Personalized Support', 'Unlock All Events'],

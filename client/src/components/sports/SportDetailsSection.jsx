@@ -6,6 +6,7 @@ export default function SportDetailsSection({ sport }) {
   const fallback = getSportFallback(sport?.slug || sport?.name || '');
   const description = sport?.description || fallback.description;
   const features = sport?.features?.length ? sport.features : fallback.features;
+  const rentalText = sport?.rentalEquipment || fallback.rentalEquipment || '';
   const accentColor = fallback.color || '#C8102E';
 
   return (
@@ -52,6 +53,20 @@ export default function SportDetailsSection({ sport }) {
       <p className="text-white/65 leading-relaxed text-base" style={{ fontFamily: "'DM Sans', sans-serif" }}>
         {description}
       </p>
+
+      {/* Rental equipment callout */}
+      {rentalText && (
+        <div
+          className="rounded-2xl p-4 flex items-center gap-3"
+          style={{ background: `${accentColor}12`, border: `1px solid ${accentColor}35` }}
+        >
+          <span className="text-2xl shrink-0">🎒</span>
+          <div>
+            <p className="font-bold text-sm" style={{ color: accentColor }}>Equipment Rental</p>
+            <p className="text-white/65 text-xs mt-0.5 leading-relaxed">{rentalText}</p>
+          </div>
+        </div>
+      )}
 
       {/* Feature list */}
       <div>

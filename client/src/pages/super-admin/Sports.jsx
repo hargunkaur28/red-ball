@@ -212,7 +212,10 @@ export default function Sports() {
   function handleFormSubmit(e) {
     e.preventDefault();
     const fd = new FormData(e.target);
-    const payload = {
+    const file = fd.get('imageFile');
+    const hasFile = file && file.size > 0;
+
+    const base = {
       name: fd.get('name'),
       hourlyPrice: Number(fd.get('hourlyPrice')),
       dayPrice: fd.get('dayPrice') ? Number(fd.get('dayPrice')) : null,
@@ -221,7 +224,19 @@ export default function Sports() {
       sixMonthPrice: Number(fd.get('price6Month')),
       twelveMonthPrice: Number(fd.get('price12Month')),
       active: fd.get('isActive') === 'on',
+      thumbnail: fd.get('thumbnail') || '',
+      description: fd.get('description') || '',
+      tagline: fd.get('tagline') || '',
+      rentalEquipment: fd.get('rentalEquipment') || '',
     };
+
+    let payload = base;
+    if (hasFile) {
+      const formData = new FormData();
+      Object.entries(base).forEach(([k, v]) => { if (v !== null && v !== undefined) formData.append(k, v); });
+      formData.append('imageFile', file);
+      payload = formData;
+    }
 
     if (editingSport) {
       updateMutation.mutate({ id: editingSport._id, data: payload });
@@ -421,13 +436,20 @@ function SportCard({ sport, onEdit, onToggle, onArchive, onViewQR, onConfig }) {
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
-              <Trophy size={20} className="text-gray-500" />
+            <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden shrink-0">
+              {sport.thumbnail ? (
+                <img src={sport.thumbnail} alt={sport.name} className="w-full h-full object-cover" />
+              ) : (
+                <Trophy size={20} className="text-gray-500" />
+              )}
             </div>
             <div>
               <h3 className="text-lg font-bold text-gray-900 leading-tight">
                 {sport.name}
               </h3>
+              {sport.tagline && (
+                <p className="text-xs text-gray-400 mt-0.5">{sport.tagline}</p>
+              )}
             </div>
           </div>
           <span
@@ -598,6 +620,9 @@ function EmptyState({ filter, onCreateClick }) {
 // Slide-in Drawer
 // ===========================================================================
 function SportDrawer({ sport, onClose, onSubmit, isPending }) {
+  const [previewUrl, setPreviewUrl] = useState(sport?.thumbnail || '');
+  const [imageFile, setImageFile] = useState(null);
+
   // Close on Escape
   useEffect(() => {
     function handleKey(e) {
@@ -655,6 +680,86 @@ function SportDrawer({ sport, onClose, onSubmit, isPending }) {
                 defaultValue={sport?.name}
                 className="input-field"
                 placeholder="e.g., Cricket"
+              />
+            </div>
+
+            {/* Image */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Sport Image
+              </label>
+              {previewUrl && (
+                <img
+                  src={previewUrl}
+                  alt="preview"
+                  className="w-full h-36 object-cover rounded-xl mb-2 border border-gray-200"
+                  onError={() => setPreviewUrl('')}
+                />
+              )}
+              <input
+                name="thumbnail"
+                type="url"
+                defaultValue={sport?.thumbnail}
+                className="input-field mb-2"
+                placeholder="Paste image URL (https://...)"
+                onChange={e => { setPreviewUrl(e.target.value); setImageFile(null); }}
+              />
+              <div className="relative">
+                <input
+                  name="imageFile"
+                  type="file"
+                  accept="image/*"
+                  className="w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setImageFile(file);
+                      setPreviewUrl(URL.createObjectURL(file));
+                    }
+                  }}
+                />
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1">Paste a URL above or upload a file — file upload takes priority.</p>
+            </div>
+
+            {/* Tagline */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Tagline
+              </label>
+              <input
+                name="tagline"
+                defaultValue={sport?.tagline}
+                className="input-field"
+                placeholder="e.g., Play hard, win big"
+              />
+            </div>
+
+            {/* Rental Equipment */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Rental Equipment Text
+              </label>
+              <input
+                name="rentalEquipment"
+                defaultValue={sport?.rentalEquipment}
+                className="input-field"
+                placeholder="e.g., 🏸 Racket & Shuttle available for renting"
+              />
+              <p className="text-[11px] text-gray-400 mt-1">Shown on the sport card on the public homepage. Leave blank to use the default for this sport or hide.</p>
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Description
+              </label>
+              <textarea
+                name="description"
+                rows={3}
+                defaultValue={sport?.description}
+                className="input-field resize-none"
+                placeholder="Short description shown on the public sport page"
               />
             </div>
 

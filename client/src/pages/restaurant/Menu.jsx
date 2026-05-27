@@ -7,19 +7,20 @@ import { formatCurrency } from '../../lib/utils';
 import { CheckCircle2, XCircle, Plus, Trash2, Sparkles, Flame, Clock, Search, Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 
-const emptyForm = { 
-  name: '', 
-  description: '', 
-  category: 'Snacks', 
-  image: '', 
-  calories: 250, 
-  protein: 15, 
+const emptyForm = {
+  name: '',
+  description: '',
+  category: 'Snacks',
+  image: '',
+  calories: 250,
+  protein: 15,
   preparationTime: 15,
-  featured: false, 
-  chefRecommended: false, 
-  sizes: [{ label: 'Regular', price: 199 }], 
-  isVeg: true, 
+  featured: false,
+  chefRecommended: false,
+  sizes: [{ label: 'Regular', price: 199 }],
+  isVeg: true,
   isAvailable: true,
+  showNutrition: false,
   imageFile: null
 };
 
@@ -102,9 +103,10 @@ export default function Menu() {
       preparationTime: item.preparationTime || 15,
       featured: item.featured || false,
       chefRecommended: item.chefRecommended || false,
-      sizes: item.sizes?.length ? item.sizes : [{ label: 'Regular', price: 199 }], 
-      isVeg: item.isVeg ?? true, 
+      sizes: item.sizes?.length ? item.sizes : [{ label: 'Regular', price: 199 }],
+      isVeg: item.isVeg ?? true,
       isAvailable: item.isAvailable ?? true,
+      showNutrition: item.showNutrition ?? false,
       imageFile: null,
     });
     setDrawerOpen(true);
@@ -487,23 +489,36 @@ export default function Menu() {
                   {/* Feature Checkboxes */}
                   <div className="grid grid-cols-2 gap-3 pt-2">
                     <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${form.featured ? 'bg-amber-50 border-amber-300' : 'bg-gray-50 border-gray-200'}`}>
-                      <input 
-                        type="checkbox" 
-                        checked={form.featured} 
-                        onChange={e => setForm({...form, featured: e.target.checked})} 
-                        className="w-4 h-4 accent-[#F5A623]" 
+                      <input
+                        type="checkbox"
+                        checked={form.featured}
+                        onChange={e => setForm({...form, featured: e.target.checked})}
+                        className="w-4 h-4 accent-[#F5A623]"
                       />
                       <span className="text-xs font-black text-black">★ Featured Hero Item</span>
                     </label>
 
                     <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${form.chefRecommended ? 'bg-blue-50 border-blue-300' : 'bg-gray-50 border-gray-200'}`}>
-                      <input 
-                        type="checkbox" 
-                        checked={form.chefRecommended} 
-                        onChange={e => setForm({...form, chefRecommended: e.target.checked})} 
-                        className="w-4 h-4 accent-blue-600" 
+                      <input
+                        type="checkbox"
+                        checked={form.chefRecommended}
+                        onChange={e => setForm({...form, chefRecommended: e.target.checked})}
+                        className="w-4 h-4 accent-blue-600"
                       />
                       <span className="text-xs font-black text-black">👨‍🍳 Chef's Choice</span>
+                    </label>
+
+                    <label className={`col-span-2 flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${form.showNutrition ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-200'}`}>
+                      <input
+                        type="checkbox"
+                        checked={form.showNutrition}
+                        onChange={e => setForm({...form, showNutrition: e.target.checked})}
+                        className="w-4 h-4 accent-green-600"
+                      />
+                      <div>
+                        <span className="text-xs font-black text-black">🥗 Show Nutrition Info on Menu</span>
+                        <p className="text-[10px] text-gray-400 mt-0.5">Displays calories & protein to customers on the ordering page and home page</p>
+                      </div>
                     </label>
                   </div>
 

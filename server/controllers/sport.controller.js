@@ -179,8 +179,8 @@ const syncMembershipPlans = async (sport, session) => {
 // POST /api/sports - Create a new sport
 exports.createSport = async (req, res) => {
   try {
-    const { name, hourlyPrice, dayPrice, oneMonthPrice, threeMonthPrice, sixMonthPrice, twelveMonthPrice, active } = req.body;
-    
+    const { name, hourlyPrice, dayPrice, oneMonthPrice, threeMonthPrice, sixMonthPrice, twelveMonthPrice, active, thumbnail, description, tagline, rentalEquipment } = req.body;
+
     // Duplicate prevention
     const existing = await Sport.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') }, deletedAt: null });
     if (existing) {
@@ -195,7 +195,11 @@ exports.createSport = async (req, res) => {
       threeMonthPrice,
       sixMonthPrice,
       twelveMonthPrice,
-      active: active !== undefined ? active : true
+      active: active !== undefined ? active : true,
+      thumbnail: req.file ? req.file.path : (thumbnail || ''),
+      description: description || '',
+      tagline: tagline || '',
+      rentalEquipment: rentalEquipment || '',
     };
 
     const newSport = await runTransaction(async (session) => {
@@ -220,7 +224,7 @@ exports.createSport = async (req, res) => {
 // PUT /api/sports/:id - Update an existing sport
 exports.updateSport = async (req, res) => {
   try {
-    const { name, hourlyPrice, dayPrice, oneMonthPrice, threeMonthPrice, sixMonthPrice, twelveMonthPrice, active, forceDeactivate } = req.body;
+    const { name, hourlyPrice, dayPrice, oneMonthPrice, threeMonthPrice, sixMonthPrice, twelveMonthPrice, active, forceDeactivate, thumbnail, description, tagline, rentalEquipment } = req.body;
     const sportId = req.params.id;
 
     const sport = await Sport.findById(sportId);
@@ -261,6 +265,11 @@ exports.updateSport = async (req, res) => {
     if (sixMonthPrice !== undefined) sport.sixMonthPrice = sixMonthPrice;
     if (twelveMonthPrice !== undefined) sport.twelveMonthPrice = twelveMonthPrice;
     if (active !== undefined) sport.active = active;
+    if (req.file) sport.thumbnail = req.file.path;
+    else if (thumbnail !== undefined) sport.thumbnail = thumbnail;
+    if (description !== undefined) sport.description = description;
+    if (tagline !== undefined) sport.tagline = tagline;
+    if (rentalEquipment !== undefined) sport.rentalEquipment = rentalEquipment;
 
     const updatedSport = await runTransaction(async (session) => {
       const opts = session ? { session } : {};

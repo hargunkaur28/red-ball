@@ -154,6 +154,7 @@ export default function TableOrder() {
   const [cartOpen, setCartOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(false);
   const [selectedFood, setSelectedFood] = useState(null);
+  const [selectedSize, setSelectedSize] = useState(null);
   const [loading, setLoading] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(null);
   const [scriptLoaded, setScriptLoaded] = useState(false);
@@ -165,6 +166,11 @@ export default function TableOrder() {
   const [paymentMethod, setPaymentMethod] = useState('online'); // 'online' (Razorpay/UPI)
 
   useEffect(() => { setTableId(tableId); }, [tableId, setTableId]);
+
+  const openFoodModal = (item) => {
+    setSelectedFood(item);
+    setSelectedSize(item.sizes?.[0] || { label: 'Regular', price: item.price || 199 });
+  };
 
   // Load Razorpay script
   useEffect(() => {
@@ -215,11 +221,12 @@ export default function TableOrder() {
     refetchInterval: ordersOpen ? 3000 : false,
   });
 
-  // Fetch Live Menu Items from backend API
+  // Fetch Live Menu Items from backend API — no staleTime so menu changes are always reflected
   const { data: menuData } = useQuery({
     queryKey: ['menu'],
     queryFn: () => api.get('/menu').then(r => r.data),
-    staleTime: 10 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const placeOrder = async () => {
@@ -496,7 +503,7 @@ export default function TableOrder() {
                 }`}
               >
                 {/* Clickable Area */}
-                <div className="flex-1 flex flex-col cursor-pointer" onClick={() => setSelectedFood(item)}>
+                <div className="flex-1 flex flex-col cursor-pointer" onClick={() => openFoodModal(item)}>
                   {/* Immersive Image Header */}
                   <div className="relative h-32 sm:h-60 overflow-hidden bg-gradient-to-br from-[#161616] to-[#2D1215]">
                     <img 
@@ -543,12 +550,14 @@ export default function TableOrder() {
                   {/* Content Details Area */}
                   <div className="p-4 sm:p-6 flex flex-col justify-between grow">
                     <div>
-                      {/* Nutrition stats strip - Desktop only */}
-                      <div className="text-[#F5A623] font-bold text-xs tracking-wider mb-2 hidden sm:flex items-center gap-2">
-                        <span>⚡ {item.protein}g Protein</span>
-                        <span>•</span>
-                        <span>{item.calories} kcal</span>
-                      </div>
+                      {/* Nutrition stats strip - Desktop only, if enabled */}
+                      {item.showNutrition && (
+                        <div className="text-[#F5A623] font-bold text-xs tracking-wider mb-2 hidden sm:flex items-center gap-2">
+                          <span>⚡ {item.protein}g Protein</span>
+                          <span>•</span>
+                          <span>{item.calories} kcal</span>
+                        </div>
+                      )}
 
                       <h3 className="text-sm sm:text-xl font-bold text-white tracking-wide mb-1 sm:mb-2 line-clamp-1 group-hover:text-[#F5A623] transition-colors">
                         {item.name}
@@ -576,17 +585,25 @@ export default function TableOrder() {
 
                     {item.isAvailable && (
                       <div>
-                        {qty > 0 ? (
+                        {item.sizes?.length > 1 ? (
+                          /* Multiple sizes — always open modal for size selection */
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openFoodModal(item); }}
+                            className="px-4 py-2 bg-[#C8102E] hover:bg-[#A00D24] text-white rounded-full text-xs font-bold uppercase transition-all shadow-md active:scale-95"
+                          >
+                            Select Size
+                          </button>
+                        ) : qty > 0 ? (
                           <div className="flex items-center gap-2 bg-black rounded-full p-1 border border-white/10 shadow-lg scale-90 sm:scale-100">
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); updateQuantity(item._id, 'Regular', qty - 1); }}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); updateQuantity(item._id, item.sizes?.[0]?.label || 'Regular', qty - 1); }}
                               className="w-7 h-7 rounded-full bg-[#222] text-white hover:bg-[#333] flex items-center justify-center font-bold text-xs"
                             >
                               −
                             </button>
                             <span className="text-white text-xs font-bold w-5 text-center font-mono">{qty}</span>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); updateQuantity(item._id, 'Regular', qty + 1); }}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); updateQuantity(item._id, item.sizes?.[0]?.label || 'Regular', qty + 1); }}
                               className="w-7 h-7 rounded-full bg-[#F5A623] text-black hover:bg-[#E09410] flex items-center justify-center font-bold text-xs"
                             >
                               +
@@ -595,16 +612,16 @@ export default function TableOrder() {
                         ) : (
                           <>
                             {/* Mobile Circular Button */}
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); addItem({ menuItemId: item._id, name: item.name, size: 'Regular', price }); toast.success('Added!'); }}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); addItem({ menuItemId: item._id, name: item.name, size: item.sizes?.[0]?.label || 'Regular', price }); toast.success('Added!'); }}
                               className="w-10 h-10 rounded-full bg-[#C8102E] text-white flex sm:hidden flex-col items-center justify-center shadow-lg active:scale-90 transition-transform"
                             >
                               <span className="text-[10px] font-black leading-none">ADD</span>
                               <Plus size={14} strokeWidth={3} />
                             </button>
                             {/* Desktop Pill Button */}
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); addItem({ menuItemId: item._id, name: item.name, size: 'Regular', price }); toast.success('Added to order!'); }}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); addItem({ menuItemId: item._id, name: item.name, size: item.sizes?.[0]?.label || 'Regular', price }); toast.success('Added to order!'); }}
                               className="hidden sm:flex px-5 py-2.5 bg-[#C8102E] hover:bg-[#A00D24] text-white rounded-full text-xs font-bold transition-all shadow-lg hover:scale-105 active:scale-95 items-center gap-1.5 uppercase tracking-wider"
                             >
                               <span>Add</span>
@@ -670,7 +687,7 @@ export default function TableOrder() {
                 }`}
               >
                 {/* Clickable Area */}
-                <div className="flex-1 flex flex-col cursor-pointer" onClick={() => setSelectedFood(item)}>
+                <div className="flex-1 flex flex-col cursor-pointer" onClick={() => openFoodModal(item)}>
                   {/* Image Section */}
                   <div className="relative h-32 sm:h-48 overflow-hidden">
                     <img 
@@ -724,25 +741,32 @@ export default function TableOrder() {
 
                     {item.isAvailable && (
                       <div>
-                        {qty > 0 ? (
+                        {item.sizes?.length > 1 ? (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openFoodModal(item); }}
+                            className="px-4 py-2 bg-[#C8102E] hover:bg-[#A00D24] text-white rounded-full text-xs font-bold uppercase transition-all shadow-md active:scale-95"
+                          >
+                            Select Size
+                          </button>
+                        ) : qty > 0 ? (
                           <div className="flex items-center gap-1.5 bg-black rounded-full p-1 border border-white/10 shadow">
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); updateQuantity(item._id, 'Regular', qty - 1); }}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); updateQuantity(item._id, item.sizes?.[0]?.label || 'Regular', qty - 1); }}
                               className="w-6 h-6 rounded-full bg-[#222] text-white font-bold text-xs flex items-center justify-center"
                             >
                               −
                             </button>
                             <span className="text-white text-xs font-bold w-4 text-center font-mono">{qty}</span>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); updateQuantity(item._id, 'Regular', qty + 1); }}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); updateQuantity(item._id, item.sizes?.[0]?.label || 'Regular', qty + 1); }}
                               className="w-6 h-6 rounded-full bg-[#F5A623] text-black font-bold text-xs flex items-center justify-center"
                             >
                               +
                             </button>
                           </div>
                         ) : (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); addItem({ menuItemId: item._id, name: item.name, size: 'Regular', price }); toast.success('Added to order!'); }}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); addItem({ menuItemId: item._id, name: item.name, size: item.sizes?.[0]?.label || 'Regular', price }); toast.success('Added to order!'); }}
                             className="px-4 py-2 bg-[#C8102E] hover:bg-[#A00D24] text-white rounded-full text-xs font-bold uppercase transition-all shadow-md active:scale-95"
                           >
                             Add +
@@ -1036,25 +1060,29 @@ export default function TableOrder() {
                       </h2>
                     </div>
                     <div className="text-xl font-black text-[#F5A623] font-mono">
-                      {formatCurrency(selectedFood.sizes?.[0]?.price || selectedFood.price || 199)}
+                      {formatCurrency(selectedSize?.price ?? selectedFood.sizes?.[0]?.price ?? selectedFood.price ?? 199)}
                     </div>
                   </div>
                 </div>
 
                 {/* Content */}
                 <div className="p-6 sm:p-8 space-y-6 overflow-y-auto max-h-[55vh] scrollbar-none">
-                  {/* Nutrition Stats Grid */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-black/40 rounded-2xl p-3 border border-white/5 text-center">
-                      <div className="text-[#C8102E] mb-1 flex justify-center"><Flame size={16} /></div>
-                      <div className="text-lg font-black text-white">{selectedFood.calories || '---'}</div>
-                      <div className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Calories</div>
-                    </div>
-                    <div className="bg-black/40 rounded-2xl p-3 border border-white/5 text-center">
-                      <div className="text-[#F5A623] mb-1 flex justify-center"><Sparkles size={16} /></div>
-                      <div className="text-lg font-black text-white">{selectedFood.protein || '---'}g</div>
-                      <div className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Protein</div>
-                    </div>
+                  {/* Nutrition Stats Grid — only calories+protein if showNutrition enabled */}
+                  <div className={`grid gap-3 ${selectedFood.showNutrition ? 'grid-cols-3' : 'grid-cols-1'}`}>
+                    {selectedFood.showNutrition && (
+                      <>
+                        <div className="bg-black/40 rounded-2xl p-3 border border-white/5 text-center">
+                          <div className="text-[#C8102E] mb-1 flex justify-center"><Flame size={16} /></div>
+                          <div className="text-lg font-black text-white">{selectedFood.calories || '---'}</div>
+                          <div className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Calories</div>
+                        </div>
+                        <div className="bg-black/40 rounded-2xl p-3 border border-white/5 text-center">
+                          <div className="text-[#F5A623] mb-1 flex justify-center"><Sparkles size={16} /></div>
+                          <div className="text-lg font-black text-white">{selectedFood.protein || '---'}g</div>
+                          <div className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Protein</div>
+                        </div>
+                      </>
+                    )}
                     <div className="bg-black/40 rounded-2xl p-3 border border-white/5 text-center">
                       <div className="text-blue-500 mb-1 flex justify-center"><Clock size={16} /></div>
                       <div className="text-lg font-black text-white">{selectedFood.preparationTime || '---'}m</div>
@@ -1086,23 +1114,51 @@ export default function TableOrder() {
                     </div>
                   </div>
 
+                  {/* Size Selection — always shown when multiple sizes exist */}
+                  {selectedFood.sizes?.length > 1 && (
+                    <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
+                      <h4 className="text-[11px] font-black text-[#F5A623] uppercase tracking-widest">
+                        Choose Your Size
+                      </h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        {selectedFood.sizes.map(s => (
+                          <button
+                            key={s.label}
+                            onClick={() => setSelectedSize(s)}
+                            className={`py-3 px-4 rounded-xl text-xs font-black transition-all border-2 flex flex-col items-center gap-0.5 ${
+                              selectedSize?.label === s.label
+                                ? 'bg-[#C8102E] border-[#C8102E] text-white shadow-lg scale-[1.03]'
+                                : 'bg-black/40 border-white/10 text-gray-300 hover:border-white/30'
+                            }`}
+                          >
+                            <span>{s.label}</span>
+                            <span className="font-mono text-sm">{formatCurrency(s.price)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Action Button */}
                   <div className="pt-2">
-                    <button 
-                      onClick={() => { 
-                        addItem({ 
-                          menuItemId: selectedFood._id, 
-                          name: selectedFood.name, 
-                          size: 'Regular', 
-                          price: selectedFood.sizes?.[0]?.price || selectedFood.price || 199 
-                        }); 
+                    <button
+                      onClick={() => {
+                        const size = selectedSize || selectedFood.sizes?.[0] || { label: 'Regular', price: selectedFood.price || 199 };
+                        addItem({
+                          menuItemId: selectedFood._id,
+                          name: selectedFood.name,
+                          size: size.label,
+                          price: size.price,
+                        });
                         toast.success('Added to your cart!');
                         setSelectedFood(null);
                       }}
                       className="w-full py-4 bg-[#C8102E] hover:bg-[#A00D24] text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-[0_10px_30px_rgba(200,16,46,0.3)] transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2"
                     >
                       <ShoppingBag size={16} />
-                      Add to Cart
+                      {selectedSize
+                        ? `Add ${selectedSize.label} (${formatCurrency(selectedSize.price)}) to Cart`
+                        : 'Add to Cart'}
                     </button>
                   </div>
                 </div>
