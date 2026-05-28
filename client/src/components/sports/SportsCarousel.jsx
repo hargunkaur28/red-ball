@@ -1,15 +1,68 @@
-import { useRef, useState } from 'react';
+import { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import SportCard from './SportCard';
 
 const SCROLL_AMOUNT = 320;
-const CARD_GAP = 20; // px — matches gap-5 (5 * 4 = 20px)
+const CARD_GAP = 20;
+const CARD_WIDTH = 280;
+const MARQUEE_SPEED = 1.5; // px per frame @ 60fps
 
 export default function SportsCarousel({ sports = [], linkPrefix = '/sports', showArrows = true, isMarquee = false }) {
   const scrollRef = useRef(null);
   const scrollPosRef = useRef(0);
-  const [isPaused, setIsPaused] = useState(false);
+
+  // ── Marquee refs ──
+  const trackRef = useRef(null);
+  const posRef = useRef(0);
+  const pausedRef = useRef(false);
+  const touchXRef = useRef(0);
+  const animIdRef = useRef(null);
+
+  useEffect(() => {
+    if (!isMarquee) return;
+
+    const step = () => {
+      if (!pausedRef.current && trackRef.current) {
+        posRef.current += MARQUEE_SPEED;
+        const halfWidth = trackRef.current.scrollWidth / 2;
+        if (posRef.current >= halfWidth) posRef.current = 0;
+        trackRef.current.style.transform = `translateX(-${posRef.current}px)`;
+      }
+      animIdRef.current = requestAnimationFrame(step);
+    };
+
+    animIdRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(animIdRef.current);
+  }, [isMarquee]);
+
+  const handleTouchStart = (e) => {
+    pausedRef.current = true;
+    touchXRef.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e) => {
+    if (!trackRef.current) return;
+    const dx = touchXRef.current - e.touches[0].clientX;
+    touchXRef.current = e.touches[0].clientX;
+    posRef.current = Math.max(0, posRef.current + dx);
+    const halfWidth = trackRef.current.scrollWidth / 2;
+    if (posRef.current >= halfWidth) posRef.current = 0;
+    trackRef.current.style.transform = `translateX(-${posRef.current}px)`;
+  };
+
+  const handleTouchEnd = () => {
+    setTimeout(() => { pausedRef.current = false; }, 1500);
+  };
+
+  const handleMarqueeNext = () => {
+    if (!trackRef.current) return;
+    posRef.current = Math.min(
+      trackRef.current.scrollWidth / 2 - 1,
+      posRef.current + CARD_WIDTH + CARD_GAP
+    );
+    trackRef.current.style.transform = `translateX(-${posRef.current}px)`;
+  };
 
   const scroll = (dir) => {
     if (!scrollRef.current) return;
@@ -21,32 +74,21 @@ export default function SportsCarousel({ sports = [], linkPrefix = '/sports', sh
 
   if (!sports.length) return null;
 
-  // ── Marquee mode: pure CSS transform animation (GPU-composited, GIF-safe) ──
+  // ── Marquee mode: rAF + translateX (GPU-composited, touch-draggable, GIF-safe) ──
   if (isMarquee) {
-    // Two identical copies. Each card has margin-right instead of gap so the
-    // seam between copy1-end and copy2-start has identical spacing.
-    // translateX(-50%) = exactly one copy's width → seamless loop.
     return (
       <div
         className="relative overflow-hidden pb-4 pt-2"
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-        onTouchStart={() => setIsPaused(true)}
-        onTouchEnd={() => setIsPaused(false)}
+        onMouseEnter={() => { pausedRef.current = true; }}
+        onMouseLeave={() => { pausedRef.current = false; }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
-        <style>{`
-          @keyframes rb-marquee {
-            0%   { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-          }
-        `}</style>
         <div
+          ref={trackRef}
           className="flex"
-          style={{
-            animation: 'rb-marquee 14s linear infinite',
-            animationPlayState: isPaused ? 'paused' : 'running',
-            willChange: 'transform',
-          }}
+          style={{ willChange: 'transform' }}
         >
           {[...sports, ...sports].map((sport, i) => (
             <div
@@ -58,8 +100,18 @@ export default function SportsCarousel({ sports = [], linkPrefix = '/sports', sh
             </div>
           ))}
         </div>
+
+        {/* Next button — mobile only */}
+        <button
+          onClick={handleMarqueeNext}
+          aria-label="Next"
+          className="lg:hidden flex absolute right-2 top-1/2 -translate-y-[calc(50%+8px)] z-20 w-9 h-9 rounded-full bg-black/70 border border-white/20 items-center justify-center text-white shadow-xl backdrop-blur-sm"
+        >
+          <ChevronRight size={18} />
+        </button>
+
         {/* Fade edges */}
-        <div className="pointer-events-none absolute left-0 top-0 bottom-4 w-12 bg-linear-to-r from-dark to-transparent" />
+        <div className="pointer-events-none absolute left-0 top-0 bottom-4 w-10 bg-linear-to-r from-dark to-transparent" />
         <div className="pointer-events-none absolute right-0 top-0 bottom-4 w-16 bg-linear-to-l from-dark to-transparent" />
       </div>
     );
