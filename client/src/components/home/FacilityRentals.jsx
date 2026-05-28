@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Zap } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import api from '../../lib/axios';
 import SportsCarousel from '../sports/SportsCarousel';
 import useAuthStore from '../../store/authStore';
@@ -67,8 +67,7 @@ export default function FacilityRentals() {
             onMouseEnter={(e) => { e.currentTarget.style.background = '#a00d24'; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = '#C8102E'; }}
           >
-            <Zap size={15} />
-            Book Now
+            View All Sports
             <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-1" />
           </Link>
         </motion.div>

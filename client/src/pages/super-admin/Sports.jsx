@@ -29,6 +29,7 @@ const FILTER_TABS = [
   { key: 'active', label: 'Active' },
   { key: 'archived', label: 'Archived' },
   { key: 'all', label: 'All' },
+  { key: 'hero', label: 'Hero Icons' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -228,6 +229,7 @@ export default function Sports() {
       description: fd.get('description') || '',
       tagline: fd.get('tagline') || '',
       rentalEquipment: fd.get('rentalEquipment') || '',
+      heroIcon: fd.get('heroIcon') || '',
     };
 
     let payload = base;
@@ -282,16 +284,19 @@ export default function Sports() {
         ))}
       </div>
 
+      {/* Hero Icons Editor */}
+      {filter === 'hero' && <HeroIconsEditor />}
+
       {/* Content */}
-      {isLoading ? (
+      {filter !== 'hero' && isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3].map((i) => (
             <SkeletonCard key={i} />
           ))}
         </div>
-      ) : sports.length === 0 ? (
+      ) : filter !== 'hero' && sports.length === 0 ? (
         <EmptyState filter={filter} onCreateClick={openCreate} />
-      ) : (
+      ) : filter !== 'hero' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <AnimatePresence mode="popLayout">
             {sports.map((sport) => (
@@ -309,7 +314,7 @@ export default function Sports() {
             ))}
           </AnimatePresence>
         </div>
-      )}
+      ) : null}
 
       {/* Drawer */}
       <AnimatePresence>
@@ -587,6 +592,161 @@ function SportCard({ sport, onEdit, onToggle, onArchive, onViewQR, onConfig }) {
         </div>
       </div>
     </motion.div>
+  );
+}
+
+// ===========================================================================
+// Hero Icons Editor
+// ===========================================================================
+const HERO_SLUGS = [
+  { slug: 'box-cricket', label: 'Box Cricket' },
+  { slug: 'badminton',   label: 'Badminton' },
+  { slug: 'pickleball',  label: 'Pickleball' },
+  { slug: 'swimming',    label: 'Swimming' },
+  { slug: 'all-services',label: 'All Services' },
+  { slug: 'gym',         label: 'Gym & Fitness' },
+];
+
+function HeroIconsEditor() {
+  const qc = useQueryClient();
+
+  const { data: sports = [], isLoading } = useQuery({
+    queryKey: ['sports', 'active'],
+    queryFn: async () => {
+      const res = await api.get('/sports');
+      return (res.data.sports ?? res.data).filter((s) => !s.deletedAt);
+    },
+  });
+
+  const sportsBySlug = Object.fromEntries(sports.map((s) => [s.slug, s]));
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, heroIcon }) => api.put(`/sports/${id}`, { heroIcon }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sports'] });
+      toast.success('Hero icon updated');
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to update'),
+  });
+
+  const [urls, setUrls] = useState({});
+  const [files, setFiles] = useState({});
+  const [previews, setPreviews] = useState({});
+
+  const handleFileChange = (slug, file) => {
+    if (!file) return;
+    setFiles((f) => ({ ...f, [slug]: file }));
+    setPreviews((p) => ({ ...p, [slug]: URL.createObjectURL(file) }));
+    setUrls((u) => ({ ...u, [slug]: '' }));
+  };
+
+  const handleSave = async (slug) => {
+    const sport = sportsBySlug[slug];
+    if (!sport) return toast.error('Sport not found');
+
+    const file = files[slug];
+    if (file) {
+      const fd = new FormData();
+      fd.append('heroIcon', urls[slug] || sport.heroIcon || '');
+      fd.append('imageFile', file);
+      await api.put(`/sports/${sport._id}`, fd);
+      qc.invalidateQueries({ queryKey: ['sports'] });
+      toast.success('Hero icon updated');
+      setFiles((f) => { const n = { ...f }; delete n[slug]; return n; });
+    } else {
+      updateMutation.mutate({ id: sport._id, heroIcon: urls[slug] ?? sport.heroIcon ?? '' });
+    }
+  };
+
+  const getPreview = (slug) => previews[slug] || sportsBySlug[slug]?.heroIcon || '';
+
+  if (isLoading) return (
+    <div className="flex items-center gap-2 text-gray-400 py-12">
+      <Loader2 size={18} className="animate-spin" /> Loading sports...
+    </div>
+  );
+
+  return (
+    <div>
+      <p className="text-sm text-gray-500 mb-6">
+        These icons appear in the hero section grid on the public homepage. Upload an image or paste a URL for each sport. Leave blank to use the default SVG illustration.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {HERO_SLUGS.map(({ slug, label }) => {
+          const sport = sportsBySlug[slug];
+          const preview = getPreview(slug);
+          return (
+            <div key={slug} className="card p-4 flex flex-col gap-3">
+              {/* Preview */}
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
+                  {preview ? (
+                    <img src={preview} alt={label} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+                  ) : (
+                    <Trophy size={22} className="text-gray-300" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{label}</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    {sport ? (sport.heroIcon ? 'Custom icon set' : 'Using default SVG') : <span className="text-amber-500">Sport not found</span>}
+                  </p>
+                </div>
+              </div>
+
+              {/* URL input */}
+              <input
+                type="url"
+                placeholder="Paste image URL..."
+                value={urls[slug] ?? (sport?.heroIcon || '')}
+                onChange={(e) => {
+                  setUrls((u) => ({ ...u, [slug]: e.target.value }));
+                  setPreviews((p) => ({ ...p, [slug]: e.target.value }));
+                  setFiles((f) => { const n = { ...f }; delete n[slug]; return n; });
+                }}
+                className="input-field text-xs"
+                disabled={!sport}
+              />
+
+              {/* File upload */}
+              <input
+                type="file"
+                accept="image/*"
+                className="text-xs text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer"
+                onChange={(e) => handleFileChange(slug, e.target.files?.[0])}
+                disabled={!sport}
+              />
+
+              {/* Actions */}
+              <div className="flex gap-2 mt-1">
+                <button
+                  onClick={() => handleSave(slug)}
+                  disabled={!sport || updateMutation.isPending}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-gray-900 text-white text-xs font-semibold hover:bg-gray-700 transition-colors disabled:opacity-40"
+                >
+                  {updateMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : null}
+                  Save
+                </button>
+                {(sport?.heroIcon || previews[slug]) && (
+                  <button
+                    onClick={() => {
+                      setUrls((u) => ({ ...u, [slug]: '' }));
+                      setPreviews((p) => { const n = { ...p }; delete n[slug]; return n; });
+                      setFiles((f) => { const n = { ...f }; delete n[slug]; return n; });
+                      if (sport) updateMutation.mutate({ id: sport._id, heroIcon: '' });
+                    }}
+                    className="px-3 py-1.5 rounded-lg border border-red-200 text-red-500 text-xs font-semibold hover:bg-red-50 transition-colors"
+                    title="Remove icon (revert to default SVG)"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

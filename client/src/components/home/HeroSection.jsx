@@ -34,6 +34,7 @@ const landingItems = [
   {
     name: 'Box Cricket',
     href: '/sports/box-cricket',
+    slug: 'box-cricket',
     icon: <SportIllustration slug="cricket" color="#C8102E" className="w-[80%] h-[80%] drop-shadow-md" />,
     color: '#C8102E',
     tagline: 'Play & Train',
@@ -41,6 +42,7 @@ const landingItems = [
   {
     name: 'Badminton',
     href: '/sports/badminton',
+    slug: 'badminton',
     icon: <SportIllustration slug="badminton" color="#E84393" className="w-[80%] h-[80%] drop-shadow-md" />,
     color: '#E84393',
     tagline: 'AC Courts',
@@ -48,6 +50,7 @@ const landingItems = [
   {
     name: 'Pickleball',
     href: '/sports/pickleball',
+    slug: 'pickleball',
     icon: <SportIllustration slug="pickleball" color="#A855F7" className="w-[80%] h-[80%] drop-shadow-md" />,
     color: '#A855F7',
     tagline: 'Cushioned',
@@ -55,6 +58,7 @@ const landingItems = [
   {
     name: 'Swimming',
     href: '/sports/swimming',
+    slug: 'swimming',
     icon: <SportIllustration slug="swimming" color="#0EA5E9" className="w-[80%] h-[80%] drop-shadow-md" />,
     color: '#0EA5E9',
     tagline: 'Heated Pool',
@@ -62,6 +66,7 @@ const landingItems = [
   {
     name: 'All Services',
     href: '/sports/all-services',
+    slug: 'all-services',
     icon: <SportIllustration slug="all" color="#F5A623" className="w-[80%] h-[80%] drop-shadow-md" />,
     color: '#F5A623',
     tagline: 'VIP Access',
@@ -69,6 +74,7 @@ const landingItems = [
   {
     name: 'Gym & Fitness',
     href: '/sports/gym',
+    slug: 'gym',
     icon: <SportIllustration slug="gym" color="#F5A623" className="w-[80%] h-[80%] drop-shadow-md" />,
     color: '#F5A623',
     tagline: 'AC Facility',
@@ -108,6 +114,12 @@ export default function HeroSection() {
     queryFn: () => api.get('/sports/public').then((r) => r.data),
   });
   const sports = sportsData?.sports || [];
+
+  const sportsBySlug = useMemo(() => {
+    const map = {};
+    sports.forEach((s) => { if (s.slug) map[s.slug] = s; });
+    return map;
+  }, [sports]);
 
   // Cycling word animation
   useEffect(() => {
@@ -335,8 +347,10 @@ export default function HeroSection() {
                       </>
                     ) : (
                       <>
-                        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-[14px] sm:rounded-2xl border border-white/10 bg-black/40 flex items-center justify-center shrink-0">
-                          {item.icon}
+                        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-[14px] sm:rounded-2xl border border-white/10 bg-black/40 flex items-center justify-center shrink-0 overflow-hidden">
+                          {sportsBySlug[item.slug]?.heroIcon ? (
+                            <img src={sportsBySlug[item.slug].heroIcon} alt={item.name} className="w-full h-full object-cover" />
+                          ) : item.icon}
                         </div>
                         <div className="text-left">
                           <h3 className="text-white font-extrabold text-[13px] sm:text-[15px] leading-tight group-hover:text-[#F5A623] transition-colors">{item.name}</h3>

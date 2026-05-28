@@ -83,6 +83,10 @@ const sportSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  heroIcon: {
+    type: String,
+    default: '',
+  },
 }, {
   timestamps: true,
 });

@@ -6,7 +6,7 @@ import useAuthStore from '../../store/authStore';
 const navLinks = [
   { label: 'Home', href: '#hero' },
   { label: 'About Us', href: '#about' },
-  { label: 'Our Sports', href: '#sports', hasDropdown: true },
+  { label: 'Our Sports', href: '#sports', mobileHref: '/book-slots', hasDropdown: true },
   { label: 'Restaurant', href: '/table-portal' },
   { label: 'Contact', href: '#contact' },
 ];
@@ -246,43 +246,29 @@ export default function Navbar() {
 
         {/* Nav links */}
         <nav className="flex-1 flex flex-col px-6 pt-4 gap-1">
-          {navLinks.map((link, i) => (
-            link.href.startsWith('/') ? (
-              <Link
-                key={link.label}
-                to={link.href}
-                onClick={() => setDrawerOpen(false)}
-                className="text-white text-xl py-3 border-b border-white/5 transition-all duration-250"
-                style={{
-                  fontFamily: "'Bebas Neue', sans-serif",
-                  letterSpacing: '2px',
-                  animationDelay: drawerOpen ? `${i * 60}ms` : '0ms',
-                  opacity: drawerOpen ? 1 : 0,
-                  transform: drawerOpen ? 'translateX(0)' : 'translateX(24px)',
-                  transition: `opacity 250ms ease ${i * 60}ms, transform 250ms ease ${i * 60}ms`,
-                }}
-              >
+          {navLinks.map((link, i) => {
+            const mobileDest = link.mobileHref
+              ? (link.mobileHref === '/book-slots' && isAuthenticated ? '/user/book-slots' : link.mobileHref)
+              : link.href;
+            const linkStyle = {
+              fontFamily: "'Bebas Neue', sans-serif",
+              letterSpacing: '2px',
+              animationDelay: drawerOpen ? `${i * 60}ms` : '0ms',
+              opacity: drawerOpen ? 1 : 0,
+              transform: drawerOpen ? 'translateX(0)' : 'translateX(24px)',
+              transition: `opacity 250ms ease ${i * 60}ms, transform 250ms ease ${i * 60}ms`,
+            };
+            const cls = "text-white text-xl py-3 border-b border-white/5 transition-all duration-250";
+            return mobileDest.startsWith('/') ? (
+              <Link key={link.label} to={mobileDest} onClick={() => setDrawerOpen(false)} className={cls} style={linkStyle}>
                 {link.label}
               </Link>
             ) : (
-              <a
-                key={link.label}
-                href={link.href}
-                onClick={() => setDrawerOpen(false)}
-                className="text-white text-xl py-3 border-b border-white/5 transition-all duration-250"
-                style={{
-                  fontFamily: "'Bebas Neue', sans-serif",
-                  letterSpacing: '2px',
-                  animationDelay: drawerOpen ? `${i * 60}ms` : '0ms',
-                  opacity: drawerOpen ? 1 : 0,
-                  transform: drawerOpen ? 'translateX(0)' : 'translateX(24px)',
-                  transition: `opacity 250ms ease ${i * 60}ms, transform 250ms ease ${i * 60}ms`,
-                }}
-              >
+              <a key={link.label} href={mobileDest} onClick={() => setDrawerOpen(false)} className={cls} style={linkStyle}>
                 {link.label}
               </a>
-            )
-          ))}
+            );
+          })}
         </nav>
 
         {/* Drawer CTAs */}
