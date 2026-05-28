@@ -94,7 +94,7 @@ export default function SportsCarousel({ sports = [], linkPrefix = '/sports', sh
             <div
               key={`${sport._id}-${i}`}
               className="shrink-0 w-[75vw] max-w-70 sm:w-70"
-              style={{ marginRight: CARD_GAP }}
+              style={{ marginRight: CARD_GAP, transform: 'translateZ(0)', willChange: 'transform' }}
             >
               <SportCard sport={sport} linkPrefix={linkPrefix} />
             </div>
