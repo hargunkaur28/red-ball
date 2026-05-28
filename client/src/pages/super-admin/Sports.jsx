@@ -220,9 +220,9 @@ export default function Sports() {
       hourlyPrice: Number(fd.get('hourlyPrice')),
       dayPrice: fd.get('dayPrice') ? Number(fd.get('dayPrice')) : null,
       oneMonthPrice: fd.get('price1Month') ? Number(fd.get('price1Month')) : null,
-      threeMonthPrice: Number(fd.get('price3Month')),
-      sixMonthPrice: Number(fd.get('price6Month')),
-      twelveMonthPrice: Number(fd.get('price12Month')),
+      threeMonthPrice: fd.get('price3Month') ? Number(fd.get('price3Month')) : null,
+      sixMonthPrice: fd.get('price6Month') ? Number(fd.get('price6Month')) : null,
+      twelveMonthPrice: fd.get('price12Month') ? Number(fd.get('price12Month')) : null,
       active: fd.get('isActive') === 'on',
       thumbnail: fd.get('thumbnail') || '',
       description: fd.get('description') || '',
@@ -422,6 +422,7 @@ export default function Sports() {
 function SportCard({ sport, onEdit, onToggle, onArchive, onViewQR, onConfig }) {
   const isActive = sport.active && !sport.deletedAt;
   const isArchived = !!sport.deletedAt;
+  const isPlaceholder = (sport.memberCount ?? 0) === 0;
 
   return (
     <motion.div
@@ -472,7 +473,12 @@ function SportCard({ sport, onEdit, onToggle, onArchive, onViewQR, onConfig }) {
               <DollarSign size={14} className="text-gray-400 shrink-0" />
               Plans & Packages
             </div>
-            <div className="text-xs text-gray-400 font-medium">All tiers</div>
+            <div className="flex items-center gap-1.5">
+              {isPlaceholder && (
+                <span className="text-[9px] font-semibold text-gray-400 bg-gray-100 rounded px-1.5 py-0.5 uppercase tracking-wider">Suggested</span>
+              )}
+              <div className="text-xs text-gray-400 font-medium">All tiers</div>
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
@@ -504,7 +510,7 @@ function SportCard({ sport, onEdit, onToggle, onArchive, onViewQR, onConfig }) {
             <div className="bg-gray-50 p-2 rounded-lg text-center border border-gray-100/50 flex flex-col justify-center min-h-[52px]">
               <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5 leading-none">3 Months</div>
               <div className="text-xs font-bold text-gray-800 mt-1">
-                {formatCurrency(sport.threeMonthPrice ?? 0)}
+                {sport.threeMonthPrice ? formatCurrency(sport.threeMonthPrice) : '—'}
               </div>
             </div>
 
@@ -512,7 +518,7 @@ function SportCard({ sport, onEdit, onToggle, onArchive, onViewQR, onConfig }) {
             <div className="bg-gray-50 p-2 rounded-lg text-center border border-gray-100/50 flex flex-col justify-center min-h-[52px]">
               <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5 leading-none">6 Months</div>
               <div className="text-xs font-bold text-gray-800 mt-1">
-                {formatCurrency(sport.sixMonthPrice ?? 0)}
+                {sport.sixMonthPrice ? formatCurrency(sport.sixMonthPrice) : '—'}
               </div>
             </div>
 
@@ -814,45 +820,36 @@ function SportDrawer({ sport, onClose, onSubmit, isPending }) {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    3 Months <span className="text-red-500">*</span>
-                  </label>
+                  <label className="block text-xs text-gray-500 mb-1">3 Months</label>
                   <input
                     name="price3Month"
                     type="number"
                     min="0"
-                    required
-                    defaultValue={sport?.threeMonthPrice}
+                    defaultValue={sport?.threeMonthPrice ?? ''}
                     className="input-field"
-                    placeholder="₹"
+                    placeholder="₹ (optional)"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    6 Months <span className="text-red-500">*</span>
-                  </label>
+                  <label className="block text-xs text-gray-500 mb-1">6 Months</label>
                   <input
                     name="price6Month"
                     type="number"
                     min="0"
-                    required
-                    defaultValue={sport?.sixMonthPrice}
+                    defaultValue={sport?.sixMonthPrice ?? ''}
                     className="input-field"
-                    placeholder="₹"
+                    placeholder="₹ (optional)"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    12 Months <span className="text-red-500">*</span>
-                  </label>
+                  <label className="block text-xs text-gray-500 mb-1">12 Months</label>
                   <input
                     name="price12Month"
                     type="number"
                     min="0"
-                    required
-                    defaultValue={sport?.twelveMonthPrice}
+                    defaultValue={sport?.twelveMonthPrice ?? ''}
                     className="input-field"
-                    placeholder="₹"
+                    placeholder="₹ (optional)"
                   />
                 </div>
               </div>

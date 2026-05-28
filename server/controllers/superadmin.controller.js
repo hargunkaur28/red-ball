@@ -44,7 +44,8 @@ exports.getMemberships = async (req, res) => {
       shouldFilterPlans = true;
       if (planType === 'all-services') {
         planQuery.sportsIncluded = 'all-services';
-      } else if (planType === 'sport-specific') {
+      } else if (planType === 'sport-specific' && !sport) {
+        // Only apply when no specific sport is selected — a specific sport already implies sport-specific
         planQuery.sportsIncluded = { $ne: 'all-services' };
       }
     }
@@ -486,7 +487,7 @@ exports.getOneTimeEntries = async (req, res) => {
 // GET /api/super-admin/users
 exports.getUsers = async (req, res) => {
   try {
-    const { search = '', page = 1, limit = 20, role = 'user', membershipStatus = '' } = req.query;
+    const { search = '', page = 1, limit = 20, role = 'user', membershipStatus = '', sport = '', planType = '' } = req.query;
     const limitNum = Math.min(parseInt(limit) || 20, 100);
     const skip = (parseInt(page) - 1) * limitNum;
 
@@ -496,12 +497,28 @@ exports.getUsers = async (req, res) => {
       query.$or = [{ name: re }, { email: re }, { phone: re }];
     }
 
-    // If filtering by membership status, find matching user IDs first
+    // Filter by membership status, sport, and/or planType
     if (membershipStatus === 'none') {
       const usersWithMembership = await Membership.distinct('studentId');
       query._id = { $nin: usersWithMembership };
-    } else if (membershipStatus) {
-      const matchingUserIds = await Membership.distinct('studentId', { status: membershipStatus });
+    } else if (membershipStatus || sport || planType) {
+      const membershipQuery = {};
+      if (membershipStatus) membershipQuery.status = membershipStatus;
+
+      if (sport || planType) {
+        const planQuery = {};
+        if (sport) {
+          planQuery.sportsIncluded = sport;
+        } else if (planType === 'all-services') {
+          planQuery.sportsIncluded = 'all-services';
+        } else if (planType === 'sport-specific') {
+          planQuery.sportsIncluded = { $ne: 'all-services' };
+        }
+        const matchingPlans = await MembershipPlan.find(planQuery).select('_id');
+        membershipQuery.planId = { $in: matchingPlans.map(p => p._id) };
+      }
+
+      const matchingUserIds = await Membership.distinct('studentId', membershipQuery);
       query._id = { $in: matchingUserIds };
     }
 

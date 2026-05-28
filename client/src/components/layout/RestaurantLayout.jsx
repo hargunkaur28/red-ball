@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, ClipboardList, Utensils, Package, Grid, Menu, X, LogOut, Settings } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
@@ -61,10 +61,10 @@ export default function RestaurantLayout() {
   const sidebarContent = (
     <>
       <div className="flex items-center justify-between px-4 h-16 border-b border-[#EAEAEA] shrink-0">
-        <div className="flex items-center gap-3">
+        <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
           <div className="w-9 h-9 rounded-lg bg-black flex items-center justify-center text-white font-bold text-sm">RB</div>
           <span className="text-sm font-semibold text-[#111111]">Restaurant Panel</span>
-        </div>
+        </Link>
         <button onClick={() => setMobileOpen(false)} className="lg:hidden w-8 h-8 rounded-lg flex items-center justify-center text-[#666666]"><X size={18} /></button>
       </div>
       <nav className="flex-1 py-3 px-2 overflow-y-auto">

@@ -71,7 +71,36 @@ exports.getAllSports = async (req, res) => {
 
     const sports = await Sport.find(filter).sort({ name: 1 });
     const enrichedSports = await Promise.all(sports.map(enrichSportWithQR));
-    res.json({ success: true, sports: enrichedSports });
+
+    // Compute live active subscription counts in one query
+    const now = new Date();
+    const activeMemberships = await Membership.find({
+      status: 'active',
+      endDate: { $gt: now },
+    }).populate({ path: 'planId', select: 'sportsIncluded' });
+
+    const isAllServicesSlug = (k) =>
+      ['all', 'all-services', 'allservices'].includes((k || '').toLowerCase().replace(/\s+/g, '-'));
+
+    const sportsWithCounts = enrichedSports.map((sport) => {
+      const slug = (sport.slug || '').toLowerCase();
+      const name = (sport.name || '').toLowerCase();
+      const isAllServicesCard = isAllServicesSlug(slug);
+
+      const count = activeMemberships.filter((m) => {
+        const included = (m.planId?.sportsIncluded || []).map((s) =>
+          (s || '').toLowerCase().replace(/\s+/g, '-')
+        );
+        if (isAllServicesCard) {
+          return included.some((k) => isAllServicesSlug(k));
+        }
+        // Only count memberships explicitly for this sport — exclude all-services plans
+        return included.some((k) => !isAllServicesSlug(k) && (k === slug || k === name));
+      }).length;
+      return { ...sport, memberCount: count };
+    });
+
+    res.json({ success: true, sports: sportsWithCounts });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -123,9 +152,9 @@ const syncMembershipPlans = async (sport, session) => {
   // Define standard plans we automatically manage
   const planDefinitions = [
     { key: 'oneMonthPrice', nameSuffix: 'Monthly', duration: '1 Month', durationValue: 1, durationUnit: 'months', optional: true },
-    { key: 'threeMonthPrice', nameSuffix: 'Quarterly', duration: '3 Months', durationValue: 3, durationUnit: 'months' },
-    { key: 'sixMonthPrice', nameSuffix: 'Half-Yearly', duration: '6 Months', durationValue: 6, durationUnit: 'months' },
-    { key: 'twelveMonthPrice', nameSuffix: 'Yearly', duration: '1 Year', durationValue: 1, durationUnit: 'years' }
+    { key: 'threeMonthPrice', nameSuffix: 'Quarterly', duration: '3 Months', durationValue: 3, durationUnit: 'months', optional: true },
+    { key: 'sixMonthPrice', nameSuffix: 'Half-Yearly', duration: '6 Months', durationValue: 6, durationUnit: 'months', optional: true },
+    { key: 'twelveMonthPrice', nameSuffix: 'Yearly', duration: '1 Year', durationValue: 1, durationUnit: 'years', optional: true }
   ];
 
   for (const def of planDefinitions) {

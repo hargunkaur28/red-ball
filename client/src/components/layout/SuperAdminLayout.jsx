@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, Trophy, CreditCard, Ticket, Menu, X, LogOut, Bell, TimerReset, Settings, MessageSquare, ClipboardList, UtensilsCrossed } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
@@ -69,13 +69,13 @@ export default function SuperAdminLayout() {
     <>
       {/* Logo Header */}
       <div className="flex items-center justify-between px-5 h-16 border-b border-[#EAEAEA] shrink-0">
-        <div className="flex items-center gap-3">
+        <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
           <img src="/logo.png" alt="Red Ball Academy" className="w-9 h-9 object-contain shrink-0" />
           <div className="flex flex-col">
             <span className="text-sm font-semibold text-[#111111] leading-tight">Red Ball</span>
             <span className="text-[10px] font-medium text-[#C8102E] tracking-wider uppercase">Super Admin</span>
           </div>
-        </div>
+        </Link>
         <button onClick={() => setMobileOpen(false)} className="lg:hidden w-8 h-8 rounded-lg flex items-center justify-center text-[#666666] hover:text-[#111111]">
           <X size={18} />
         </button>

@@ -82,6 +82,8 @@ export default function Memberships() {
   const [userSearch, setUserSearch] = useState('');
   const [userPage, setUserPage] = useState(1);
   const [userMembershipFilter, setUserMembershipFilter] = useState('');
+  const [userSport, setUserSport] = useState('');
+  const [userPlanType, setUserPlanType] = useState('');
   const [expandedUser, setExpandedUser] = useState(null);
   const [debouncedUserSearch, setDebouncedUserSearch] = useState('');
   const userSearchTimer = useMemo(() => (val) => {
@@ -129,11 +131,13 @@ export default function Memberships() {
 
   // ── users query ───────────────────────────────────────
   const { data: usersData, isLoading: usersLoading } = useQuery({
-    queryKey: ['super-admin-users', debouncedUserSearch, userPage, userMembershipFilter],
+    queryKey: ['super-admin-users', debouncedUserSearch, userPage, userMembershipFilter, userSport, userPlanType],
     queryFn: async () => {
       const params = new URLSearchParams({ page: userPage, limit: 20 });
       if (debouncedUserSearch) params.set('search', debouncedUserSearch);
       if (userMembershipFilter) params.set('membershipStatus', userMembershipFilter);
+      if (userSport) params.set('sport', userSport);
+      if (userPlanType) params.set('planType', userPlanType);
       const res = await api.get(`/super-admin/users?${params}`);
       return res.data;
     },
@@ -516,7 +520,7 @@ export default function Memberships() {
         <div>
           {/* Search + Filter */}
           <div className="card mb-6">
-            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+            <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center">
               <div className="relative flex-1 min-w-60">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
                 <input
@@ -530,19 +534,38 @@ export default function Memberships() {
               <select
                 value={userMembershipFilter}
                 onChange={e => { setUserMembershipFilter(e.target.value); setUserPage(1); }}
-                className="input-field w-auto min-w-45"
+                className="input-field w-auto min-w-[150px]"
               >
-                <option value="">All Users</option>
-                <option value="active">Active Membership</option>
-                <option value="expired">Expired Membership</option>
-                <option value="pending">Pending Membership</option>
-                <option value="frozen">Frozen Membership</option>
-                <option value="cancelled">Cancelled Membership</option>
+                <option value="">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="expired">Expired</option>
+                <option value="pending">Pending</option>
+                <option value="frozen">Frozen</option>
+                <option value="cancelled">Cancelled</option>
                 <option value="none">No Membership</option>
               </select>
-              {(userSearch || userMembershipFilter) && (
+              <select
+                value={userPlanType}
+                onChange={e => { setUserPlanType(e.target.value); setUserPage(1); }}
+                className="input-field w-auto min-w-[160px]"
+              >
+                <option value="">All Plan Types</option>
+                <option value="all-services">All-Services Tier</option>
+                <option value="sport-specific">Sport-Specific</option>
+              </select>
+              <select
+                value={userSport}
+                onChange={e => { setUserSport(e.target.value); setUserPage(1); }}
+                className="input-field w-auto min-w-[140px]"
+              >
+                <option value="">All Sports</option>
+                {(Array.isArray(sports) ? sports : []).map(s => (
+                  <option key={s._id} value={s.slug}>{s.name}</option>
+                ))}
+              </select>
+              {(userSearch || userMembershipFilter || userSport || userPlanType) && (
                 <button
-                  onClick={() => { setUserSearch(''); setDebouncedUserSearch(''); setUserMembershipFilter(''); setUserPage(1); }}
+                  onClick={() => { setUserSearch(''); setDebouncedUserSearch(''); setUserMembershipFilter(''); setUserSport(''); setUserPlanType(''); setUserPage(1); }}
                   className="btn-ghost text-xs gap-1 shrink-0"
                 >
                   <X size={14} /> Clear

@@ -25,15 +25,12 @@ const sportSchema = new mongoose.Schema({
   },
   threeMonthPrice: {
     type: Number,
-    required: [true, 'Three month price is required'],
   },
   sixMonthPrice: {
     type: Number,
-    required: [true, 'Six month price is required'],
   },
   twelveMonthPrice: {
     type: Number,
-    required: [true, 'Twelve month price is required'],
   },
   active: {
     type: Boolean,
