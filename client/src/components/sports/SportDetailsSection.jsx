@@ -62,7 +62,7 @@ export default function SportDetailsSection({ sport }) {
         >
           <span className="text-2xl shrink-0">🎒</span>
           <div>
-            <p className="font-bold text-sm" style={{ color: accentColor }}>Equipment Rental</p>
+            <p className="font-bold text-sm" style={{ color: accentColor }}>{rentalText.toLowerCase().includes('included') ? 'Equipment Included' : 'Equipment Rental'}</p>
             <p className="text-white/65 text-xs mt-0.5 leading-relaxed">{rentalText}</p>
           </div>
         </div>

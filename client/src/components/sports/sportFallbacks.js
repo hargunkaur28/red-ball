@@ -84,7 +84,7 @@ const FALLBACKS = {
   pickleball: {
     icon: '🎾',
     tagline: 'The Fastest Growing Sport.',
-    rentalEquipment: '🎾 Paddle & Ball available for renting',
+    rentalEquipment: '🎾 Paddle & Ball included',
     description:
       'Dedicated pickleball courts with premium cushioned flooring, proper net heights, and great lighting. Join the fastest-growing sport in India — fun for all ages, perfect for singles and doubles.',
     features: ['Dedicated Courts', 'Cushioned Flooring', 'Paddles Available', 'Coaching Sessions', 'Beginner Programs', 'Tournament Play'],

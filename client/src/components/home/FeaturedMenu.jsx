@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Flame } from 'lucide-react';
+import { ArrowRight, Flame, ShoppingCart } from 'lucide-react';
 import api from '../../lib/axios';
+import useCartStore from '../../store/cartStore';
+import { toast } from 'sonner';
 
 const containerVariants = {
   hidden: {},
@@ -16,6 +18,7 @@ const itemVariants = {
 
 export default function FeaturedMenu() {
   const navigate = useNavigate();
+  const addItem = useCartStore((s) => s.addItem);
   const { data: menuData, isLoading } = useQuery({
     queryKey: ['public-menu-featured'],
     queryFn: () => api.get('/menu').then((r) => r.data),
@@ -90,12 +93,32 @@ export default function FeaturedMenu() {
                 </p>
 
                 {item.showNutrition && (
-                  <div className="hidden md:flex flex-col md:flex-row md:items-center gap-1 md:gap-4 text-[9px] md:text-xs font-bold text-black/40 mt-auto">
+                  <div className="hidden md:flex flex-col md:flex-row md:items-center gap-1 md:gap-4 text-[9px] md:text-xs font-bold text-black/40 mb-3">
                     <span>{item.calories} CAL</span>
                     <span className="hidden md:block w-1 h-1 rounded-full bg-black/20" />
                     <span>{item.protein}G PRO</span>
                   </div>
                 )}
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    addItem({
+                      menuItemId: item._id,
+                      name: item.name,
+                      price: item.sizes?.[0]?.price || item.price || 0,
+                      size: item.sizes?.[0]?.label || 'Regular',
+                      image: item.image,
+                    });
+                    toast.success(`${item.name} added to cart`);
+                    navigate('/table-portal');
+                  }}
+                  className="mt-auto w-full flex items-center justify-center gap-1.5 py-2 md:py-2.5 rounded-lg bg-[#C8102E] text-white text-[10px] md:text-xs font-bold hover:bg-[#a00d24] transition-colors"
+                >
+                  <ShoppingCart size={12} />
+                  <span className="hidden sm:inline">Add to Cart</span>
+                  <span className="sm:hidden">Add</span>
+                </button>
               </div>
             </motion.div>
           ))}

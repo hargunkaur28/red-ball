@@ -7,6 +7,7 @@ import api from '../lib/axios';
 import SportsCarousel from '../components/sports/SportsCarousel';
 import SportCard from '../components/sports/SportCard';
 import useAuthStore from '../store/authStore';
+import Navbar from '../components/home/Navbar';
 
 export default function BookSlotsMarketplace({ embedded = false }) {
   const { isAuthenticated } = useAuthStore();
@@ -30,6 +31,7 @@ export default function BookSlotsMarketplace({ embedded = false }) {
 
   return (
     <div className={`${wrapClass} text-white`} style={{ background: embedded ? 'transparent' : '#0A0D0D' }}>
+      {!embedded && <Navbar />}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700;800&display=swap');
       `}</style>
