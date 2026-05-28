@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Loader2, Search, ArrowLeft } from 'lucide-react';
+import { Loader2, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../lib/axios';
 import SportsCarousel from '../components/sports/SportsCarousel';
@@ -27,7 +27,7 @@ export default function BookSlotsMarketplace({ embedded = false }) {
 
   const wrapClass = embedded
     ? 'min-h-[60vh] py-8'
-    : 'min-h-screen py-12 sm:py-16';
+    : 'min-h-screen pt-24 pb-12 sm:pt-28 sm:pb-16';
 
   return (
     <div className={`${wrapClass} text-white`} style={{ background: embedded ? 'transparent' : '#0A0D0D' }}>
@@ -38,22 +38,6 @@ export default function BookSlotsMarketplace({ embedded = false }) {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
-        {/* Back to Home (standalone only) */}
-        {!embedded && (
-          <motion.div
-            initial={{ opacity: 0, x: -16 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-            className="mb-8"
-          >
-            <Link
-              to="/"
-              className="inline-flex items-center gap-2 text-[#9CA3AF] hover:text-white transition-colors text-sm font-bold tracking-wider uppercase bg-white/5 hover:bg-white/10 border border-white/5 px-4 py-2 rounded-full"
-            >
-              <ArrowLeft size={16} /> Home
-            </Link>
-          </motion.div>
-        )}
 
         {/* Header */}
         <motion.div
