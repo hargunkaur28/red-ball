@@ -69,6 +69,9 @@ const paymentSchema = new mongoose.Schema({
     default: 0,
   },
   failureReason: String,
+  adminNote: { type: String, default: '' },
+  statusUpdatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  statusUpdatedAt: { type: Date },
 }, {
   timestamps: true,
 });

@@ -36,6 +36,49 @@ const generateRefreshToken = (userId, rememberMe) =>
 const getIP = (req) => req.ip || req.headers['x-forwarded-for'] || 'unknown';
 const getUA = (req) => req.headers['user-agent'] || 'unknown';
 
+// Shared failed-attempt handler — increments counter, applies lock, sends alerts
+const handleFailedAttempt = async (user, req) => {
+  user.loginAttempts = (user.loginAttempts || 0) + 1;
+  user.lastFailedLoginAt = new Date();
+
+  const attempts = user.loginAttempts;
+  const ts = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+
+  // 5+ attempts → 2-min lock + alert email to both admin and account owner
+  if (attempts >= 5) {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    if (!user.failedAlertSentAt || user.failedAlertSentAt < oneHourAgo) {
+      user.failedAlertSentAt = new Date();
+      const alertPayload = {
+        attemptedEmail: user.email,
+        role: user.role,
+        attemptCount: attempts,
+        ip: getIP(req),
+        userAgent: getUA(req),
+        timestamp: ts,
+      };
+      // Notify central admin
+      sendFailedLoginAlert({ ...alertPayload, targetEmail: process.env.ADMIN_NOTIFICATION_EMAIL }).catch(() => {});
+      // Also notify the account owner directly (all roles)
+      if (user.email && user.email !== process.env.ADMIN_NOTIFICATION_EMAIL) {
+        sendFailedLoginAlert({ ...alertPayload, targetEmail: user.email }).catch(() => {});
+      }
+    }
+    // 2-min lock (only set if not already locked longer)
+    const twoMinFromNow = new Date(Date.now() + 2 * 60 * 1000);
+    if (!user.loginLockedUntil || user.loginLockedUntil < twoMinFromNow) {
+      user.loginLockedUntil = twoMinFromNow;
+    }
+  }
+
+  // 10+ attempts → escalate to 15-min lock
+  if (attempts >= 10) {
+    user.loginLockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+  }
+
+  await user.save({ validateBeforeSave: false });
+};
+
 // POST /api/auth/login
 exports.login = async (req, res) => {
   try {
@@ -63,41 +106,8 @@ exports.login = async (req, res) => {
     const isMatch = await user.comparePassword(password);
 
     if (!isMatch) {
-      user.loginAttempts = (user.loginAttempts || 0) + 1;
-      user.lastFailedLoginAt = new Date();
-
-      const ALERT_THRESHOLD = 5;
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-      if (
-        user.loginAttempts >= ALERT_THRESHOLD &&
-        (!user.failedAlertSentAt || user.failedAlertSentAt < oneHourAgo)
-      ) {
-        user.failedAlertSentAt = new Date();
-        sendFailedLoginAlert({
-          targetEmail: process.env.ADMIN_NOTIFICATION_EMAIL,
-          attemptedEmail: user.email,
-          role: user.role,
-          attemptCount: user.loginAttempts,
-          ip: getIP(req),
-          userAgent: getUA(req),
-          timestamp: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-        }).catch(console.error);
-      }
-
-      if (user.loginAttempts >= 10) {
-        user.loginLockedUntil = new Date(Date.now() + 15 * 60 * 1000);
-      }
-
-      await user.save({ validateBeforeSave: false });
-
-      logFailedLogin({
-        email: user.email,
-        role: user.role,
-        ipAddress: getIP(req),
-        userAgent: getUA(req),
-        attemptCount: user.loginAttempts,
-      }).catch(() => {});
-
+      await handleFailedAttempt(user, req);
+      logFailedLogin({ email: user.email, role: user.role, ipAddress: getIP(req), userAgent: getUA(req), attemptCount: user.loginAttempts }).catch(() => {});
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
@@ -110,8 +120,7 @@ exports.login = async (req, res) => {
         user.role === 'superadmin' ? process.env.SUPER_ADMIN_CODE : process.env.MANAGER_CODE;
 
       if (securityCode !== expectedCode) {
-        user.loginAttempts = (user.loginAttempts || 0) + 1;
-        await user.save({ validateBeforeSave: false });
+        await handleFailedAttempt(user, req);
         return res.status(401).json({ message: 'Invalid security code.' });
       }
     }

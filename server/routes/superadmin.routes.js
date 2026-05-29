@@ -9,5 +9,6 @@ router.get('/memberships', auth, authorize('superadmin'), superadminController.g
 router.get('/overtime-sessions', auth, authorize('superadmin'), superadminController.getOvertimeSessions);
 router.get('/one-time', auth, authorize('superadmin'), superadminController.getOneTimeEntries);
 router.get('/users', auth, authorize('superadmin'), superadminController.getUsers);
+router.patch('/payments/:id/status', auth, authorize('superadmin'), superadminController.updatePaymentStatus);
 
 module.exports = router;

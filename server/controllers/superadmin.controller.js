@@ -5,6 +5,7 @@ const OneTimePlay = require('../models/OneTimePlay');
 const SlotBooking = require('../models/SlotBooking');
 const OneTimeAccess = require('../models/OneTimeAccess');
 const User = require('../models/User');
+const Payment = require('../models/Payment');
 
 // GET /api/super-admin/memberships - Manage and view memberships with attendance aggregation
 exports.getMemberships = async (req, res) => {
@@ -487,7 +488,7 @@ exports.getOneTimeEntries = async (req, res) => {
 // GET /api/super-admin/users
 exports.getUsers = async (req, res) => {
   try {
-    const { search = '', page = 1, limit = 20, role = 'user', membershipStatus = '', sport = '', planType = '' } = req.query;
+    const { search = '', page = 1, limit = 20, role = 'user', membershipStatus = '', sport = '', planType = '', paymentStatus = '' } = req.query;
     const limitNum = Math.min(parseInt(limit) || 20, 100);
     const skip = (parseInt(page) - 1) * limitNum;
 
@@ -547,14 +548,64 @@ exports.getUsers = async (req, res) => {
       membershipsByUser[uid].push(m);
     });
 
-    const result = users.map(u => ({
+    // Attach latest membership payment per user
+    let payments = await Payment.find({
+      studentId: { $in: userIds },
+      type: 'membership',
+    })
+      .select('studentId status adminNote statusUpdatedAt createdAt totalAmount')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Filter by paymentStatus if provided
+    if (paymentStatus) {
+      payments = payments.filter(p => p.status === paymentStatus);
+    }
+
+    const latestPaymentByUser = {};
+    payments.forEach(p => {
+      const uid = p.studentId.toString();
+      if (!latestPaymentByUser[uid]) latestPaymentByUser[uid] = p;
+    });
+
+    // If paymentStatus filter is set, only include users who have a matching payment
+    let result = users.map(u => ({
       ...u,
       memberships: membershipsByUser[u._id.toString()] || [],
+      latestPayment: latestPaymentByUser[u._id.toString()] || null,
     }));
+
+    if (paymentStatus) {
+      result = result.filter(u => u.latestPayment !== null);
+    }
 
     res.json({ success: true, users: result, total, page: parseInt(page), totalPages: Math.ceil(total / limitNum) });
   } catch (error) {
     console.error('getUsers error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PATCH /api/super-admin/payments/:id/status
+exports.updatePaymentStatus = async (req, res) => {
+  try {
+    const { status, adminNote } = req.body;
+    const validStatuses = ['pending', 'partial', 'paid', 'refunded', 'failed', 'cancelled'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+    }
+
+    const payment = await Payment.findById(req.params.id);
+    if (!payment) return res.status(404).json({ success: false, message: 'Payment not found' });
+
+    payment.status = status;
+    if (adminNote !== undefined) payment.adminNote = adminNote;
+    payment.statusUpdatedBy = req.user.userId;
+    payment.statusUpdatedAt = new Date();
+    await payment.save();
+
+    res.json({ success: true, payment });
+  } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };

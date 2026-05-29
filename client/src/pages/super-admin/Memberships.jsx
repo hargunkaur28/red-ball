@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../lib/axios';
 import { formatCurrency, formatDate, getStatusColor, getInitials } from '../../lib/utils';
 import {
   Search, ChevronLeft, ChevronRight, X,
-  CreditCard, User, Loader2, Users, CheckCircle, AlertCircle, Clock,
+  CreditCard, User, Loader2, Users, CheckCircle, AlertCircle, Clock, Pencil,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -84,6 +84,8 @@ export default function Memberships() {
   const [userMembershipFilter, setUserMembershipFilter] = useState('');
   const [userSport, setUserSport] = useState('');
   const [userPlanType, setUserPlanType] = useState('');
+  const [userPaymentStatus, setUserPaymentStatus] = useState('');
+  const [paymentEditModal, setPaymentEditModal] = useState(null); // { paymentId, currentStatus, currentNote }
   const [expandedUser, setExpandedUser] = useState(null);
   const [debouncedUserSearch, setDebouncedUserSearch] = useState('');
   const userSearchTimer = useMemo(() => (val) => {
@@ -131,13 +133,14 @@ export default function Memberships() {
 
   // ── users query ───────────────────────────────────────
   const { data: usersData, isLoading: usersLoading } = useQuery({
-    queryKey: ['super-admin-users', debouncedUserSearch, userPage, userMembershipFilter, userSport, userPlanType],
+    queryKey: ['super-admin-users', debouncedUserSearch, userPage, userMembershipFilter, userSport, userPlanType, userPaymentStatus],
     queryFn: async () => {
       const params = new URLSearchParams({ page: userPage, limit: 20 });
       if (debouncedUserSearch) params.set('search', debouncedUserSearch);
       if (userMembershipFilter) params.set('membershipStatus', userMembershipFilter);
       if (userSport) params.set('sport', userSport);
       if (userPlanType) params.set('planType', userPlanType);
+      if (userPaymentStatus) params.set('paymentStatus', userPaymentStatus);
       const res = await api.get(`/super-admin/users?${params}`);
       return res.data;
     },
@@ -563,9 +566,22 @@ export default function Memberships() {
                   <option key={s._id} value={s.slug}>{s.name}</option>
                 ))}
               </select>
-              {(userSearch || userMembershipFilter || userSport || userPlanType) && (
+              <select
+                value={userPaymentStatus}
+                onChange={e => { setUserPaymentStatus(e.target.value); setUserPage(1); }}
+                className="input-field w-auto min-w-40"
+              >
+                <option value="">All Payment Statuses</option>
+                <option value="paid">Paid</option>
+                <option value="pending">Pending</option>
+                <option value="failed">Failed</option>
+                <option value="partial">Partial</option>
+                <option value="refunded">Refunded</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+              {(userSearch || userMembershipFilter || userSport || userPlanType || userPaymentStatus) && (
                 <button
-                  onClick={() => { setUserSearch(''); setDebouncedUserSearch(''); setUserMembershipFilter(''); setUserSport(''); setUserPlanType(''); setUserPage(1); }}
+                  onClick={() => { setUserSearch(''); setDebouncedUserSearch(''); setUserMembershipFilter(''); setUserSport(''); setUserPlanType(''); setUserPaymentStatus(''); setUserPage(1); }}
                   className="btn-ghost text-xs gap-1 shrink-0"
                 >
                   <X size={14} /> Clear
@@ -585,6 +601,7 @@ export default function Memberships() {
                     <th className="text-left px-4 py-3 font-medium text-[#666] text-xs uppercase tracking-wider">Phone</th>
                     <th className="text-left px-4 py-3 font-medium text-[#666] text-xs uppercase tracking-wider">Membership Plan</th>
                     <th className="text-left px-4 py-3 font-medium text-[#666] text-xs uppercase tracking-wider">Status</th>
+                    <th className="text-left px-4 py-3 font-medium text-[#666] text-xs uppercase tracking-wider">Payment</th>
                     <th className="text-left px-4 py-3 font-medium text-[#666] text-xs uppercase tracking-wider">Expires</th>
                     <th className="text-left px-4 py-3 font-medium text-[#666] text-xs uppercase tracking-wider">Joined</th>
                   </tr>
@@ -593,14 +610,14 @@ export default function Memberships() {
                   {usersLoading ? (
                     [...Array(8)].map((_, i) => (
                       <tr key={i} className="border-b border-dark-hover">
-                        {[...Array(7)].map((__, j) => (
+                        {[...Array(8)].map((__, j) => (
                           <td key={j} className="px-4 py-4"><div className="skeleton h-4 w-24" /></td>
                         ))}
                       </tr>
                     ))
                   ) : users.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="text-center py-16">
+                      <td colSpan={8} className="text-center py-16">
                         <div className="flex flex-col items-center gap-3">
                           <div className="w-16 h-16 rounded-full bg-[#F5F5F5] flex items-center justify-center">
                             <Users size={28} className="text-text-muted" />
@@ -679,6 +696,24 @@ export default function Memberships() {
                                 <StatusBadge m={primaryM} />
                               )}
                             </td>
+                            {/* Payment Status */}
+                            <td className="px-4 py-3">
+                              {u.latestPayment ? (
+                                <button
+                                  onClick={e => { e.stopPropagation(); setPaymentEditModal({ paymentId: u.latestPayment._id, currentStatus: u.latestPayment.status, currentNote: u.latestPayment.adminNote || '' }); }}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border cursor-pointer hover:opacity-80 transition-opacity ${
+                                    u.latestPayment.status === 'paid' ? 'bg-green-50 text-green-700 border-green-200' :
+                                    u.latestPayment.status === 'failed' ? 'bg-red-50 text-red-600 border-red-200' :
+                                    u.latestPayment.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                    u.latestPayment.status === 'refunded' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                    'bg-gray-100 text-gray-500 border-gray-200'
+                                  }`}
+                                >
+                                  {u.latestPayment.status.charAt(0).toUpperCase() + u.latestPayment.status.slice(1)}
+                                  <Pencil size={9} />
+                                </button>
+                              ) : <span className="text-xs text-text-muted">—</span>}
+                            </td>
                             {/* Expires */}
                             <td className="px-4 py-3 text-[#444] text-xs">
                               {isMultiple ? '—' : (primaryM?.endDate ? formatDate(primaryM.endDate) : '—')}
@@ -690,7 +725,7 @@ export default function Memberships() {
                           {/* Expanded memberships row */}
                           {isMultiple && isExpanded && (
                             <tr key={`${u._id}-expanded`} className="border-b border-dark-hover bg-blue-50/20">
-                              <td colSpan={7} className="px-6 py-3">
+                              <td colSpan={8} className="px-6 py-3">
                                 <div className="space-y-2">
                                   {mList.map((m, idx) => (
                                     <div key={idx} className="flex items-center gap-4 bg-white border border-dark-border rounded-lg px-4 py-2.5 text-sm">
@@ -741,6 +776,16 @@ export default function Memberships() {
           </div>
         </div>
       )}
+
+      {/* Payment Status Edit Modal */}
+      <AnimatePresence>
+        {paymentEditModal && (
+          <PaymentStatusModal
+            data={paymentEditModal}
+            onClose={() => setPaymentEditModal(null)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* ════════════════════════════════════════════════════
           Detail Drawer
@@ -912,5 +957,92 @@ function StatCard({ label, value, small }) {
       <p className={`font-bold text-[#111] ${small ? 'text-xs' : 'text-xl'}`}>{value}</p>
       <p className="text-[10px] text-text-muted uppercase tracking-wider mt-1">{label}</p>
     </div>
+  );
+}
+
+// ─── Payment Status Edit Modal ────────────────────────────
+function PaymentStatusModal({ data, onClose }) {
+  const qc = useQueryClient();
+  const [status, setStatus] = useState(data.currentStatus);
+  const [note, setNote] = useState(data.currentNote || '');
+
+  const mutation = useMutation({
+    mutationFn: () => api.patch(`/super-admin/payments/${data.paymentId}/status`, { status, adminNote: note }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['super-admin-users'] });
+      toast.success('Payment status updated');
+      onClose();
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to update'),
+  });
+
+  const statusOptions = [
+    { value: 'paid',      cls: 'text-green-700 bg-green-50 border-green-200' },
+    { value: 'pending',   cls: 'text-amber-700 bg-amber-50 border-amber-200' },
+    { value: 'failed',    cls: 'text-red-600 bg-red-50 border-red-200' },
+    { value: 'partial',   cls: 'text-blue-700 bg-blue-50 border-blue-200' },
+    { value: 'refunded',  cls: 'text-purple-700 bg-purple-50 border-purple-200' },
+    { value: 'cancelled', cls: 'text-gray-500 bg-gray-100 border-gray-200' },
+  ];
+
+  return (
+    <>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 16 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+      >
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm pointer-events-auto" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#EAEAEA]">
+            <h3 className="text-sm font-bold text-[#111]">Update Payment Status</h3>
+            <button onClick={onClose} className="p-1 rounded-lg hover:bg-[#F5F5F5] text-[#666]"><X size={16} /></button>
+          </div>
+          <div className="p-5 space-y-4">
+            <div>
+              <p className="text-xs font-semibold text-[#666] mb-2 uppercase tracking-wider">Status</p>
+              <div className="grid grid-cols-3 gap-2">
+                {statusOptions.map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setStatus(opt.value)}
+                    className={`px-2 py-1.5 rounded-lg border text-xs font-semibold capitalize transition-all ${
+                      status === opt.value ? opt.cls + ' ring-2 ring-offset-1 ring-current' : 'border-[#EAEAEA] text-[#666] hover:bg-[#F5F5F5]'
+                    }`}
+                  >
+                    {opt.value}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-[#666] mb-2 uppercase tracking-wider">
+                Admin Note <span className="text-[#AAA] font-normal normal-case">(optional)</span>
+              </p>
+              <textarea
+                rows={3}
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                placeholder="e.g. Payment confirmed via bank transfer on 28 May"
+                className="input-field resize-none text-sm"
+              />
+            </div>
+          </div>
+          <div className="flex gap-3 px-5 pb-5">
+            <button onClick={onClose} className="btn-ghost flex-1 h-10 text-sm">Cancel</button>
+            <button
+              onClick={() => mutation.mutate()}
+              disabled={mutation.isPending}
+              className="btn-primary flex-1 h-10 text-sm gap-2"
+            >
+              {mutation.isPending && <Loader2 size={14} className="animate-spin" />}
+              Save
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </>
   );
 }
