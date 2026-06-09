@@ -50,7 +50,7 @@ export default function RestaurantDashboard() {
 
   useEffect(() => {
     connectSocket();
-    socket.emit('join-managers');
+    socket.emit('join-managers', { token: localStorage.getItem('accessToken') });
     socket.on('order:new', invalidate);
     socket.on('order:updated', invalidate);
     socket.on('menu:updated', () => qc.invalidateQueries({ queryKey: ['menu'] }));

@@ -613,7 +613,7 @@ export default function Auth() {
       const data = err.response?.data;
       if (data?.requiresCode) {
         setRequiresCode(true);
-        toast.info('Enter your 6-digit security code to continue.');
+        toast.info('Enter your security code to continue.');
       } else {
         toast.error(data?.message || 'Authentication failed');
       }
@@ -826,17 +826,16 @@ export default function Auth() {
                         style={{ overflow: 'hidden' }}
                       >
                         <div className="field-wrap">
-                          <div className="field-label">6-Digit Security Code</div>
+                          <div className="field-label">Security Code</div>
                           <div className="field-inner">
                             <span className="field-icon"><LockIcon /></span>
                             <input
                               type="text"
-                              maxLength={6}
                               value={securityCode}
-                              onChange={(e) => setSecurityCode(e.target.value.replace(/\D/g, ''))}
+                              onChange={(e) => setSecurityCode(e.target.value)}
                               className="field-input"
-                              placeholder="••••••"
-                              style={{ letterSpacing: '0.4em', fontWeight: 700 }}
+                              placeholder="Enter security code"
+                              style={{ letterSpacing: '0.2em', fontWeight: 700 }}
                               autoFocus
                             />
                           </div>

@@ -10,6 +10,7 @@ const REQUIRED_VARS = [
   'SUPER_ADMIN_CODE',
   'MANAGER_EMAIL',
   'MANAGER_CODE',
+  'ADMIN_NOTIFICATION_EMAIL',
 ];
 
 function validateEnv() {

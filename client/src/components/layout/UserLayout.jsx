@@ -5,14 +5,12 @@ import { Home, CreditCard, Calendar, Utensils, ClipboardList, User, Menu, X, Log
 import useAuthStore from '../../store/authStore';
 import { getInitials } from '../../lib/utils';
 import ErrorBoundary from '../shared/ErrorBoundary';
-import { useQueryClient } from '@tanstack/react-query';
-import socket from '../../lib/socket';
 
 const menuItems = [
   { path: '/user', label: 'Dashboard', icon: <Home size={18} />, end: true },
   { path: '/user/scan', label: 'Scan QR Entry', icon: <ScanLine size={18} /> },
   { path: '/user/membership', label: 'Membership', icon: <CreditCard size={18} /> },
-  { path: '/user/book-slots', label: 'Book Slots', icon: <Calendar size={18} /> },
+  { path: '/user/book-slots', label: 'Book Sports', icon: <Calendar size={18} /> },
   { path: '/user/table-portal', label: 'Order Food', icon: <Utensils size={18} /> },
   { path: '/user/orders', label: 'Order History', icon: <ClipboardList size={18} /> },
   { path: '/user/reviews', label: 'Reviews', icon: <Star size={18} /> },
@@ -33,37 +31,12 @@ export default function UserLayout() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const qc = useQueryClient();
-
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
   useEffect(() => {
     const onResize = () => { if (window.innerWidth >= 1024) setMobileOpen(false); };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    const onRefresh = () => {
-      console.log('Real-time refresh triggered!');
-      qc.invalidateQueries();
-    };
-    
-    // Listen for global and user-specific socket events
-    socket.on('dashboard:refresh', onRefresh);
-    socket.on('payment:success', onRefresh);
-    socket.on('order:updated', onRefresh);
-    socket.on('attendance:check-in', onRefresh);
-    socket.on('attendance:check-out', onRefresh);
-    
-    return () => {
-      socket.off('dashboard:refresh', onRefresh);
-      socket.off('payment:success', onRefresh);
-      socket.off('order:updated', onRefresh);
-      socket.off('attendance:check-in', onRefresh);
-      socket.off('attendance:check-out', onRefresh);
-    };
-  }, [qc, user?.id]);
 
   const handleLogout = async () => { await logout(); navigate('/login'); };
 

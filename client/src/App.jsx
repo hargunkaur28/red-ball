@@ -71,7 +71,7 @@ function ProtectedRoute({ children, roles }) {
   return children;
 }
 
-import socket, { connectSocket } from './lib/socket';
+import { connectSocket } from './lib/socket';
 
 // ── App ────────────────────────────────────────────────────────────
 export default function App() {
@@ -86,22 +86,13 @@ export default function App() {
     ping();
     const keepAlive = setInterval(ping, 10 * 60 * 1000);
 
-    // Connect socket on app load
+    // Connect socket on app load. Individual pages register their own targeted
+    // socket listeners and invalidate only the queries they own. A blanket
+    // onAny → invalidateQueries() here caused every event to cascade into
+    // mass refetches, which in turn triggered more socket events (loop).
     connectSocket();
 
-    // Global real-time listener: Whenever the backend emits ANY event,
-    // we invalidate all React Query cache to automatically fetch fresh data.
-    const handleGlobalEvent = (eventName) => {
-      // Ignore internal socket.io events
-      if (['connect', 'disconnect', 'connect_error'].includes(eventName)) return;
-      console.log(`📡 Global refresh triggered by event: ${eventName}`);
-      queryClient.invalidateQueries();
-    };
-
-    socket.onAny(handleGlobalEvent);
-
     return () => {
-      socket.offAny(handleGlobalEvent);
       clearInterval(keepAlive);
     };
   }, []);

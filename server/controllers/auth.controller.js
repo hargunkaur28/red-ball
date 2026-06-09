@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const axios = require('axios');
 const { sendPasswordResetOTP, sendFailedLoginAlert } = require('../utils/emailService');
@@ -20,10 +21,10 @@ const COOKIE_BASE = {
   sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
 };
 
-// rememberMe=true → 90 days; default → 30 days
+// rememberMe=true → 60 days; default → 30 days
 const getCookieOptions = (rememberMe) => ({
   ...COOKIE_BASE,
-  maxAge: (rememberMe ? 90 : 30) * 24 * 60 * 60 * 1000,
+  maxAge: (rememberMe ? 60 : 30) * 24 * 60 * 60 * 1000,
 });
 
 // Keep a stable options object for logout/clear (30-day baseline)
@@ -31,7 +32,7 @@ const REFRESH_COOKIE_OPTIONS = getCookieOptions(false);
 
 const generateAccessToken = (userId) => jwt.sign({ userId }, ACCESS_SECRET, { expiresIn: '30d' });
 const generateRefreshToken = (userId, rememberMe) =>
-  jwt.sign({ userId }, REFRESH_SECRET, { expiresIn: rememberMe ? '90d' : '30d' });
+  jwt.sign({ userId }, REFRESH_SECRET, { expiresIn: rememberMe ? '60d' : '30d' });
 
 const getIP = (req) => req.ip || req.headers['x-forwarded-for'] || 'unknown';
 const getUA = (req) => req.headers['user-agent'] || 'unknown';
@@ -131,7 +132,7 @@ exports.login = async (req, res) => {
 
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id, rememberMe);
-    user.refreshToken = refreshToken;
+    user.refreshToken = await bcrypt.hash(refreshToken, 8);
     await user.save({ validateBeforeSave: false });
 
     // Track privileged logins
@@ -185,7 +186,7 @@ exports.register = async (req, res) => {
 
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id, false);
-    user.refreshToken = refreshToken;
+    user.refreshToken = await bcrypt.hash(refreshToken, 8);
     await user.save({ validateBeforeSave: false });
 
     res.cookie('refreshToken', refreshToken, getCookieOptions(false));
@@ -221,17 +222,17 @@ exports.refresh = async (req, res) => {
     const decoded = jwt.verify(refreshToken, REFRESH_SECRET);
     const user = await User.findById(decoded.userId).select('+refreshToken');
 
-    if (!user || user.refreshToken !== refreshToken) {
+    if (!user || !user.refreshToken || !await bcrypt.compare(refreshToken, user.refreshToken)) {
       return res.status(401).json({ message: 'Invalid refresh token.' });
     }
 
-    // Preserve the original remember-me duration: 90d tokens had ~90d lifetime
+    // Preserve the original remember-me duration: 60d tokens had ~60d lifetime
     const originalDurationDays = Math.round((decoded.exp - decoded.iat) / 86400);
-    const wasRemembered = originalDurationDays >= 89;
+    const wasRemembered = originalDurationDays >= 59;
 
     const newAccessToken = generateAccessToken(user._id);
     const newRefreshToken = generateRefreshToken(user._id, wasRemembered);
-    user.refreshToken = newRefreshToken;
+    user.refreshToken = await bcrypt.hash(newRefreshToken, 8);
     await user.save({ validateBeforeSave: false });
 
     res.cookie('refreshToken', newRefreshToken, getCookieOptions(wasRemembered));
@@ -259,7 +260,7 @@ exports.logout = async (req, res) => {
       const accessToken = authHeader.split(' ')[1];
       try {
         const decoded = jwt.verify(accessToken, ACCESS_SECRET);
-        tokenBlacklist.add(accessToken, decoded.exp);
+        await tokenBlacklist.add(accessToken, decoded.exp);
       } catch {}
     }
 
@@ -279,17 +280,21 @@ exports.logout = async (req, res) => {
 // POST /api/auth/google
 exports.googleAuth = async (req, res) => {
   try {
-    const { credential, role = 'user' } = req.body;
+    const { credential } = req.body;
     if (!credential) {
       return res.status(400).json({ message: 'Google credential is required.' });
+    }
+
+    const expectedClientId = process.env.GOOGLE_CLIENT_ID;
+    if (!expectedClientId) {
+      return res.status(503).json({ message: 'Google sign-in is not configured on this server.' });
     }
 
     const { data: profile } = await axios.get('https://oauth2.googleapis.com/tokeninfo', {
       params: { id_token: credential },
     });
 
-    const expectedClientId = process.env.GOOGLE_CLIENT_ID;
-    if (expectedClientId && profile.aud !== expectedClientId) {
+    if (profile.aud !== expectedClientId) {
       return res.status(401).json({ message: 'Google credential audience mismatch.' });
     }
 
@@ -316,7 +321,7 @@ exports.googleAuth = async (req, res) => {
 
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id, false);
-    user.refreshToken = refreshToken;
+    user.refreshToken = await bcrypt.hash(refreshToken, 8);
     await user.save({ validateBeforeSave: false });
 
     res.cookie('refreshToken', refreshToken, getCookieOptions(false));
@@ -348,10 +353,11 @@ exports.forgotPassword = async (req, res) => {
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    user.resetOtp = otp;
+    user.resetOtp = await bcrypt.hash(otp, 8);
     user.resetOtpExpiry = new Date(Date.now() + 10 * 60 * 1000);
     await user.save({ validateBeforeSave: false });
 
+    // Send the plain OTP to the user; we only store the hash
     await sendPasswordResetOTP({ toEmail: user.email, toName: user.name, otp });
 
     logPasswordReset({
@@ -374,7 +380,8 @@ exports.resetPassword = async (req, res) => {
     const { email, otp, newPassword } = req.body;
     const user = await User.findOne({ email }).select('+resetOtp +resetOtpExpiry');
 
-    if (!user || user.resetOtp !== otp || user.resetOtpExpiry < new Date()) {
+    const otpValid = user.resetOtp && await bcrypt.compare(otp, user.resetOtp);
+    if (!otpValid || user.resetOtpExpiry < new Date()) {
       return res.status(400).json({ message: 'Invalid or expired OTP.' });
     }
 

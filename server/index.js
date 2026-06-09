@@ -11,6 +11,7 @@ const cookieParser = require('cookie-parser');
 const http = require('http');
 const { Server } = require('socket.io');
 const rateLimit = require('express-rate-limit');
+const jwt = require('jsonwebtoken');
 const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
 const connectDB = require('./config/db');
@@ -73,13 +74,48 @@ const io = new Server(server, {
 
 app.set('io', io);
 
+// Socket.io auth middleware — attaches userId and role when a valid token is provided.
+// Connections without tokens are still allowed (public portals need socket too).
+io.use(async (socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (token) {
+    try {
+      const User = require('./models/User');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findById(decoded.userId).select('role isActive');
+      if (user?.isActive) {
+        socket.data.userId = decoded.userId.toString();
+        socket.data.role = user.role;
+      }
+    } catch {} // invalid/expired token — treat as unauthenticated
+  }
+  next();
+});
+
 // Socket.io connection handling
 io.on('connection', (socket) => {
-  console.log(`🔌 Socket connected: ${socket.id}`);
+  // join-managers accepts an optional inline token as a fallback for cases
+  // where the socket connected before the user was authenticated (e.g. App.jsx
+  // connects on mount, then the user logs in and the restaurant page emits this).
+  socket.on('join-managers', async ({ token } = {}) => {
+    let role = socket.data.role;
 
-  socket.on('join-managers', () => {
-    socket.join('restaurant-managers');
-    console.log(`👨‍🍳 Manager joined: ${socket.id}`);
+    if (!role && token) {
+      try {
+        const User = require('./models/User');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.userId).select('role isActive');
+        if (user?.isActive) {
+          socket.data.userId = decoded.userId.toString();
+          socket.data.role = user.role;
+          role = user.role;
+        }
+      } catch {}
+    }
+
+    if (role === 'manager' || role === 'superadmin') {
+      socket.join('restaurant-managers');
+    }
   });
 
   socket.on('join-order', (orderId) => {
@@ -132,7 +168,7 @@ app.use(cors({
 }));
 
 app.use(compression());
-app.use(morgan('dev'));
+app.use(morgan(isProd ? 'combined' : 'dev'));
 app.use(express.json({
   limit: '10mb',
   verify: (req, res, buf) => {
@@ -144,25 +180,54 @@ app.use(cookieParser());
 app.use(mongoSanitize());
 app.use(xss());
 
-// Rate limiting
+// ── Rate Limiting ──────────────────────────────────────────────────
+const rateLimitMessage = (windowMs) => ({
+  success: false,
+  code: 'RATE_LIMITED',
+  retryAfter: Math.ceil(windowMs / 1000),
+  message: 'Too many requests. Please slow down.',
+});
+
+// Skip health checks and socket.io heartbeat paths from all rate limiters
+const skipHealthAndSocket = (req) =>
+  req.path === '/health' || req.path.startsWith('/socket.io');
+
+// General API: 100 req/min for anonymous, 300 req/min for authenticated.
+// No custom keyGenerator — express-rate-limit's default handles IPv6 correctly.
 app.use('/api/', rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
+  windowMs: 60 * 1000,
+  max: (req) => (req.headers.authorization?.startsWith('Bearer ') ? 300 : 100),
+  skip: skipHealthAndSocket,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { message: 'Too many requests, please try again later.' },
+  message: rateLimitMessage(60 * 1000),
 }));
 
+// Login: 10 attempts per 15 minutes
 app.use('/api/auth/login', rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: { message: 'Too many login attempts. Please wait 15 minutes.' },
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: rateLimitMessage(15 * 60 * 1000),
 }));
 
+// Forgot password: 5 requests per hour
 app.use('/api/auth/forgot-password', rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 5,
-  message: { message: 'Too many password reset requests. Try again in an hour.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: rateLimitMessage(60 * 60 * 1000),
+}));
+
+// QR entry check-in/out: 30 req/min
+app.use('/api/sports/entry-check', rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: rateLimitMessage(60 * 1000),
 }));
 
 // Static Files

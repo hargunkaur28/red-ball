@@ -13,7 +13,7 @@ const optAuth = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
     if (!token) return next();
 
-    if (tokenBlacklist.has(token)) return next();
+    if (await tokenBlacklist.has(token)) return next();
 
     const decoded = jwt.verify(token, ACCESS_SECRET);
     const user = await User.findById(decoded.userId);

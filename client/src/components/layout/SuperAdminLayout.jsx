@@ -5,8 +5,6 @@ import { LayoutDashboard, Trophy, CreditCard, Ticket, Menu, X, LogOut, Bell, Tim
 import useAuthStore from '../../store/authStore';
 import { getInitials } from '../../lib/utils';
 import ErrorBoundary from '../shared/ErrorBoundary';
-import { useQueryClient } from '@tanstack/react-query';
-import socket from '../../lib/socket';
 
 const menuItems = [
   { path: '/super-admin', label: 'Overview', icon: <LayoutDashboard size={18} />, end: true },
@@ -26,33 +24,7 @@ export default function SuperAdminLayout() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const qc = useQueryClient();
-
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
-
-  useEffect(() => {
-    const onRefresh = () => {
-      console.log('Super-Admin Real-time refresh triggered!');
-      qc.invalidateQueries();
-    };
-    
-    // Listen for global socket events
-    socket.on('dashboard:refresh', onRefresh);
-    socket.on('payment:success', onRefresh);
-    socket.on('attendance:check-in', onRefresh);
-    socket.on('attendance:check-out', onRefresh);
-    socket.on('membership:updated', onRefresh);
-    socket.on('sport:updated', onRefresh);
-    
-    return () => {
-      socket.off('dashboard:refresh', onRefresh);
-      socket.off('payment:success', onRefresh);
-      socket.off('attendance:check-in', onRefresh);
-      socket.off('attendance:check-out', onRefresh);
-      socket.off('membership:updated', onRefresh);
-      socket.off('sport:updated', onRefresh);
-    };
-  }, [qc]);
 
   useEffect(() => {
     const onResize = () => { if (window.innerWidth >= 1024) setMobileOpen(false); };

@@ -5,13 +5,12 @@ import api from '../../lib/axios';
 import PageHeader from '../../components/shared/PageHeader';
 import { formatCurrency } from '../../lib/utils';
 import { toast } from 'sonner';
-import { io } from 'socket.io-client';
+import socket from '../../lib/socket';
 import {
   Clock, ChefHat, CheckCircle, Truck, X, DollarSign, FileText, User,
   LayoutGrid, List, MapPin, Timer, Ban, RefreshCw, ExternalLink,
 } from 'lucide-react';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || (import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000');
 
 const statusConfig = {
   new:       { label: 'New Orders',         color: 'border-blue-500 bg-blue-50/40',   headerBg: 'bg-blue-600 text-white',        icon: <Clock size={18} /> },
@@ -66,13 +65,14 @@ export default function RestaurantOrders() {
     refetchInterval: 10000,
   });
 
-  // Socket subscriptions
+  // Socket subscriptions — use shared singleton (no new connection per mount)
   useEffect(() => {
-    const socket = io(SOCKET_URL);
-    socket.emit('join-managers');
+    socket.emit('join-managers', { token: localStorage.getItem('accessToken') });
 
-    socket.on('order:new', (payload) => {
-      qc.invalidateQueries({ queryKey: ['restaurant-orders'] });
+    const invalidateOrders = () => qc.invalidateQueries({ queryKey: ['restaurant-orders'] });
+
+    const handleOrderNew = (payload) => {
+      invalidateOrders();
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = ctx.createOscillator();
@@ -84,19 +84,28 @@ export default function RestaurantOrders() {
         gain.gain.setValueAtTime(0.2, ctx.currentTime);
         osc.start();
         osc.stop(ctx.currentTime + 0.4);
-      } catch (e) {}
+      } catch {}
       const tableLbl = payload?.order?.tableId?.label || 'a Table';
       toast.success(`🔔 Incoming Order from ${tableLbl}!`, { description: 'Check New Orders column.' });
-    });
+    };
 
-    socket.on('order:updated', () => qc.invalidateQueries({ queryKey: ['restaurant-orders'] }));
-    socket.on('order:cancelled', () => qc.invalidateQueries({ queryKey: ['restaurant-orders'] }));
-    socket.on('restaurant:orderUpdated', () => qc.invalidateQueries({ queryKey: ['restaurant-orders'] }));
-    socket.on('restaurant:itemCancelled', () => qc.invalidateQueries({ queryKey: ['restaurant-orders'] }));
-    socket.on('restaurant:itemRefunded', () => qc.invalidateQueries({ queryKey: ['restaurant-orders'] }));
-    socket.on('dashboard:refresh', () => qc.invalidateQueries({ queryKey: ['restaurant-orders'] }));
+    socket.on('order:new', handleOrderNew);
+    socket.on('order:updated', invalidateOrders);
+    socket.on('order:cancelled', invalidateOrders);
+    socket.on('restaurant:orderUpdated', invalidateOrders);
+    socket.on('restaurant:itemCancelled', invalidateOrders);
+    socket.on('restaurant:itemRefunded', invalidateOrders);
+    socket.on('dashboard:refresh', invalidateOrders);
 
-    return () => socket.disconnect();
+    return () => {
+      socket.off('order:new', handleOrderNew);
+      socket.off('order:updated', invalidateOrders);
+      socket.off('order:cancelled', invalidateOrders);
+      socket.off('restaurant:orderUpdated', invalidateOrders);
+      socket.off('restaurant:itemCancelled', invalidateOrders);
+      socket.off('restaurant:itemRefunded', invalidateOrders);
+      socket.off('dashboard:refresh', invalidateOrders);
+    };
   }, [qc]);
 
   const updateMutation = useMutation({

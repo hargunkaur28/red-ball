@@ -9,11 +9,13 @@ const socket = io(SOCKET_URL, {
   transports: ['websocket', 'polling'],
 });
 
-// Connection state helpers
+// Connection state helpers.
+// Reads the access token from localStorage so the server's socket auth
+// middleware can assign role/userId to the connection on establishment.
 export const connectSocket = () => {
-  if (!socket.connected) {
-    socket.connect();
-  }
+  const token = localStorage.getItem('accessToken');
+  if (token) socket.auth = { token };
+  if (!socket.connected) socket.connect();
 };
 
 export const disconnectSocket = () => {

@@ -52,7 +52,6 @@ export default function UserDashboard() {
     queryKey: ['my-passes'],
     queryFn: () => api.get('/onetimeaccess/my-passes').then(r => r.data),
     enabled: !!user?.id,
-    refetchInterval: 8000,
   });
 
   const passesList = useMemo(() => passesData?.passes || [], [passesData]);
@@ -242,9 +241,53 @@ export default function UserDashboard() {
         </motion.div>
       )}
 
+      {/* No Membership — Prominent Action Cards */}
+      {activeMemberships.length === 0 && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+          <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-white/40 mb-4">Get Started</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Link to="/user/buy-memberships" className="group">
+              <div className="ota-card p-5 flex flex-col gap-3 hover:border-[#C8102E]/40 transition-all cursor-pointer h-full">
+                <div className="w-11 h-11 rounded-xl bg-[#C8102E]/10 border border-[#C8102E]/25 flex items-center justify-center text-[#C8102E] group-hover:bg-[#C8102E]/20 transition-colors">
+                  <Trophy size={22} strokeWidth={1.8} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-white text-base leading-tight">Buy Sport Membership</h3>
+                  <p className="text-xs text-white/45 mt-1">Monthly, quarterly &amp; yearly plans for one or all sports</p>
+                </div>
+                <span className="mt-auto text-xs font-bold text-[#C8102E] group-hover:underline">View Plans →</span>
+              </div>
+            </Link>
+            <Link to="/user/buy-memberships?sport=all-services" className="group">
+              <div className="ota-card p-5 flex flex-col gap-3 hover:border-amber-500/40 transition-all cursor-pointer h-full">
+                <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-400 group-hover:bg-amber-500/20 transition-colors">
+                  <Star size={22} strokeWidth={1.8} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-white text-base leading-tight">All Services Plan</h3>
+                  <p className="text-xs text-white/45 mt-1">Access every sport at one flat price — best value</p>
+                </div>
+                <span className="mt-auto text-xs font-bold text-amber-400 group-hover:underline">View Plans →</span>
+              </div>
+            </Link>
+            <Link to="/user/book-slots" className="group">
+              <div className="ota-card p-5 flex flex-col gap-3 hover:border-green-500/40 transition-all cursor-pointer h-full">
+                <div className="w-11 h-11 rounded-xl bg-green-500/10 border border-green-500/25 flex items-center justify-center text-green-400 group-hover:bg-green-500/20 transition-colors">
+                  <Calendar size={22} strokeWidth={1.8} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-white text-base leading-tight">Book One-Time Play</h3>
+                  <p className="text-xs text-white/45 mt-1">Pay per session — no commitment needed</p>
+                </div>
+                <span className="mt-auto text-xs font-bold text-green-400 group-hover:underline">Book Now →</span>
+              </div>
+            </Link>
+          </div>
+        </motion.div>
+      )}
+
       {/* Membership Cards */}
-      {activeMemberships.length > 0 ? (
-        activeMemberships.map((m) => {
+      {activeMemberships.length > 0 && activeMemberships.map((m) => {
           const plan = m?.planId;
           if (!plan) return null;
           const daysLeft = m?.endDate ? Math.max(0, Math.ceil((new Date(m.endDate) - new Date()) / (1000 * 60 * 60 * 24))) : 0;
@@ -325,11 +368,47 @@ export default function UserDashboard() {
               )}
             </motion.div>
           );
-        })
-      ) : (
-        <div className="ota-card mb-8 text-center py-8 px-6">
-          <p className="text-white/55 text-sm">No active membership found.</p>
-          <p className="text-xs text-white/35 mt-1">Visit the academy reception to get started.</p>
+        })}
+
+      {/* Explore More Sports — shown below active memberships */}
+      {activeMemberships.length > 0 && (
+        <div className="mb-8">
+          <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-white/40 mb-4">Explore More Sports</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Link to="/user/book-slots" className="group">
+              <div className="ota-card p-5 flex flex-col gap-3 hover:border-white/15 transition-all cursor-pointer h-full">
+                <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/55 group-hover:text-white transition-colors">
+                  <Calendar size={22} strokeWidth={1.8} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-white text-sm leading-tight">Book Sports</h3>
+                  <p className="text-xs text-white/40 mt-1">Browse courts and book by the hour</p>
+                </div>
+              </div>
+            </Link>
+            <Link to="/user/buy-memberships" className="group">
+              <div className="ota-card p-5 flex flex-col gap-3 hover:border-white/15 transition-all cursor-pointer h-full">
+                <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/55 group-hover:text-white transition-colors">
+                  <Trophy size={22} strokeWidth={1.8} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-white text-sm leading-tight">Add Another Plan</h3>
+                  <p className="text-xs text-white/40 mt-1">Upgrade or add a new sport membership</p>
+                </div>
+              </div>
+            </Link>
+            <Link to="/user/membership" className="group">
+              <div className="ota-card p-5 flex flex-col gap-3 hover:border-white/15 transition-all cursor-pointer h-full">
+                <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/55 group-hover:text-white transition-colors">
+                  <Star size={22} strokeWidth={1.8} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-white text-sm leading-tight">Manage Membership</h3>
+                  <p className="text-xs text-white/40 mt-1">View invoices, renew or upgrade</p>
+                </div>
+              </div>
+            </Link>
+          </div>
         </div>
       )}
       {/* Prepaid Passes Section */}

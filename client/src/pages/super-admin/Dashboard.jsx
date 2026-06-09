@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, CreditCard, Ticket, ArrowRight, Calendar, AlertTriangle, Activity, LogIn, LogOut } from 'lucide-react';
 import api from '../../lib/axios';
-import io from 'socket.io-client';
+import socket from '../../lib/socket';
 
 const today = () => {
   const d = new Date();
@@ -153,26 +153,31 @@ export default function Dashboard() {
 
   // Socket.IO for real-time check-in/out events
   useEffect(() => {
-    const serverUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
-    const socket = io(serverUrl, { transports: ['websocket', 'polling'] });
-
-    socket.on('attendance:check-in', (data) => {
+    const handleCheckIn = (data) => {
       setCheckInLog(prev => [{ type: 'check-in', ...data, id: Date.now() }, ...prev].slice(0, 20));
       qc.invalidateQueries({ queryKey: ['dashboard-sports'] });
-    });
-    socket.on('attendance:check-out', (data) => {
+    };
+    const handleCheckOut = (data) => {
       setCheckInLog(prev => [{ type: 'check-out', ...data, id: Date.now() }, ...prev].slice(0, 20));
       qc.invalidateQueries({ queryKey: ['dashboard-sports'] });
-    });
-    socket.on('attendance:auto-checkout', (data) => {
+    };
+    const handleAutoCheckout = (data) => {
       setCheckInLog(prev => [{ type: 'auto-checkout', ...data, id: Date.now() }, ...prev].slice(0, 20));
       qc.invalidateQueries({ queryKey: ['dashboard-sports'] });
-    });
-    socket.on('dashboard:refresh', () => {
-      qc.invalidateQueries({ queryKey: ['dashboard-sports'] });
-    });
+    };
+    const handleRefresh = () => qc.invalidateQueries({ queryKey: ['dashboard-sports'] });
 
-    return () => socket.disconnect();
+    socket.on('attendance:check-in', handleCheckIn);
+    socket.on('attendance:check-out', handleCheckOut);
+    socket.on('attendance:auto-checkout', handleAutoCheckout);
+    socket.on('dashboard:refresh', handleRefresh);
+
+    return () => {
+      socket.off('attendance:check-in', handleCheckIn);
+      socket.off('attendance:check-out', handleCheckOut);
+      socket.off('attendance:auto-checkout', handleAutoCheckout);
+      socket.off('dashboard:refresh', handleRefresh);
+    };
   }, [qc]);
   // Fetch active sports count
   const { data: sportsData, isLoading: sportsLoading } = useQuery({
