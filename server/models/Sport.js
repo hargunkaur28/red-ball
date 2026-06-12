@@ -87,6 +87,33 @@ const sportSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+
+  // Day/night slot pricing
+  slotPricingMode: {
+    type: String,
+    enum: ['flat', 'dayNight'],
+    default: 'flat',
+  },
+  daySlotPrice: {
+    type: Number,
+  },
+  nightSlotPrice: {
+    type: Number,
+  },
+  nightStartTime: {
+    type: String, // e.g. "18:00"
+    default: '18:00',
+  },
+
+  // Training add-on for memberships
+  trainingAvailable: {
+    type: Boolean,
+    default: false,
+  },
+  trainingPrice: {
+    type: Number,
+    default: 1000,
+  },
 }, {
   timestamps: true,
 });

@@ -12,6 +12,15 @@ const optionalAuth = async (req, res, next) => {
 };
 
 // ==========================================
+// DISCOUNT ROUTES (specific paths first)
+// ==========================================
+router.get('/discounts/public', sportController.getPublicDiscounts);
+router.get('/discounts', auth, authorize('superadmin'), sportController.getDiscounts);
+router.post('/discounts', auth, authorize('superadmin'), sportController.createDiscount);
+router.put('/discounts/:id', auth, authorize('superadmin'), sportController.updateDiscount);
+router.delete('/discounts/:id', auth, authorize('superadmin'), sportController.deleteDiscount);
+
+// ==========================================
 // SUPERADMIN SPORT MANAGEMENT ROUTES
 // ==========================================
 router.get('/public', sportController.getPublicSports);

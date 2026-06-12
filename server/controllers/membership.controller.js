@@ -6,7 +6,7 @@ const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const { calculateGST } = require('../utils/gstCalculator');
 const { getDurationMs } = require('../utils/dateUtils');
-const { verifyPaymentSignature, fetchPaymentDetails } = require('../config/razorpay');
+const { verifyPaymentSignature, fetchPaymentDetails, createRazorpayOrder } = require('../config/razorpay');
 const { DEFAULT_ALLOWED_DURATION_MINUTES } = require('../utils/sessionCalculator');
 const { invalidateEntitlementCache, calculateEntitlement, validateCheckIn } = require('../utils/entitlementEngine');
 const { getEffectiveConfig } = require('../utils/sessionCalculator');
@@ -391,29 +391,57 @@ exports.checkInMembership = async (req, res) => {
 
 exports.publicPurchaseOrder = async (req, res) => {
   try {
-    const { planId } = req.body;
+    const { planId, withTraining } = req.body;
     const plan = await MembershipPlan.findById(planId);
-    
+
     if (!plan || !plan.isActive) {
       return res.status(404).json({ success: false, message: 'Membership plan not found or inactive.' });
     }
 
-    const { createRazorpayOrder } = require('../config/razorpay');
-    const rzpOrder = await createRazorpayOrder({
-      amount: Math.round(plan.price * 100), // in paise, no GST
-      currency: 'INR',
-      receipt: `PUBLIC_MEMB_${Date.now()}`
+    const trainingAddon = withTraining && plan.trainingAvailable ? (plan.trainingPrice || 0) : 0;
+    const totalAmount = plan.price + trainingAddon;
+
+    // Create pending Payment BEFORE Razorpay order — snapshot binds verify to plan/training choice
+    const pendingPayment = await Payment.create({
+      type: 'membership',
+      referenceId: plan._id,
+      amount: totalAmount,
+      gstAmount: 0,
+      gstPercent: 0,
+      totalAmount,
+      amountPaid: 0,
+      remainingAmount: totalAmount,
+      status: 'pending',
+      paymentMode: 'razorpay',
+      withTraining: !!trainingAddon,
+      trainingAmount: trainingAddon,
+      basePlanAmount: plan.price,
     });
+
+    const rzpOrder = await createRazorpayOrder({
+      amount: Math.round(totalAmount * 100),
+      currency: 'INR',
+      receipt: `PUBLIC_MEMB_${Date.now()}`,
+      notes: { paymentId: pendingPayment._id.toString(), planId: plan._id.toString() },
+    });
+
+    // Bind Razorpay order ID to the pending payment
+    pendingPayment.razorpayOrderId = rzpOrder.id;
+    await pendingPayment.save();
 
     res.json({
       success: true,
+      paymentId: pendingPayment._id,
       rzpOrder: {
         id: rzpOrder.id,
         amount: rzpOrder.amount,
-        currency: rzpOrder.currency
+        currency: rzpOrder.currency,
       },
       plan,
-      totalAmount: plan.price,
+      withTraining: !!trainingAddon,
+      trainingAmount: trainingAddon,
+      basePlanAmount: plan.price,
+      totalAmount,
     });
   } catch (error) {
     console.error('publicPurchaseOrder error:', error);
@@ -423,37 +451,72 @@ exports.publicPurchaseOrder = async (req, res) => {
 
 exports.publicVerifyPayment = async (req, res) => {
   try {
-    const { planId, razorpayOrderId, razorpayPaymentId, razorpaySignature, customerDetails = {} } = req.body;
-    
-    const plan = await MembershipPlan.findById(planId);
-    if (!plan) return res.status(404).json({ success: false, message: 'Membership plan not found' });
+    const {
+      paymentId,
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+      customerDetails = {},
+    } = req.body;
 
-    // 1. Verify Razorpay signature (cryptographically sufficient — handler only fires on success)
-    const isValid = verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
-    if (!isValid) return res.status(400).json({ success: false, message: 'Invalid payment signature' });
-
-    // 2. Idempotency Check
-    const existingPayment = await Payment.findOne({
-      $or: [{ razorpayPaymentId }, { razorpayOrderId }],
-      status: 'paid'
-    });
-    if (existingPayment) {
-      return res.json({ success: true, message: 'Payment already processed' });
+    if (!paymentId || !razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+      return res.status(400).json({ success: false, message: 'paymentId, razorpayOrderId, razorpayPaymentId, razorpaySignature are required.' });
     }
 
-    // 4. Match User or Create New (Commerce Integrity Rule 3)
-    let targetUserId = req.user?.userId; // If authenticated
+    // Find pending payment by snapshot ID and order ID
+    const pendingPayment = await Payment.findOne({ _id: paymentId, razorpayOrderId, type: 'membership' });
+    if (!pendingPayment) {
+      return res.status(400).json({ success: false, message: 'Payment record not found.' });
+    }
+
+    // Idempotency: already paid
+    if (pendingPayment.status === 'paid') {
+      return res.json({ success: true, message: 'Payment already processed.' });
+    }
+    if (pendingPayment.status !== 'pending') {
+      return res.status(400).json({ success: false, message: `Payment is in an unexpected state: ${pendingPayment.status}.` });
+    }
+
+    // Reject conflicting reuse of same order with a different Razorpay payment
+    if (pendingPayment.razorpayPaymentId && pendingPayment.razorpayPaymentId !== razorpayPaymentId) {
+      return res.status(400).json({ success: false, message: 'This order was already used with a different Razorpay payment.' });
+    }
+
+    // Verify signature
+    const isValid = verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
+    if (!isValid) return res.status(400).json({ success: false, message: 'Invalid payment signature.' });
+
+    // Fetch Razorpay payment and verify captured amount against snapshot
+    try {
+      const rzpDetails = await fetchPaymentDetails(razorpayPaymentId);
+      if (rzpDetails.status !== 'captured' && rzpDetails.status !== 'authorized') {
+        return res.status(400).json({ success: false, message: 'Payment not completed by Razorpay.' });
+      }
+      if (rzpDetails.amount !== Math.round(pendingPayment.totalAmount * 100)) {
+        return res.status(400).json({
+          success: false,
+          message: `Amount mismatch: expected ₹${pendingPayment.totalAmount}, got ₹${rzpDetails.amount / 100}.`,
+        });
+      }
+    } catch (rzpErr) {
+      console.error('Razorpay fetch error (signature-only fallback):', rzpErr.message);
+    }
+
+    // Load plan from payment snapshot (referenceId = planId) — never trust client planId
+    const plan = await MembershipPlan.findById(pendingPayment.referenceId);
+    if (!plan) return res.status(404).json({ success: false, message: 'Membership plan not found.' });
+
+    // Match or create user
+    let targetUserId = req.user?.userId;
     let user = null;
 
     if (!targetUserId && customerDetails.email) {
       user = await User.findOne({ email: customerDetails.email.toLowerCase() });
       if (!user && customerDetails.phone) {
-         user = await User.findOne({ phone: customerDetails.phone });
+        user = await User.findOne({ phone: customerDetails.phone });
       }
-
       if (!user) {
-        // Auto-create user
-        const bcrypt = require('bcryptjs'); // lazy-loaded since bcrypt is only needed for guest purchases
+        const bcrypt = require('bcryptjs');
         const hashedPassword = await bcrypt.hash('User@123', 10);
         user = await User.create({
           name: customerDetails.name,
@@ -461,7 +524,7 @@ exports.publicVerifyPayment = async (req, res) => {
           phone: customerDetails.phone,
           password: hashedPassword,
           role: 'user',
-          isActive: true
+          isActive: true,
         });
       }
       targetUserId = user._id;
@@ -473,76 +536,58 @@ exports.publicVerifyPayment = async (req, res) => {
       return res.status(400).json({ success: false, message: 'User identification failed.' });
     }
 
-    // 5. Execute inside a transaction
+    // Execute inside a transaction
     const result = await runTransaction(async (session) => {
       const opts = session ? { session } : {};
 
-      // Commerce Integrity Rule 8: Duplicate Check / Extension Logic
-      // Find an active membership for the exact same plan
       let activeMembership = await Membership.findOne({
         studentId: targetUserId,
         planId: plan._id,
-        status: 'active'
+        status: 'active',
       }, null, opts);
 
       let startDate = new Date();
       if (activeMembership && activeMembership.endDate > new Date()) {
-        // Renewal flow: start from previous end date
         startDate = new Date(activeMembership.endDate);
       }
       const endDate = new Date(startDate.getTime() + getDurationMs(plan));
 
-      // Commerce Integrity Rule 6: Snapshot Data (Store name via plan reference, but Payment has snapshot fields)
-      const [payment] = await Payment.create([{
-        studentId: targetUserId,
-        customerName: user.name,
-        type: 'membership',
-        referenceId: plan._id,
-        amount: plan.price,
-        gstAmount: 0,
-        gstPercent: 0,
-        totalAmount: plan.price,
-        amountPaid: plan.price,
-        remainingAmount: 0,
-        status: 'paid',
-        paymentMode: 'razorpay',
-        razorpayOrderId,
-        razorpayPaymentId,
-        razorpaySignature
-      }], opts);
+      // Use snapshot amounts from pendingPayment — do NOT re-derive from client withTraining
+      pendingPayment.studentId = targetUserId;
+      pendingPayment.customerName = user.name;
+      pendingPayment.razorpayPaymentId = razorpayPaymentId;
+      pendingPayment.razorpaySignature = razorpaySignature;
+      pendingPayment.amountPaid = pendingPayment.totalAmount;
+      pendingPayment.remainingAmount = 0;
+      pendingPayment.status = 'paid';
+      await pendingPayment.save(opts);
 
       let membershipRec;
-
       if (activeMembership) {
-        // Extend existing
         activeMembership.endDate = endDate;
-        activeMembership.paymentId = payment._id;
+        activeMembership.paymentId = pendingPayment._id;
         activeMembership.renewalHistory.push({
           date: new Date(),
           planId: plan._id,
-          paymentId: payment._id,
-          note: 'Public Online Renewal'
+          paymentId: pendingPayment._id,
+          note: 'Public Online Renewal',
         });
         await activeMembership.save(opts);
         membershipRec = activeMembership;
       } else {
-        // Create new
         [membershipRec] = await Membership.create([{
           studentId: targetUserId,
           planId: plan._id,
           startDate,
           endDate,
           status: 'active',
-          paymentId: payment._id
+          paymentId: pendingPayment._id,
         }], opts);
       }
 
-      // NO AUTOMATIC ATTENDANCE/CHECKIN (Commerce Integrity Rule 5)
-
-      return { payment, membership: membershipRec };
+      return { payment: pendingPayment, membership: membershipRec };
     });
 
-    // Generate token if it was a guest purchase so they can log in
     let token = null;
     if (!req.user) {
       token = jwt.sign(
@@ -554,10 +599,15 @@ exports.publicVerifyPayment = async (req, res) => {
 
     invalidateEntitlementCache(targetUserId);
 
-    // Send emails (fire-and-forget — don't block response on email delivery)
     const payment = result.payment;
     const membership = result.membership;
     const fmt = (d) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    // Email uses snapshot values from payment record
+    const invoiceItems = [{ description: plan.name, quantity: 1, rate: pendingPayment.basePlanAmount, amount: pendingPayment.basePlanAmount }];
+    if (pendingPayment.trainingAmount > 0) {
+      invoiceItems.push({ description: 'Training Add-on', quantity: 1, rate: pendingPayment.trainingAmount, amount: pendingPayment.trainingAmount });
+    }
 
     const invoiceHtml = buildInvoiceHTML({
       invoiceNumber: payment.invoiceNumber,
@@ -565,11 +615,11 @@ exports.publicVerifyPayment = async (req, res) => {
       studentName: user.name,
       studentPhone: user.phone || '',
       studentEmail: user.email,
-      items: [{ description: plan.name, quantity: 1, rate: plan.price, amount: plan.price }],
-      subtotal: plan.price,
+      items: invoiceItems,
+      subtotal: pendingPayment.totalAmount,
       gstPercent: 0,
       gstAmount: 0,
-      totalAmount: plan.price,
+      totalAmount: pendingPayment.totalAmount,
       paymentMode: 'Razorpay (Online)',
       paymentId: razorpayPaymentId,
       status: 'PAID',
@@ -578,10 +628,10 @@ exports.publicVerifyPayment = async (req, res) => {
     sendMembershipWelcomeEmail({
       toEmail: user.email,
       toName: user.name,
-      planName: plan.name,
+      planName: plan.name + (pendingPayment.trainingAmount > 0 ? ' + Training' : ''),
       startDate: fmt(membership.startDate),
       endDate: fmt(membership.endDate),
-      totalAmount: plan.price,
+      totalAmount: pendingPayment.totalAmount,
       invoiceHtml,
       invoiceNumber: payment.invoiceNumber,
     }).catch((err) => console.error('Welcome email failed:', err.message));
@@ -592,7 +642,7 @@ exports.publicVerifyPayment = async (req, res) => {
       payerEmail: user.email,
       payerPhone: user.phone,
       paymentType: `Membership — ${plan.name}`,
-      amount: plan.price,
+      amount: pendingPayment.totalAmount,
       paymentMode: 'Razorpay',
       invoiceNumber: payment.invoiceNumber,
       timestamp: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
@@ -602,9 +652,8 @@ exports.publicVerifyPayment = async (req, res) => {
       success: true,
       message: 'Membership purchased successfully!',
       membership: result.membership,
-      token
+      token,
     });
-
   } catch (error) {
     console.error('publicVerifyPayment error:', error);
     res.status(500).json({ success: false, message: 'Verification failed.', error: error.message });

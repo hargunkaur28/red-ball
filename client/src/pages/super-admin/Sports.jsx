@@ -15,7 +15,11 @@ import {
   QrCode,
   RefreshCw,
   Download,
-  Settings
+  Settings,
+  Tag,
+  Dumbbell,
+  Trash2,
+  Check,
 } from 'lucide-react';
 import api from '../../lib/axios';
 import { formatCurrency } from '../../lib/utils';
@@ -30,6 +34,7 @@ const FILTER_TABS = [
   { key: 'archived', label: 'Archived' },
   { key: 'all', label: 'All' },
   { key: 'hero', label: 'Hero Icons' },
+  { key: 'discounts', label: 'Discounts' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -230,6 +235,9 @@ export default function Sports() {
       tagline: fd.get('tagline') || '',
       rentalEquipment: fd.get('rentalEquipment') || '',
       heroIcon: fd.get('heroIcon') || '',
+      // Training add-on
+      trainingAvailable: fd.get('trainingAvailable') === 'on',
+      trainingPrice: fd.get('trainingPrice') ? Number(fd.get('trainingPrice')) : 1000,
     };
 
     let payload = base;
@@ -287,16 +295,19 @@ export default function Sports() {
       {/* Hero Icons Editor */}
       {filter === 'hero' && <HeroIconsEditor />}
 
+      {/* Discounts */}
+      {filter === 'discounts' && <DiscountsPanel />}
+
       {/* Content */}
-      {filter !== 'hero' && isLoading ? (
+      {filter !== 'hero' && filter !== 'discounts' && isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3].map((i) => (
             <SkeletonCard key={i} />
           ))}
         </div>
-      ) : filter !== 'hero' && sports.length === 0 ? (
+      ) : filter !== 'hero' && filter !== 'discounts' && sports.length === 0 ? (
         <EmptyState filter={filter} onCreateClick={openCreate} />
-      ) : filter !== 'hero' ? (
+      ) : filter !== 'hero' && filter !== 'discounts' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <AnimatePresence mode="popLayout">
             {sports.map((sport) => (
@@ -1015,6 +1026,37 @@ function SportDrawer({ sport, onClose, onSubmit, isPending }) {
               </div>
             </div>
 
+            {/* Training Add-on */}
+            <div className="border border-gray-100 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Dumbbell size={14} className="text-green-600" />
+                  <p className="text-sm font-semibold text-gray-800">Training Add-on</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="trainingAvailable"
+                    defaultChecked={sport?.trainingAvailable || false}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600" />
+                </label>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Training Price Add-on (₹)</label>
+                <input
+                  name="trainingPrice"
+                  type="number"
+                  min="0"
+                  defaultValue={sport?.trainingPrice ?? 1000}
+                  className="input-field"
+                  placeholder="₹ 1000"
+                />
+              </div>
+              <p className="text-[11px] text-gray-400">If enabled, membership users can choose "With Training" for +₹ this amount.</p>
+            </div>
+
             {/* Active toggle */}
             <div className="flex items-center justify-between py-3 border-t border-b border-gray-100">
               <div>
@@ -1139,6 +1181,264 @@ function ConfirmModal({ data, onCancel, onConfirm }) {
         </div>
       </motion.div>
     </>
+  );
+}
+
+// ===========================================================================
+// Discounts Panel
+// ===========================================================================
+function DiscountsPanel() {
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [editingDiscount, setEditingDiscount] = useState(null);
+
+  const { data: sports = [] } = useQuery({
+    queryKey: ['sports', 'active'],
+    queryFn: async () => {
+      const res = await api.get('/sports');
+      return (res.data.sports ?? res.data).filter((s) => !s.deletedAt && s.active);
+    },
+  });
+
+  const { data: discounts = [], isLoading } = useQuery({
+    queryKey: ['sport-discounts'],
+    queryFn: async () => {
+      const { data } = await api.get('/sports/discounts');
+      return data.discounts;
+    },
+  });
+
+  const createMut = useMutation({
+    mutationFn: async ({ entries, startDate, endDate, isActive }) => {
+      // Fire one request per sport-entry so each can have its own %
+      for (const entry of entries) {
+        await api.post('/sports/discounts', {
+          sportId: entry.sportId,
+          discountPercent: Number(entry.discountPercent),
+          startDate,
+          endDate,
+          isActive,
+        });
+      }
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['sport-discounts'] });
+      qc.invalidateQueries({ queryKey: ['public-discounts-banner'] });
+      toast.success(vars.entries.length > 1 ? `${vars.entries.length} discounts created` : 'Discount created');
+      setShowForm(false);
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, entries, startDate, endDate, isActive }) => api.put(`/sports/discounts/${id}`, {
+      discountPercent: Number(entries[0]?.discountPercent),
+      startDate,
+      endDate,
+      isActive,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sport-discounts'] });
+      qc.invalidateQueries({ queryKey: ['public-discounts-banner'] });
+      toast.success('Discount updated');
+      setEditingDiscount(null);
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id) => api.delete(`/sports/discounts/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sport-discounts'] }); toast.success('Discount deleted'); },
+    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+  });
+
+  const now = new Date();
+  const isActiveNow = (d) => d.isActive && new Date(d.startDate) <= now && new Date(d.endDate) >= now;
+
+  function DiscountForm({ initial, onSave, onCancel, isPending }) {
+    // entries: [{ sportId, sportName, discountPercent }]
+    const [entries, setEntries] = useState(
+      initial
+        ? [{ sportId: initial.sportId?._id || initial.sportId, sportName: sports.find((s) => s._id === (initial.sportId?._id || initial.sportId))?.name || '', discountPercent: String(initial.discountPercent || '') }]
+        : []
+    );
+
+    const toggleSport = (sport) => {
+      setEntries((prev) => {
+        const exists = prev.find((e) => e.sportId === sport._id);
+        if (exists) return prev.filter((e) => e.sportId !== sport._id);
+        return [...prev, { sportId: sport._id, sportName: sport.name, discountPercent: '' }];
+      });
+    };
+
+    const setPercent = (sportId, val) =>
+      setEntries((prev) => prev.map((e) => e.sportId === sportId ? { ...e, discountPercent: val } : e));
+
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!entries.length) { toast.error('Select at least one sport.'); return; }
+          const missing = entries.filter((e) => !e.discountPercent || Number(e.discountPercent) <= 0);
+          if (missing.length) { toast.error(`Enter discount % for: ${missing.map((e) => e.sportName).join(', ')}`); return; }
+          const fd = new FormData(e.target);
+          onSave({
+            entries,
+            startDate: `${fd.get('startDate')}T00:00:00`,
+            endDate: `${fd.get('endDate')}T23:59:59`,
+            isActive: fd.get('isActive') === 'on',
+          });
+        }}
+        className="bg-gray-50 rounded-xl p-4 space-y-4 border border-gray-200"
+      >
+        {/* Sport selector (create only) */}
+        {!initial && (
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-2">
+              Sports <span className="text-gray-400 font-normal">— click to add, each gets its own %</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {sports.map((s) => {
+                const selected = entries.some((e) => e.sportId === s._id);
+                return (
+                  <button key={s._id} type="button" onClick={() => toggleSport(s)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${selected ? 'bg-[#C8102E] border-[#C8102E] text-white' : 'border-gray-200 text-gray-600 bg-white hover:border-[#C8102E]/40'}`}>
+                    {s.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Per-sport discount % rows */}
+        {entries.length > 0 && (
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-gray-600">Discount per sport</label>
+            {entries.map((e) => (
+              <div key={e.sportId} className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 px-3 py-2">
+                <span className="flex-1 text-sm font-semibold text-gray-800">{e.sportName}</span>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number" min="1" max="100"
+                    value={e.discountPercent}
+                    onChange={(ev) => setPercent(e.sportId, ev.target.value)}
+                    placeholder="%"
+                    className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20"
+                  />
+                  <span className="text-xs text-gray-400 font-medium">% off</span>
+                </div>
+                {!initial && (
+                  <button type="button" onClick={() => setEntries((prev) => prev.filter((x) => x.sportId !== e.sportId))}
+                    className="w-6 h-6 flex items-center justify-center rounded-md text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Start Date *</label>
+            <input name="startDate" type="date" required defaultValue={initial?.startDate ? new Date(initial.startDate).toISOString().slice(0,10) : ''} className="input-field text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">End Date *</label>
+            <input name="endDate" type="date" required defaultValue={initial?.endDate ? new Date(initial.endDate).toISOString().slice(0,10) : ''} className="input-field text-sm" />
+          </div>
+          <div className="col-span-2 flex items-center justify-between">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" name="isActive" defaultChecked={initial ? initial.isActive : true} className="w-4 h-4 accent-[#C8102E]" />
+              <span className="text-sm text-gray-700">Active</span>
+            </label>
+            <p className="text-[11px] text-gray-400">Banner text is auto-generated and shown on homepage.</p>
+          </div>
+        </div>
+
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={onCancel} className="flex-1 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-100">Cancel</button>
+          <button type="submit" disabled={isPending} className="flex-1 py-2 rounded-xl bg-[#C8102E] text-white text-sm font-semibold hover:bg-[#a50d27] disabled:opacity-60 flex items-center justify-center gap-1">
+            {isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+            Save{entries.length > 1 ? ` (${entries.length} discounts)` : ''}
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-gray-500">Manage one-time slot booking discounts per sport. Active discounts are applied automatically during public booking.</p>
+        </div>
+        {!showForm && (
+          <button onClick={() => { setShowForm(true); setEditingDiscount(null); }} className="btn-primary gap-1 h-9 text-sm">
+            <Plus size={15} /> New Discount
+          </button>
+        )}
+      </div>
+
+      {showForm && (
+        <DiscountForm
+          onSave={(d) => createMut.mutate(d)}
+          onCancel={() => setShowForm(false)}
+          isPending={createMut.isPending}
+        />
+      )}
+
+      {isLoading ? (
+        <div className="space-y-3">{[1,2].map((i) => <div key={i} className="h-16 rounded-xl bg-gray-100 animate-pulse" />)}</div>
+      ) : discounts.length === 0 ? (
+        <div className="card py-10 text-center text-sm text-gray-400">
+          <Tag size={28} className="mx-auto mb-2 text-gray-300" />
+          No discounts created yet.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {discounts.map((d) => (
+            <div key={d._id}>
+              {editingDiscount === d._id ? (
+                <DiscountForm
+                  initial={{ ...d, sportId: d.sportId?._id || d.sportId }}
+                  onSave={(payload) => updateMut.mutate({ id: d._id, ...payload })}
+                  onCancel={() => setEditingDiscount(null)}
+                  isPending={updateMut.isPending}
+                />
+              ) : (
+                <div className={`card p-4 flex items-center justify-between gap-4 ${isActiveNow(d) ? 'border-green-200 bg-green-50/30' : ''}`}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isActiveNow(d) ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+                      <Tag size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-gray-900">{d.sportId?.name || d.sportNameSnapshot} — {d.discountPercent}% off</p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        {new Date(d.startDate).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })} → {new Date(d.endDate).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}
+                      </p>
+                      {d.bannerText && <p className="text-[11px] text-indigo-500 truncate">{d.bannerText}</p>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActiveNow(d) ? 'bg-green-100 text-green-700' : d.isActive ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
+                      {isActiveNow(d) ? 'Live' : d.isActive ? 'Scheduled' : 'Disabled'}
+                    </span>
+                    <button onClick={() => setEditingDiscount(d._id)} className="w-8 h-8 rounded-lg flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600">
+                      <Pencil size={13} />
+                    </button>
+                    <button onClick={() => { if (window.confirm('Delete this discount?')) deleteMut.mutate(d._id); }} className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-500">
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

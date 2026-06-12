@@ -6,7 +6,7 @@ import api from '../../lib/axios';
 import useAuthStore from '../../store/authStore';
 import { formatCurrency } from '../../lib/utils';
 import socket from '../../lib/socket';
-import { Trophy, Calendar, Utensils, Clock, AlertTriangle, CheckCircle, QrCode, TimerReset, User, Star } from 'lucide-react';
+import { Trophy, Calendar, Utensils, Clock, AlertTriangle, CheckCircle, QrCode, TimerReset, User, Star, ShieldCheck, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 
 const formatSessionClock = (milliseconds) => {
@@ -54,7 +54,15 @@ export default function UserDashboard() {
     enabled: !!user?.id,
   });
 
+  const { data: slotBookingsData, isLoading: slotBookingsLoading } = useQuery({
+    queryKey: ['my-slot-bookings'],
+    queryFn: () => api.get('/slots/bookings/my-bookings').then(r => r.data),
+    enabled: !!user?.id,
+  });
+
   const passesList = useMemo(() => passesData?.passes || [], [passesData]);
+  const slotBookingsList = useMemo(() => slotBookingsData?.bookings || [], [slotBookingsData]);
+  const hasReferenceBooking = useMemo(() => slotBookingsList.some(b => b.isReference), [slotBookingsList]);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1000);
@@ -77,6 +85,7 @@ export default function UserDashboard() {
     const refreshSession = () => {
       qc.invalidateQueries({ queryKey: ['attendance', 'active-session'] });
       qc.invalidateQueries({ queryKey: ['my-passes'] });
+      qc.invalidateQueries({ queryKey: ['my-slot-bookings'] });
     };
     socket.on('session:started', refreshSession);
     socket.on('session:ended', refreshSession);
@@ -163,9 +172,18 @@ export default function UserDashboard() {
 
       <div className="mb-8">
         <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-[#df1526]">Red Ball Academy</p>
-        <h1 className="mt-2 text-3xl md:text-5xl font-black tracking-tight text-white">
-          Welcome, {user?.name?.split(' ')[0] || 'Player'}
-        </h1>
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white">
+            Welcome, {user?.name?.split(' ')[0] || 'Player'}
+          </h1>
+          {hasReferenceBooking && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wide"
+              style={{ background: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.3)', color: '#fbbf24' }}>
+              <ShieldCheck size={12} />
+              Reference Guest
+            </span>
+          )}
+        </div>
         <p className="mt-2 text-sm md:text-base text-white/50">Your sport access, passes, sessions, and orders in one place.</p>
       </div>
 
@@ -411,20 +429,21 @@ export default function UserDashboard() {
           </div>
         </div>
       )}
-      {/* Prepaid Passes Section */}
+      {/* One-Time Access + Slot Bookings (merged) */}
       <div id="my-passes-section" className="mb-8">
-        <h3 className="text-sm font-extrabold text-white/70 uppercase tracking-wider mb-4">Purchased One-Time Access</h3>
-        {passesLoading ? (
-          <div className="text-sm text-white/45 py-2">Loading passes...</div>
-        ) : passesList.length === 0 ? (
+        <h3 className="text-sm font-extrabold text-white/70 uppercase tracking-wider mb-4">My One-Time Bookings</h3>
+        {(passesLoading || slotBookingsLoading) ? (
+          <div className="text-sm text-white/45 py-2">Loading bookings...</div>
+        ) : passesList.length === 0 && slotBookingsList.length === 0 ? (
           <div className="ota-card text-center py-7 px-6 border-dashed">
-            <p className="text-white/55 text-sm">No prepaid passes purchased.</p>
+            <p className="text-white/55 text-sm">No one-time bookings yet.</p>
             <Link to="/user/book-slots" className="text-xs text-[#df1526] font-bold mt-1 inline-block hover:underline">
-              Purchase Flexible Access Pass →
+              Book a Sport Slot →
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-6">
+          {passesList.length > 0 && <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {passesList.map((pass) => {
               const sportName = pass.sportId?.name || 'Sport';
               const sportSlug = pass.sportId?.qrSlug || pass.sportId?.slug || '';
@@ -595,6 +614,87 @@ export default function UserDashboard() {
 
               return null;
             })}
+          </div>}
+
+          {slotBookingsList.length > 0 && (
+            <div className="space-y-3">
+              {slotBookingsList.slice(0, 10).map((booking) => {
+                const slotDate = booking.slotId?.date
+                  ? new Date(booking.slotId.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                  : new Date(booking.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                const statusColors = {
+                  confirmed: 'text-green-400',
+                  'checked-in': 'text-blue-400',
+                  completed: 'text-white/40',
+                  'no-show': 'text-red-400',
+                };
+                const amountToShow = booking.isReference
+                  ? (booking.displayAmount ?? booking.amountPaid ?? 0)
+                  : (booking.displayAmount ?? booking.totalAmount ?? 0);
+                return (
+                  <motion.div
+                    key={booking._id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="ota-soft-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center"
+                        style={{ background: 'rgba(200,16,46,0.1)', border: '1px solid rgba(200,16,46,0.2)' }}>
+                        <Zap size={16} className="text-[#C8102E]" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                          <p className="text-sm font-bold text-white truncate">
+                            {booking.sportNameSnapshot || 'Sport'}{booking.courtNameSnapshot ? ` · ${booking.courtNameSnapshot}` : ''}
+                          </p>
+                          {booking.isReference && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0"
+                              style={{ background: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.25)', color: '#fbbf24' }}>
+                              <ShieldCheck size={9} /> Reference
+                            </span>
+                          )}
+                          {booking.isManualEntry && !booking.isReference && (
+                            <span className="text-[10px] font-semibold text-white/30">Manual</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-white/45">
+                          {slotDate} · {booking.startTime}–{booking.endTime}
+                        </p>
+                        {booking.isReference && (
+                          <p className="text-[10px] text-amber-400/60 mt-0.5">Reference rate applied</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 shrink-0">
+                      <div className="text-right">
+                        {booking.isReference ? (
+                          <>
+                            <p className="text-sm font-extrabold text-white">
+                              Paid: ₹{Number(amountToShow).toLocaleString('en-IN')}
+                            </p>
+                            {(booking.waivedAmount ?? 0) > 0 && (
+                              <p className="text-[10px] text-white/30">₹{booking.waivedAmount.toLocaleString('en-IN')} waived</p>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-sm font-extrabold text-white">
+                            ₹{Number(amountToShow).toLocaleString('en-IN')}
+                          </p>
+                        )}
+                        {booking.paymentId?.paymentMode && (
+                          <p className="text-[10px] text-white/30 capitalize">{booking.paymentId.paymentMode}</p>
+                        )}
+                      </div>
+                      <span className={`text-[10px] font-bold uppercase tracking-wide ${statusColors[booking.status] || 'text-white/40'}`}>
+                        {booking.status}
+                      </span>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
           </div>
         )}
       </div>

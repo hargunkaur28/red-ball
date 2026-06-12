@@ -6,6 +6,9 @@ const SlotBooking = require('../models/SlotBooking');
 const OneTimeAccess = require('../models/OneTimeAccess');
 const User = require('../models/User');
 const Payment = require('../models/Payment');
+const Sport = require('../models/Sport');
+const Slot = require('../models/Slot');
+const ReferencePrice = require('../models/ReferencePrice');
 
 // GET /api/super-admin/memberships - Manage and view memberships with attendance aggregation
 exports.getMemberships = async (req, res) => {
@@ -586,6 +589,26 @@ exports.getUsers = async (req, res) => {
   }
 };
 
+// GET /api/super-admin/user-search?q=... — lightweight user lookup for manual booking modals
+exports.userSearch = async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (q.length < 2) return res.json({ users: [] });
+    const re = new RegExp(q, 'i');
+    const users = await User.find({
+      role: { $in: ['user', 'member'] },
+      isActive: true,
+      $or: [{ name: re }, { email: re }, { phone: re }],
+    })
+      .select('_id name email phone role')
+      .limit(8)
+      .lean();
+    res.json({ users });
+  } catch (error) {
+    res.status(500).json({ message: 'Search failed.' });
+  }
+};
+
 // PATCH /api/super-admin/payments/:id/status
 exports.updatePaymentStatus = async (req, res) => {
   try {
@@ -607,5 +630,301 @@ exports.updatePaymentStatus = async (req, res) => {
     res.json({ success: true, payment });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/super-admin/reports/slot-revenue-export
+// ─────────────────────────────────────────────────────────────────────────────
+exports.exportSlotRevenue = async (req, res) => {
+  try {
+    const {
+      range = 'today',
+      startDate,
+      endDate,
+      sportId,
+      paymentMode,
+      includeReference = 'all',
+      reportBasis = 'playDate',
+    } = req.query;
+
+    // Build date range
+    let start, end;
+    if (range === 'today') {
+      start = new Date();
+      start.setHours(0, 0, 0, 0);
+      end = new Date();
+      end.setHours(23, 59, 59, 999);
+    } else if (range === 'month') {
+      start = new Date();
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
+      end = new Date();
+      end.setHours(23, 59, 59, 999);
+    } else if (range === 'custom') {
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: 'startDate and endDate are required for custom range.' });
+      }
+      start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+    } else {
+      return res.status(400).json({ message: 'range must be today, month, or custom.' });
+    }
+
+    const filter = { status: { $nin: ['cancelled'] } };
+
+    if (reportBasis === 'playDate') {
+      // Filter by the actual slot/play date
+      const slotFilter = { date: { $gte: start, $lte: end } };
+      if (sportId) slotFilter.sportId = sportId;
+      const matchingSlots = await Slot.find(slotFilter).select('_id').lean();
+      filter.slotId = { $in: matchingSlots.map((s) => s._id) };
+    } else {
+      // bookingDate — filter by when the booking was created
+      filter.createdAt = { $gte: start, $lte: end };
+      if (sportId) filter.sportId = sportId;
+    }
+
+    if (includeReference === 'true') {
+      filter.isReference = true;
+    } else if (includeReference === 'false') {
+      filter.isReference = { $ne: true };
+    }
+
+    const bookings = await SlotBooking.find(filter)
+      .populate('slotId', 'date')
+      .populate('paymentId', 'paymentMode referenceNote waivedAmount remainingAmount')
+      .populate('createdBy', 'name')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Filter by paymentMode after populate (paymentMode lives on Payment)
+    const rows = paymentMode
+      ? bookings.filter((b) => b.paymentId?.paymentMode === paymentMode)
+      : bookings;
+
+    const escapeCell = (val) => {
+      if (val === null || val === undefined) return '';
+      const s = String(val);
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    };
+
+    const headers = [
+      'Date', 'Booking ID', 'Customer Name', 'Customer Phone', 'Customer Email',
+      'Sport', 'Court', 'Start Time', 'End Time', 'Duration (mins)',
+      'Slot Original Amount', 'Discount %', 'Discount Amount',
+      'Final Amount', 'Amount Paid', 'Waived Amount', 'Remaining Amount',
+      'Is Reference', 'Reference Note', 'Payment Mode', 'Payment Status',
+      'Booking Status', 'Created By', 'Created At',
+    ];
+
+    const csvRows = [headers.join(',')];
+
+    let totalRevenue = 0;
+    let totalDiscountSum = 0;
+    let totalWaivedSum = 0;
+    let totalReferenceCount = 0;
+
+    for (const b of rows) {
+      const slotDate = b.slotId?.date
+        ? new Date(b.slotId.date).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        : new Date(b.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+      const originalAmount = b.originalAmount || b.totalAmount || 0;
+      const discountPct = b.discountPercent || 0;
+      const discountAmt = b.discountAmount || 0;
+      const finalAmount = b.totalAmount || 0;
+      const amountPaid = b.amountPaid || 0;
+      const waivedAmt = b.waivedAmount || b.paymentId?.waivedAmount || 0;
+      const remainingAmt = b.paymentId?.remainingAmount ?? Math.max(0, finalAmount - amountPaid - waivedAmt);
+
+      const row = [
+        slotDate,
+        b.bookingId || '',
+        b.playerName || '',
+        b.playerPhone || '',
+        b.playerEmail || '',
+        b.sportNameSnapshot || '',
+        b.courtNameSnapshot || '',
+        b.startTime || '',
+        b.endTime || '',
+        b.duration || '',
+        originalAmount,
+        discountPct,
+        discountAmt,
+        finalAmount,
+        amountPaid,
+        waivedAmt,
+        remainingAmt,
+        b.isReference ? 'Yes' : 'No',
+        b.paymentId?.referenceNote || '',
+        b.paymentId?.paymentMode || (b.isManualEntry ? '' : 'razorpay'),
+        b.paymentStatus || '',
+        b.status || '',
+        b.createdBy?.name || '',
+        new Date(b.createdAt).toLocaleString('en-IN'),
+      ].map(escapeCell);
+
+      csvRows.push(row.join(','));
+
+      totalRevenue += amountPaid;
+      totalDiscountSum += discountAmt;
+      totalWaivedSum += waivedAmt;
+      if (b.isReference) totalReferenceCount++;
+    }
+
+    // Summary rows
+    csvRows.push('');
+    csvRows.push('SUMMARY');
+    csvRows.push(`Total Bookings,${rows.length}`);
+    csvRows.push(`Total Revenue (Amount Paid),${totalRevenue}`);
+    csvRows.push(`Total Discounts Applied,${totalDiscountSum}`);
+    csvRows.push(`Total Waived (Reference),${totalWaivedSum}`);
+    csvRows.push(`Reference Bookings,${totalReferenceCount}`);
+
+    const dateLabel = range === 'today'
+      ? new Date().toISOString().split('T')[0]
+      : range === 'month'
+        ? new Date().toISOString().slice(0, 7)
+        : `${startDate}_to_${endDate}`;
+
+    const basisLabel = reportBasis === 'playDate' ? 'by-play-date' : 'by-booking-date';
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="slot-revenue-${dateLabel}-${basisLabel}.csv"`);
+    return res.send(csvRows.join('\r\n'));
+  } catch (error) {
+    console.error('exportSlotRevenue error:', error);
+    res.status(500).json({ message: 'Export failed.', error: error.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/super-admin/pending-payments — Dashboard pending payments summary
+// ─────────────────────────────────────────────────────────────────────────────
+exports.getPendingPayments = async (req, res) => {
+  try {
+    // 1. Pending/partial slot bookings (excluding reference/waived)
+    const pendingSlotBookings = await SlotBooking.find({
+      paymentStatus: { $in: ['pending', 'partial'] },
+      isReference: { $ne: true },
+      status: { $nin: ['cancelled'] },
+    })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .populate('paymentId', 'remainingAmount amountPaid paymentMode')
+      .lean();
+
+    const slotItems = pendingSlotBookings.map((b) => ({
+      _id: b._id,
+      type: 'slot-booking',
+      customer: b.playerName,
+      phone: b.playerPhone,
+      sport: b.sportNameSnapshot,
+      court: b.courtNameSnapshot,
+      slot: `${b.startTime}–${b.endTime}`,
+      bookingId: b.bookingId,
+      totalAmount: b.totalAmount,
+      amountPaid: b.amountPaid || 0,
+      remainingAmount: b.paymentId?.remainingAmount ?? (b.totalAmount - (b.amountPaid || 0)),
+      paymentStatus: b.paymentStatus,
+      createdAt: b.createdAt,
+    }));
+
+    // 2. Overtime/session pending fees from Attendance
+    const overtimeSessions = await Attendance.find({
+      feeCollectionStatus: 'Pending Collection',
+      sessionStatus: { $in: ['Overtime', 'Auto Closed'] },
+    })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .populate('userId', 'name phone')
+      .lean();
+
+    const overtimeItems = overtimeSessions.map((a) => ({
+      _id: a._id,
+      type: 'overtime',
+      customer: a.userId?.name || 'Unknown',
+      phone: a.userId?.phone || '',
+      sport: a.sportNameSnapshot,
+      court: null,
+      slot: `${a.checkInTime ? new Date(a.checkInTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : ''}`,
+      bookingId: a._id,
+      totalAmount: a.lateAmount || 0,
+      amountPaid: 0,
+      remainingAmount: a.lateAmount || 0,
+      paymentStatus: 'pending',
+      createdAt: a.createdAt,
+    }));
+
+    const allPending = [...slotItems, ...overtimeItems].sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
+
+    const totalPendingAmount =
+      slotItems.reduce((s, i) => s + i.remainingAmount, 0) +
+      overtimeItems.reduce((s, i) => s + i.remainingAmount, 0);
+
+    res.json({
+      totalCount: allPending.length,
+      totalPendingAmount,
+      slotCount: slotItems.length,
+      overtimeCount: overtimeItems.length,
+      items: allPending.slice(0, 20),
+    });
+  } catch (error) {
+    console.error('getPendingPayments error:', error);
+    res.status(500).json({ message: 'Server error.' });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/super-admin/backfill-reference-prices
+// One-time migration: scan all manual reference SlotBookings and upsert
+// ReferencePrice for any that have a linked userId and amountPaid > 0.
+// Safe to run multiple times (upsert keeps the latest amountPaid).
+// ─────────────────────────────────────────────────────────────────────────────
+exports.backfillReferencePrices = async (req, res) => {
+  try {
+    const bookings = await SlotBooking.find({
+      isReference: true,
+      userId: { $exists: true, $ne: null },
+      sportId: { $exists: true, $ne: null },
+      amountPaid: { $gt: 0 },
+    }).populate('sportId', 'name slug').lean();
+
+    let created = 0;
+    let skipped = 0;
+
+    for (const b of bookings) {
+      if (!b.userId || !b.sportId?._id) { skipped++; continue; }
+      await ReferencePrice.findOneAndUpdate(
+        { userId: b.userId, sportId: b.sportId._id },
+        {
+          referencePrice: b.amountPaid,
+          sportSlug: b.sportSlug || b.sportId.slug,
+          sportNameSnapshot: b.sportNameSnapshot || b.sportId.name,
+          sourceBookingId: b._id,
+          active: true,
+        },
+        { upsert: true, new: true }
+      );
+      created++;
+    }
+
+    res.json({
+      message: 'Backfill complete.',
+      processed: bookings.length,
+      upserted: created,
+      skipped,
+    });
+  } catch (error) {
+    console.error('backfillReferencePrices error:', error);
+    res.status(500).json({ message: 'Backfill failed.', error: error.message });
   }
 };

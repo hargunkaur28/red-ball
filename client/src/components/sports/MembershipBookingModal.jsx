@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, CreditCard, CheckCircle2, Loader2, User, Mail, Phone,
-  Sparkles, ShieldCheck, Check, Zap, Crown
+  Sparkles, ShieldCheck, Check, Zap, Crown, Dumbbell, Plus
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -17,10 +17,21 @@ export default function MembershipBookingModal({ plan, isOpen, onClose }) {
   const { user, isAuthenticated, checkAuth, googleAuth } = useAuthStore();
 
   const [details, setDetails] = useState({ name: '', email: '', phone: '' });
+  const [withTraining, setWithTraining] = useState(false);
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
+
+  const trainingAvailable = plan?.trainingAvailable && plan?.trainingPrice > 0;
+  const basePrice = plan?.price || 0;
+  const trainingPrice = plan?.trainingPrice || 0;
+  const totalPrice = basePrice + (withTraining ? trainingPrice : 0);
+
+  // Reset training option when modal opens/plan changes
+  useEffect(() => {
+    if (isOpen) setWithTraining(false);
+  }, [isOpen, plan?._id]);
 
   // Sync auth user details
   useEffect(() => {
@@ -99,6 +110,7 @@ export default function MembershipBookingModal({ plan, isOpen, onClose }) {
     try {
       const { data: orderRes } = await api.post('/memberships/public-purchase', {
         planId: plan._id,
+        withTraining: trainingAvailable && withTraining,
       });
 
       if (!orderRes.success) throw new Error(orderRes.message);
@@ -108,7 +120,7 @@ export default function MembershipBookingModal({ plan, isOpen, onClose }) {
         amount: orderRes.rzpOrder.amount,
         currency: orderRes.rzpOrder.currency,
         name: 'Red Ball Academy',
-        description: `Membership: ${plan.name}`,
+        description: `Membership: ${plan.name}${withTraining ? ' + Training' : ''}`,
         order_id: orderRes.rzpOrder.id,
         theme: { color: '#df1526' },
         prefill: {
@@ -120,11 +132,12 @@ export default function MembershipBookingModal({ plan, isOpen, onClose }) {
           setSubmitting(true);
           try {
             const { data: verifyRes } = await api.post('/memberships/public-verify', {
-              planId: plan._id,
+              paymentId: orderRes.paymentId,
               razorpayOrderId: response.razorpay_order_id,
               razorpayPaymentId: response.razorpay_payment_id,
               razorpaySignature: response.razorpay_signature,
               customerDetails: details,
+              // withTraining intentionally omitted — server uses the snapshot from the pending payment
             });
 
             if (verifyRes.success) {
@@ -269,13 +282,44 @@ export default function MembershipBookingModal({ plan, isOpen, onClose }) {
                     >
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-white/50">{plan?.duration} Pass</span>
-                        <span className="text-white font-semibold">{formatCurrency(plan?.price || 0)}</span>
+                        <span className="text-white font-semibold">{formatCurrency(basePrice)}</span>
                       </div>
+                      {withTraining && trainingAvailable && (
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-white/50 flex items-center gap-1.5"><Dumbbell size={12} className="text-[#df1526]" /> Training Add-on</span>
+                          <span className="text-white font-semibold">+{formatCurrency(trainingPrice)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between items-center text-sm pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                         <span className="text-white font-black">Total</span>
-                        <span className="font-black text-lg" style={{ color: '#df1526' }}>{formatCurrency(plan?.price || 0)}</span>
+                        <span className="font-black text-lg" style={{ color: '#df1526' }}>{formatCurrency(totalPrice)}</span>
                       </div>
                     </div>
+
+                    {/* Training Add-on Toggle */}
+                    {trainingAvailable && (
+                      <button
+                        onClick={() => setWithTraining((v) => !v)}
+                        className="w-full rounded-2xl p-4 flex items-center justify-between text-left transition-all"
+                        style={{
+                          background: withTraining ? 'rgba(223,21,38,0.08)' : 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${withTraining ? 'rgba(223,21,38,0.35)' : 'rgba(255,255,255,0.08)'}`,
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: withTraining ? 'rgba(223,21,38,0.15)' : 'rgba(255,255,255,0.05)' }}>
+                            <Dumbbell size={16} className={withTraining ? 'text-[#df1526]' : 'text-white/40'} />
+                          </div>
+                          <div>
+                            <p className="text-white text-sm font-semibold">Add Training Sessions</p>
+                            <p className="text-white/40 text-xs">+{formatCurrency(trainingPrice)} · Personal coaching included</p>
+                          </div>
+                        </div>
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: withTraining ? '#df1526' : 'rgba(255,255,255,0.1)' }}>
+                          {withTraining ? <Check size={12} className="text-white" /> : <Plus size={12} className="text-white/40" />}
+                        </div>
+                      </button>
+                    )}
 
                     {/* Account details */}
                     {isAuthenticated ? (
@@ -343,7 +387,7 @@ export default function MembershipBookingModal({ plan, isOpen, onClose }) {
                         <>
                           <div className="flex items-center gap-2 text-white">
                             <Sparkles size={16} />
-                            Pay {formatCurrency(plan?.price || 0)} & Get Pass
+                            Pay {formatCurrency(totalPrice)} & Get Pass
                           </div>
                           <span className="text-[10px] text-white/60 font-semibold normal-case tracking-normal">
                             Secured by Razorpay

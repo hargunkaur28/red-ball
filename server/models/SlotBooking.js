@@ -12,6 +12,23 @@ const slotBookingSchema = new mongoose.Schema({
   slotName: {
     type: String,
   },
+  sportId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Sport',
+  },
+  sportSlug: {
+    type: String,
+  },
+  sportNameSnapshot: {
+    type: String,
+  },
+  courtId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Court',
+  },
+  courtNameSnapshot: {
+    type: String,
+  },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -44,7 +61,7 @@ const slotBookingSchema = new mongoose.Schema({
     required: true,
   },
   duration: {
-    type: Number, // in minutes
+    type: Number,
     required: true,
   },
   price: {
@@ -73,6 +90,54 @@ const slotBookingSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Payment',
   },
+
+  // Manual entry fields (Super Admin only)
+  isManualEntry: {
+    type: Boolean,
+    default: false,
+  },
+  isReference: {
+    type: Boolean,
+    default: false,
+  },
+  amountDue: {
+    type: Number,
+    default: 0,
+  },
+  amountPaid: {
+    type: Number,
+    default: 0,
+  },
+  waivedAmount: {
+    type: Number,
+    default: 0,
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+
+  // Discount snapshot at time of booking
+  discountApplied: {
+    type: Boolean,
+    default: false,
+  },
+  discountId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SportDiscount',
+  },
+  discountPercent: {
+    type: Number,
+    default: 0,
+  },
+  discountAmount: {
+    type: Number,
+    default: 0,
+  },
+  originalAmount: {
+    type: Number,
+  },
+
   checkInTime: Date,
   checkOutTime: Date,
   cancellationReason: String,
@@ -93,5 +158,7 @@ slotBookingSchema.pre('save', async function (next) {
 slotBookingSchema.index({ slotId: 1, status: 1 });
 slotBookingSchema.index({ userId: 1 });
 slotBookingSchema.index({ createdAt: -1 });
+slotBookingSchema.index({ sportId: 1 });
+slotBookingSchema.index({ paymentStatus: 1 });
 
 module.exports = mongoose.model('SlotBooking', slotBookingSchema);

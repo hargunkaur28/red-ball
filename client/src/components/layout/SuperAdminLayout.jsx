@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, Trophy, CreditCard, Ticket, Menu, X, LogOut, Bell, TimerReset, Settings, MessageSquare, ClipboardList, UtensilsCrossed } from 'lucide-react';
+import { LayoutDashboard, Trophy, CreditCard, Ticket, Menu, X, LogOut, Bell, TimerReset, Settings, MessageSquare, ClipboardList, UtensilsCrossed, Zap } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { getInitials } from '../../lib/utils';
 import ErrorBoundary from '../shared/ErrorBoundary';
@@ -9,6 +9,7 @@ import ErrorBoundary from '../shared/ErrorBoundary';
 const menuItems = [
   { path: '/super-admin', label: 'Overview', icon: <LayoutDashboard size={18} />, end: true },
   { path: '/super-admin/sports', label: 'Sports', icon: <Trophy size={18} /> },
+  { path: '/super-admin/live-sports', label: 'Live Sports', icon: <Zap size={18} /> },
   { path: '/super-admin/memberships', label: 'Memberships', icon: <CreditCard size={18} /> },
   { path: '/super-admin/session-overtime', label: 'Session Overtime', icon: <TimerReset size={18} /> },
   { path: '/super-admin/one-time', label: 'One-Time Entries', icon: <Ticket size={18} /> },

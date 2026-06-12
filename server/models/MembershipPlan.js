@@ -54,6 +54,19 @@ const membershipPlanSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   },
+
+  // Training add-on
+  trainingAvailable: {
+    type: Boolean,
+    default: false,
+  },
+  trainingPrice: {
+    type: Number,
+    default: 0,
+  },
+  basePrice: {
+    type: Number,
+  },
 }, {
   timestamps: true,
 });

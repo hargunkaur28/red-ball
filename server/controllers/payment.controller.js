@@ -21,18 +21,25 @@ exports.getAll = async (req, res) => {
     
     if (type) filter.type = type;
 
-    // CRITICAL: Exclude unpaid/pending restaurant payments from the billing dashboard
-    // Users only want to see PAID restaurant orders here. Unpaid ones are managed in the Kitchen portal.
+    // Exclude unpaid/pending restaurant payments (managed in Kitchen portal)
+    // Also exclude abandoned online slot-booking checkout records (pending with no booking linked)
     const finalFilter = {
       $and: [
         filter,
         {
           $or: [
             { type: { $ne: 'restaurant' } },
-            { type: 'restaurant', status: 'paid' }
-          ]
-        }
-      ]
+            { type: 'restaurant', status: 'paid' },
+          ],
+        },
+        {
+          $or: [
+            { type: { $ne: 'slot-booking' } },
+            { type: 'slot-booking', status: { $ne: 'pending' } },
+            { type: 'slot-booking', status: 'pending', referenceId: { $exists: true, $ne: null } },
+          ],
+        },
+      ],
     };
 
     const payments = await Payment.find(finalFilter)
@@ -463,12 +470,12 @@ async function activateOnPaymentSuccess(payment, req) {
   if (payment.type === 'one-time-play' && payment.referenceId) {
     const SlotBooking = require('../models/SlotBooking');
     const Slot = require('../models/Slot');
-    
+
     const booking = await SlotBooking.findByIdAndUpdate(payment.referenceId, {
       paymentStatus: 'paid',
       status: 'confirmed'
     }, { new: true });
-    
+
     if (booking) {
       const slot = await Slot.findById(booking.slotId);
       if (slot) {
@@ -479,6 +486,16 @@ async function activateOnPaymentSuccess(payment, req) {
         }
       }
     }
+  }
+
+  if (payment.type === 'slot-booking') {
+    // If a booking was already created via /slot-verify, just sync its payment status
+    if (payment.referenceId) {
+      const SlotBooking = require('../models/SlotBooking');
+      await SlotBooking.findByIdAndUpdate(payment.referenceId, { paymentStatus: 'paid' });
+    }
+    // If no referenceId: booking hasn't been created yet — /slot-verify will handle it
+    // when the user's browser completes the flow. Webhook just marks payment paid here.
   }
 
   // Notify admin of every successful payment (fire-and-forget)

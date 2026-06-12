@@ -291,6 +291,12 @@
   }
 }
 
+/* Discount banner marquee — defined globally so CSS animation never resets on re-render */
+@keyframes rb-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-10%); }
+}
+
 /* Swiper custom dots */
 .swiper-pagination-bullet {
   background: rgba(0,0,0,0.15) !important;

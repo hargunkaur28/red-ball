@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, CreditCard, Ticket, ArrowRight, Calendar, AlertTriangle, Activity, LogIn, LogOut } from 'lucide-react';
+import { Trophy, CreditCard, Ticket, ArrowRight, Calendar, AlertTriangle, Activity, LogIn, LogOut, Zap, AlertCircle, IndianRupee, Download, FileText, Filter } from 'lucide-react';
 import api from '../../lib/axios';
 import socket from '../../lib/socket';
 
@@ -219,6 +220,16 @@ export default function Dashboard() {
     queryKey: ['dashboard-alerts'],
     queryFn: async () => {
       const { data } = await api.get('/admissions/pending-fees');
+      return data;
+    },
+    staleTime: 30_000,
+  });
+
+  // Fetch pending payments summary
+  const { data: pendingData, isLoading: pendingLoading } = useQuery({
+    queryKey: ['dashboard-pending-payments'],
+    queryFn: async () => {
+      const { data } = await api.get('/super-admin/pending-payments');
       return data;
     },
     staleTime: 30_000,
@@ -469,6 +480,80 @@ export default function Dashboard() {
         )}
       </motion.div>
 
+      {/* ── Pending Payments ─────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.65, duration: 0.45 }}
+        className="mb-6"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <IndianRupee size={16} className="text-amber-500" />
+            <h2 className="text-sm font-bold tracking-wider text-[#9CA3AF] uppercase font-['Inter']">
+              Pending Payments
+            </h2>
+          </div>
+          <button
+            onClick={() => navigate('/super-admin/live-sports')}
+            className="text-xs font-semibold text-[#C8102E] hover:underline flex items-center gap-1"
+          >
+            Live Sports <ArrowRight size={12} />
+          </button>
+        </div>
+
+        {pendingLoading ? (
+          <div className="card animate-pulse py-5">
+            <div className="h-4 w-48 bg-gray-200 rounded mb-2" />
+            <div className="h-3 w-72 bg-gray-100 rounded" />
+          </div>
+        ) : !pendingData || pendingData.totalCount === 0 ? (
+          <div className="card py-4 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-green-50 flex items-center justify-center text-green-600 shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-[#0D0D0D]">No Pending Payments</p>
+              <p className="text-xs text-[#9CA3AF] mt-0.5">All slot bookings and sessions are settled.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="border border-amber-100 bg-amber-50/30 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center justify-between pb-3 border-b border-amber-100/50 mb-3">
+              <div className="flex items-center gap-2 text-amber-800 font-semibold text-sm">
+                <AlertTriangle size={16} className="text-amber-600 animate-pulse" />
+                <span>{pendingData.totalCount} Pending Payment(s)</span>
+              </div>
+              <span className="text-sm font-bold text-amber-800">
+                ₹{pendingData.totalPendingAmount?.toLocaleString('en-IN')} due
+              </span>
+            </div>
+            <div className="max-h-[200px] overflow-y-auto space-y-2 pr-1">
+              {(pendingData.items || []).slice(0, 8).map((item) => (
+                <div key={item._id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-white/70 hover:bg-white border border-amber-100/50 rounded-xl px-4 py-3 gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-[#0D0D0D] truncate">{item.customer}</p>
+                    <p className="text-xs text-[#9CA3AF] mt-0.5 truncate">
+                      {item.sport}{item.court ? ` · ${item.court}` : ''}{item.slot ? ` · ${item.slot}` : ''}
+                    </p>
+                    <p className="text-[10px] text-[#9CA3AF] mt-0.5">{item.phone}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-sm font-bold text-amber-700">₹{item.remainingAmount?.toLocaleString('en-IN')}</span>
+                    <p className="text-[10px] text-[#9CA3AF] mt-0.5 capitalize">{item.type === 'overtime' ? 'Overtime Fee' : 'Slot Booking'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </motion.div>
+
+      {/* ── Reports ──────────────────────────────────────── */}
+      <ReportsSection />
+
       {/* ── Footer note ──────────────────────────────────── */}
       <motion.p
         initial={{ opacity: 0 }}
@@ -479,5 +564,176 @@ export default function Dashboard() {
         Red Ball Academy — Super Admin Panel
       </motion.p>
     </div>
+  );
+}
+
+// ─── Reports Section ──────────────────────────────────────────────
+function ReportsSection() {
+  const [range, setRange] = useState('today');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [paymentMode, setPaymentMode] = useState('');
+  const [includeReference, setIncludeReference] = useState('all');
+  const [reportBasis, setReportBasis] = useState('playDate');
+  const [sportId, setSportId] = useState('');
+  const [downloading, setDownloading] = useState(false);
+
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const { data: sportsData } = useQuery({
+    queryKey: ['report-sports'],
+    queryFn: () => api.get('/sports').then((r) => r.data),
+    staleTime: 120_000,
+  });
+  const sportsList = (sportsData?.sports || []).filter(
+    (s) => s.active && !s.deletedAt && !['all services', 'coaching'].includes((s.name || '').toLowerCase())
+  );
+
+  const handleDownload = async () => {
+    if (range === 'custom' && (!startDate || !endDate)) {
+      toast.error('Please select both start and end dates.');
+      return;
+    }
+    setDownloading(true);
+    try {
+      const params = new URLSearchParams({ range, includeReference, reportBasis });
+      if (range === 'custom') { params.set('startDate', startDate); params.set('endDate', endDate); }
+      if (paymentMode) params.set('paymentMode', paymentMode);
+      if (sportId) params.set('sportId', sportId);
+
+      const response = await api.get(`/super-admin/reports/slot-revenue-export?${params.toString()}`, {
+        responseType: 'blob',
+      });
+
+      const dateLabel = range === 'today' ? todayStr
+        : range === 'month' ? todayStr.slice(0, 7)
+        : `${startDate}_to_${endDate}`;
+      const basisLabel = reportBasis === 'playDate' ? 'by-play-date' : 'by-booking-date';
+
+      const url = URL.createObjectURL(new Blob([response.data], { type: 'text/csv' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `slot-revenue-${dateLabel}-${basisLabel}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success('Report downloaded.');
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to generate report. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const inputCls = 'w-full px-3 py-2 rounded-xl border border-gray-200 text-sm text-[#0D0D0D] bg-white focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E]/40';
+  const labelCls = 'block text-xs font-semibold text-[#9CA3AF] uppercase tracking-wide mb-1.5';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.7, duration: 0.45 }}
+      className="mb-6"
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <FileText size={16} className="text-blue-500" />
+        <h2 className="text-sm font-bold tracking-wider text-[#9CA3AF] uppercase font-['Inter']">
+          Reports
+        </h2>
+      </div>
+
+      <div className="card p-5 space-y-4">
+        {/* Row 1: Range / Report Basis / Sport / Payment Mode */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label className={labelCls}>Date Range</label>
+            <select value={range} onChange={(e) => setRange(e.target.value)} className={inputCls}>
+              <option value="today">Today</option>
+              <option value="month">This Month</option>
+              <option value="custom">Custom Range</option>
+            </select>
+          </div>
+
+          <div>
+            <label className={labelCls}>Report Basis</label>
+            <select value={reportBasis} onChange={(e) => setReportBasis(e.target.value)} className={inputCls}>
+              <option value="playDate">Play Date (slot date)</option>
+              <option value="bookingDate">Booking Date (created)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className={labelCls}>Sport</label>
+            <select value={sportId} onChange={(e) => setSportId(e.target.value)} className={inputCls}>
+              <option value="">All Sports</option>
+              {sportsList.map((s) => (
+                <option key={s._id} value={s._id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className={labelCls}>Payment Mode</label>
+            <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className={inputCls}>
+              <option value="">All Modes</option>
+              <option value="cash">Cash</option>
+              <option value="upi">UPI</option>
+              <option value="card">Card</option>
+              <option value="bank-transfer">Bank Transfer</option>
+              <option value="razorpay">Razorpay (Online)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Row 2: Reference filter + Download */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Reference Bookings</label>
+            <select value={includeReference} onChange={(e) => setIncludeReference(e.target.value)} className={inputCls}>
+              <option value="all">Include All</option>
+              <option value="false">Exclude Reference</option>
+              <option value="true">Reference Only</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col justify-end">
+            <button
+              onClick={handleDownload}
+              disabled={downloading || (range === 'custom' && (!startDate || !endDate))}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#C8102E] hover:bg-[#a80e27] text-white text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {downloading ? (
+                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+                </svg>
+              ) : (
+                <Download size={15} />
+              )}
+              {downloading ? 'Preparing…' : 'Download CSV'}
+            </button>
+          </div>
+        </div>
+
+        {/* Custom date pickers */}
+        {range === 'custom' && (
+          <div className="grid grid-cols-2 gap-4 pt-1 border-t border-gray-100">
+            <div>
+              <label className={labelCls}>Start Date</label>
+              <input type="date" value={startDate} max={endDate || todayStr} onChange={(e) => setStartDate(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>End Date</label>
+              <input type="date" value={endDate} min={startDate} max={todayStr} onChange={(e) => setEndDate(e.target.value)} className={inputCls} />
+            </div>
+          </div>
+        )}
+
+        <p className="text-[11px] text-[#9CA3AF]">
+          <strong>Play Date</strong> groups by the actual slot date. <strong>Booking Date</strong> groups by when the booking was made.
+        </p>
+      </div>
+    </motion.div>
   );
 }

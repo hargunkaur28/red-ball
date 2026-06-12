@@ -26,6 +26,7 @@ const SASports = lazy(() => import('./pages/super-admin/Sports'));
 const SAMemberships = lazy(() => import('./pages/super-admin/Memberships'));
 const SASessionOvertime = lazy(() => import('./pages/super-admin/SessionOvertime'));
 const SAOneTime = lazy(() => import('./pages/super-admin/OneTime'));
+const SALiveSports = lazy(() => import('./pages/super-admin/LiveSports'));
 const SACommunication = lazy(() => import('./pages/super-admin/Communication'));
 const SAOrderManagement = lazy(() => import('./pages/restaurant/RestaurantOrders'));
 const SAMenuItems = lazy(() => import('./pages/restaurant/Menu'));
@@ -122,6 +123,7 @@ export default function App() {
                 <Route path="memberships" element={<SAMemberships />} />
                 <Route path="session-overtime" element={<SASessionOvertime />} />
                 <Route path="one-time" element={<SAOneTime />} />
+                <Route path="live-sports" element={<SALiveSports />} />
                 <Route path="communication" element={<SACommunication />} />
                 <Route path="orders" element={<SAOrderManagement />} />
                 <Route path="menu" element={<SAMenuItems />} />

@@ -3,15 +3,30 @@ const mongoose = require('mongoose');
 const slotSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true, // e.g., "Cricket Ground A", "Football Turf 1"
+    required: true,
   },
+  // Legacy string field kept for backwards compat; prefer sportId
   sport: {
     type: String,
-    required: true, // cricket, football, badminton, swimming, gym, etc.
+  },
+  sportId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Sport',
+  },
+  sportSlug: {
+    type: String,
+    lowercase: true,
+  },
+  courtId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Court',
+  },
+  courtNameSnapshot: {
+    type: String,
   },
   capacity: {
     type: Number,
-    default: 1, // How many people can use simultaneously
+    default: 1,
   },
   status: {
     type: String,
@@ -27,7 +42,7 @@ const slotSchema = new mongoose.Schema({
     required: true,
   },
   duration: {
-    type: Number, // in minutes (60, 90, 120, etc.)
+    type: Number, // in minutes
     default: 60,
   },
   date: {
@@ -38,6 +53,16 @@ const slotSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  pricingType: {
+    type: String,
+    enum: ['flat', 'day-night'],
+    default: 'flat',
+  },
+  priceLabel: {
+    type: String,
+    enum: ['day', 'night', 'custom', ''],
+    default: '',
+  },
   isPeakHour: {
     type: Boolean,
     default: false,
@@ -45,6 +70,10 @@ const slotSchema = new mongoose.Schema({
   peakHourMultiplier: {
     type: Number,
     default: 1,
+  },
+  isBookable: {
+    type: Boolean,
+    default: true,
   },
   currentBookings: {
     type: Number,
@@ -58,20 +87,31 @@ const slotSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-// Auto-calculate status based on currentBookings and capacity
 slotSchema.pre('save', function (next) {
-  const occupancy = (this.currentBookings / this.capacity) * 100;
-  if (occupancy === 100) {
-    this.status = 'full';
-  } else if (occupancy >= 75) {
-    this.status = 'filling-fast';
-  } else if (occupancy > 0) {
-    this.status = 'available';
+  // Auto-calculate status based on currentBookings and capacity
+  if (this.isBookable === false && this.status !== 'maintenance') {
+    this.status = 'maintenance';
+  } else {
+    const occupancy = (this.currentBookings / this.capacity) * 100;
+    if (occupancy >= 100) {
+      this.status = 'full';
+    } else if (occupancy >= 75) {
+      this.status = 'filling-fast';
+    } else if (occupancy > 0) {
+      this.status = 'available';
+    }
   }
   next();
 });
 
 slotSchema.index({ date: 1, sport: 1 });
+slotSchema.index({ date: 1, sportId: 1 });
+slotSchema.index({ date: 1, courtId: 1 });
 slotSchema.index({ name: 1 });
+// Prevent duplicate slots for same court+date+startTime+endTime
+slotSchema.index(
+  { courtId: 1, date: 1, startTime: 1, endTime: 1 },
+  { unique: true, sparse: true }
+);
 
 module.exports = mongoose.model('Slot', slotSchema);

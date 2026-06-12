@@ -17,6 +17,7 @@ import Footer from '../components/home/Footer';
 import ScrollToTop from '../components/home/ScrollToTop';
 import WhatsAppFloat from '../components/home/WhatsAppFloat';
 import FloatingScanButton from '../components/home/FloatingScanButton';
+import DiscountBanner from '../components/home/DiscountBanner';
 
 function FlowSection({ children, theme = 'dark', id }) {
   return (
@@ -55,6 +56,9 @@ export default function Home() {
       {showIntro && (
         <CinematicIntro onComplete={handleIntroComplete} />
       )}
+
+      {/* Discount banner — always pinned above everything */}
+      {!showIntro && <DiscountBanner />}
 
       {/* Main Homepage Content — fades in after intro */}
       {!showIntro && <Navbar />}

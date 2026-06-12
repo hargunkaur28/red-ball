@@ -187,6 +187,8 @@ const syncMembershipPlans = async (sport, session) => {
       existingPlan.price = price;
       existingPlan.isActive = sport.active && !sport.deletedAt;
       existingPlan.name = `${sport.name} ${def.nameSuffix}`;
+      existingPlan.trainingAvailable = !!sport.trainingAvailable;
+      existingPlan.trainingPrice = sport.trainingAvailable ? (sport.trainingPrice || 0) : 0;
       await existingPlan.save(opts);
     } else {
       // Create new plan if it doesn't exist
@@ -199,7 +201,9 @@ const syncMembershipPlans = async (sport, session) => {
         price: price,
         isActive: sport.active && !sport.deletedAt,
         autoSync: true,
-        features: [`Full access to ${sport.name} facilities`]
+        features: [`Full access to ${sport.name} facilities`],
+        trainingAvailable: !!sport.trainingAvailable,
+        trainingPrice: sport.trainingAvailable ? (sport.trainingPrice || 0) : 0,
       }], opts);
     }
   }
@@ -208,7 +212,12 @@ const syncMembershipPlans = async (sport, session) => {
 // POST /api/sports - Create a new sport
 exports.createSport = async (req, res) => {
   try {
-    const { name, hourlyPrice, dayPrice, oneMonthPrice, threeMonthPrice, sixMonthPrice, twelveMonthPrice, active, thumbnail, description, tagline, rentalEquipment, heroIcon } = req.body;
+    const {
+      name, hourlyPrice, dayPrice, oneMonthPrice, threeMonthPrice, sixMonthPrice, twelveMonthPrice,
+      active, thumbnail, description, tagline, rentalEquipment, heroIcon,
+      slotPricingMode, daySlotPrice, nightSlotPrice, nightStartTime,
+      trainingAvailable, trainingPrice,
+    } = req.body;
 
     // Duplicate prevention
     const existing = await Sport.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') }, deletedAt: null });
@@ -230,6 +239,12 @@ exports.createSport = async (req, res) => {
       tagline: tagline || '',
       rentalEquipment: rentalEquipment || '',
       heroIcon: heroIcon || '',
+      slotPricingMode: slotPricingMode || 'flat',
+      daySlotPrice: daySlotPrice !== undefined ? parseFloat(daySlotPrice) : undefined,
+      nightSlotPrice: nightSlotPrice !== undefined ? parseFloat(nightSlotPrice) : undefined,
+      nightStartTime: nightStartTime || '18:00',
+      trainingAvailable: !!trainingAvailable,
+      trainingPrice: trainingAvailable ? (parseFloat(trainingPrice) || 0) : 0,
     };
 
     const newSport = await runTransaction(async (session) => {
@@ -254,7 +269,12 @@ exports.createSport = async (req, res) => {
 // PUT /api/sports/:id - Update an existing sport
 exports.updateSport = async (req, res) => {
   try {
-    const { name, hourlyPrice, dayPrice, oneMonthPrice, threeMonthPrice, sixMonthPrice, twelveMonthPrice, active, forceDeactivate, thumbnail, description, tagline, rentalEquipment, heroIcon } = req.body;
+    const {
+      name, hourlyPrice, dayPrice, oneMonthPrice, threeMonthPrice, sixMonthPrice, twelveMonthPrice,
+      active, forceDeactivate, thumbnail, description, tagline, rentalEquipment, heroIcon,
+      slotPricingMode, daySlotPrice, nightSlotPrice, nightStartTime,
+      trainingAvailable, trainingPrice,
+    } = req.body;
     const sportId = req.params.id;
 
     const sport = await Sport.findById(sportId);
@@ -301,6 +321,12 @@ exports.updateSport = async (req, res) => {
     if (tagline !== undefined) sport.tagline = tagline;
     if (rentalEquipment !== undefined) sport.rentalEquipment = rentalEquipment;
     if (heroIcon !== undefined) sport.heroIcon = heroIcon;
+    if (slotPricingMode !== undefined) sport.slotPricingMode = slotPricingMode;
+    if (daySlotPrice !== undefined) sport.daySlotPrice = daySlotPrice;
+    if (nightSlotPrice !== undefined) sport.nightSlotPrice = nightSlotPrice;
+    if (nightStartTime !== undefined) sport.nightStartTime = nightStartTime;
+    if (trainingAvailable !== undefined) sport.trainingAvailable = trainingAvailable;
+    if (trainingPrice !== undefined) sport.trainingPrice = trainingPrice;
 
     const updatedSport = await runTransaction(async (session) => {
       const opts = session ? { session } : {};
@@ -450,6 +476,36 @@ async function getActiveStats(sportSlug) {
 
 const entryRateLimitMap = {};
 
+// Parse "HH:MM" to minutes since midnight
+const timeToMinutes = (t) => {
+  const [h, m] = (t || '00:00').split(':').map(Number);
+  return h * 60 + m;
+};
+
+// Return first SlotBooking valid for QR check-in right now
+// Grace window: 10 min before slot start; hard cut-off at slot end
+const findValidSlotBooking = async (userId, sportId) => {
+  const now = new Date();
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
+
+  const bookings = await SlotBooking.find({
+    userId,
+    sportId,
+    status: { $in: ['confirmed', 'checked-in'] },
+  }).populate({ path: 'slotId', select: 'date' }).lean();
+
+  for (const b of bookings) {
+    const slotDate = b.slotId?.date;
+    if (!slotDate || slotDate < todayStart || slotDate > todayEnd) continue;
+    const startMins = timeToMinutes(b.startTime) - 10;
+    const endMins = timeToMinutes(b.endTime);
+    if (nowMins >= startMins && nowMins < endMins) return b;
+  }
+  return null;
+};
+
 const normalizeKey = (value) => (value || '').trim().toLowerCase();
 
 const getActiveSportKeys = async () => {
@@ -552,6 +608,20 @@ exports.entryCheck = async (req, res) => {
       }
     }
 
+    // Check for a valid slot booking as an additional entitlement path
+    let hasSlotBooking = false;
+    let validSlotBookingForCheck = null;
+    if (req.user) {
+      validSlotBookingForCheck = await findValidSlotBooking(req.user.userId, sport._id);
+      if (validSlotBookingForCheck) {
+        hasSlotBooking = true;
+        if (!validationAllowed) {
+          validationAllowed = true;
+          validationReason = null;
+        }
+      }
+    }
+
     const activeSportKeys = await getActiveSportKeys();
 
     // Get available membership plans for this sport (match by slug or name for compatibility)
@@ -574,6 +644,13 @@ exports.entryCheck = async (req, res) => {
       activeCheckIn,
       hasMembership,
       hasPrepaidPass,
+      hasSlotBooking,
+      slotBooking: validSlotBookingForCheck ? {
+        _id: validSlotBookingForCheck._id,
+        startTime: validSlotBookingForCheck.startTime,
+        endTime: validSlotBookingForCheck.endTime,
+        sportNameSnapshot: validSlotBookingForCheck.sportNameSnapshot,
+      } : null,
       entitlementSource,
       entitlement,
       validationAllowed,
@@ -600,13 +677,17 @@ exports.entryCheckIn = async (req, res) => {
     const sport = await Sport.findOne({ $or: [{ qrSlug: req.params.qrSlug }, { slug: req.params.qrSlug }] });
     if (!sport || sport.deletedAt) return res.status(404).json({ success: false, message: 'Invalid QR code.' });
 
-    // Validate membership using the Entitlement Engine
+    // Check for a valid slot booking (time-window based entitlement)
+    const validSlotBooking = await findValidSlotBooking(req.user.userId, sport._id);
+
+    // Validate membership/pass using the Entitlement Engine
     const validation = await validateCheckIn(req.user.userId, sport.slug);
-    
-    if (!validation.allowed) {
+
+    // Reject only if BOTH membership validation failed AND no valid slot booking
+    if (!validation.allowed && !validSlotBooking) {
       return res.status(403).json({ success: false, message: validation.reason, activeSessions: validation.activeSessions });
     }
-    
+
     const { entitlement } = validation;
 
     const config = await getEffectiveConfig(sport.slug);
@@ -630,19 +711,16 @@ exports.entryCheckIn = async (req, res) => {
     // Execute writes inside transaction
     const result = await runTransaction(async (session) => {
       const opts = session ? { session } : {};
-      
+
       // Re-check for duplicates inside the transaction to prevent race conditions
-      if (!entitlement.isAllServices) {
-        const existing = await Attendance.findOne({ 
-          userId: req.user.userId, 
-          sport: { $regex: new RegExp(`^${sport.name}$`, 'i') }, 
-          checkOutTime: null, 
-          sessionStatus: 'Active' 
-        }, null, opts);
-        
-        if (existing) {
-          throw new Error(`You already have an active session for ${sport.name}. Please check out first.`);
-        }
+      const existing = await Attendance.findOne({
+        userId: req.user.userId,
+        sport: { $regex: new RegExp(`^${sport.name}$`, 'i') },
+        checkOutTime: null,
+        sessionStatus: 'Active',
+      }, null, opts);
+      if (existing) {
+        throw new Error(`You already have an active session for ${sport.name}. Please check out first.`);
       }
 
       const today = new Date();
@@ -654,8 +732,23 @@ exports.entryCheckIn = async (req, res) => {
       let relatedBookingType = 'membership';
       let membershipPlanSnapshot = matchingMembership?.planId?.name || null;
       let currentSessionConfig = config;
+      let entitlementType = entitlement.entitlementType;
 
-      if (validation.entitlementSource === 'one-time-play') {
+      // Slot-booking path: user has a booked slot in the current time window
+      if (validSlotBooking && (!validation.allowed || validation.entitlementSource === 'none')) {
+        allowedDurationMinutes = validSlotBooking.duration;
+        hourlyRateAtCheckIn = 0;
+        relatedBookingId = validSlotBooking._id;
+        relatedBookingType = 'slot-booking';
+        membershipPlanSnapshot = `${validSlotBooking.sportNameSnapshot || sport.name} Slot ${validSlotBooking.startTime}–${validSlotBooking.endTime}`;
+        entitlementType = 'slot-booking';
+        currentSessionConfig = {
+          allowedDurationMinutes: validSlotBooking.duration,
+          overtimeThresholdMinutes: 0,
+          lateFeePerMinute: 0,
+          configVersionSnapshot: 1,
+        };
+      } else if (validation.entitlementSource === 'one-time-play') {
         const pass = validation.matchingPass;
         allowedDurationMinutes = pass.allowedDurationMinutes || 60;
         hourlyRateAtCheckIn = pass.hourlyRateSnapshot || 0;
@@ -666,7 +759,7 @@ exports.entryCheckIn = async (req, res) => {
           allowedDurationMinutes: pass.allowedDurationMinutes || 60,
           overtimeThresholdMinutes: 0,
           lateFeePerMinute: pass.lateFeePerMinuteSnapshot || 0,
-          configVersionSnapshot: 1
+          configVersionSnapshot: 1,
         };
       }
 
@@ -682,13 +775,13 @@ exports.entryCheckIn = async (req, res) => {
         checkInMethod: 'qr-scan',
         sport: sport.name,
         sportId: sport._id,
-        entitlementType: entitlement.entitlementType,
+        entitlementType,
         currentSessionConfig,
         configVersionSnapshot: currentSessionConfig.configVersion || 1,
         sportNameSnapshot: sport.name,
         membershipPlanSnapshot,
         relatedBookingId,
-        relatedBookingType
+        relatedBookingType,
       }], opts);
 
       if (validation.entitlementSource === 'one-time-play') {
@@ -696,7 +789,7 @@ exports.entryCheckIn = async (req, res) => {
         await OneTimeAccess.findByIdAndUpdate(validation.matchingPass._id, {
           accessStatus: 'active',
           usedAt: new Date(),
-          attendanceId: attendance._id
+          attendanceId: attendance._id,
         }, opts);
       }
 
@@ -1208,5 +1301,112 @@ exports.regenerateQR = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SPORT DISCOUNTS
+// ─────────────────────────────────────────────────────────────────────────────
+const SportDiscount = require('../models/SportDiscount');
+
+// GET /api/sports/discounts — all discounts (superadmin)
+exports.getDiscounts = async (req, res) => {
+  try {
+    const { sportId, activeOnly } = req.query;
+    const filter = {};
+    if (sportId) filter.sportId = sportId;
+    if (activeOnly === 'true') {
+      const now = new Date();
+      filter.isActive = true;
+      filter.startDate = { $lte: now };
+      filter.endDate = { $gte: now };
+    }
+    const discounts = await SportDiscount.find(filter).sort({ createdAt: -1 }).populate('sportId', 'name slug');
+    res.json({ discounts });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.' });
+  }
+};
+
+// GET /api/sports/discounts/public — active discounts for home page banner
+exports.getPublicDiscounts = async (req, res) => {
+  try {
+    const now = new Date();
+    const discounts = await SportDiscount.find({
+      isActive: true,
+      startDate: { $lte: now },
+      endDate: { $gte: now },
+    }).populate('sportId', 'name slug thumbnail');
+    res.json({ discounts });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.' });
+  }
+};
+
+// POST /api/sports/discounts
+exports.createDiscount = async (req, res) => {
+  try {
+    const { sportId, sportIds, discountPercent, startDate, endDate, bannerText } = req.body;
+    // Accept either a single sportId or an array of sportIds
+    const ids = sportIds?.length ? sportIds : (sportId ? [sportId] : []);
+    if (!ids.length || !discountPercent || !startDate || !endDate) {
+      return res.status(400).json({ message: 'sportId(s), discountPercent, startDate, endDate are required.' });
+    }
+    const pct = parseFloat(discountPercent);
+    if (isNaN(pct) || pct < 1 || pct > 100) {
+      return res.status(400).json({ message: 'discountPercent must be between 1 and 100.' });
+    }
+
+    const created = [];
+    for (const sid of ids) {
+      const sport = await Sport.findById(sid);
+      if (!sport) continue;
+      const discount = await SportDiscount.create({
+        sportId: sid,
+        sportSlug: sport.slug,
+        sportNameSnapshot: sport.name,
+        discountPercent,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        bannerText: bannerText || '',
+        createdBy: req.user.userId,
+      });
+      created.push(discount);
+    }
+    res.status(201).json({ discount: created[0], discounts: created, count: created.length });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.', error: error.message });
+  }
+};
+
+// PUT /api/sports/discounts/:id
+exports.updateDiscount = async (req, res) => {
+  try {
+    const { discountPercent, startDate, endDate, isActive, bannerText } = req.body;
+    const discount = await SportDiscount.findByIdAndUpdate(
+      req.params.id,
+      {
+        ...(discountPercent !== undefined && { discountPercent }),
+        ...(startDate && { startDate: new Date(startDate) }),
+        ...(endDate && { endDate: new Date(endDate) }),
+        ...(isActive !== undefined && { isActive }),
+        ...(bannerText !== undefined && { bannerText }),
+      },
+      { new: true, runValidators: true }
+    );
+    if (!discount) return res.status(404).json({ message: 'Discount not found.' });
+    res.json({ discount });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.' });
+  }
+};
+
+// DELETE /api/sports/discounts/:id
+exports.deleteDiscount = async (req, res) => {
+  try {
+    await SportDiscount.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Discount deleted.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error.' });
   }
 };

@@ -70,8 +70,8 @@ export default function Navbar() {
   return (
     <>
       <header
-        className="fixed top-0 left-0 right-0 z-50 transition-all duration-[400ms] ease-in-out"
-        style={{
+        className="fixed left-0 right-0 z-50 transition-all duration-[400ms] ease-in-out"
+        style={{ top: 'var(--discount-banner-h, 0px)',
           backgroundColor: scrolled 
             ? (isLightSection ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.1)') 
             : 'transparent',

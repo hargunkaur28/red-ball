@@ -47,4 +47,31 @@ const auth = async (req, res, next) => {
   }
 };
 
+// Like auth but never blocks — attaches req.user if a valid token is present
+const optionalAuth = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, ACCESS_SECRET);
+      if (!(await tokenBlacklist.has(token))) {
+        const user = await User.findById(decoded.userId);
+        if (user && user.isActive) {
+          req.user = {
+            userId: user._id,
+            role: user.role,
+            email: user.email,
+            name: user.name,
+            phone: user.phone,
+          };
+        }
+      }
+    }
+  } catch (_) {
+    // Invalid/expired token — just don't set req.user
+  }
+  next();
+};
+
 module.exports = auth;
+module.exports.optionalAuth = optionalAuth;
