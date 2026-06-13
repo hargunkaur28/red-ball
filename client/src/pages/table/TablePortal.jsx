@@ -3,13 +3,15 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../lib/axios';
-import { QrCode, Camera, ArrowRight, Sparkles, AlertCircle, Utensils, MapPin, Minus, Plus, X, ShoppingBag, Clock, Search } from 'lucide-react';
+import { QrCode, Camera, ArrowRight, Sparkles, AlertCircle, Utensils, MapPin, Minus, Plus, X, ShoppingBag, Clock, Search, Truck, FileText, Ticket, Check, Loader2, Tag } from 'lucide-react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import useCartStore from '../../store/cartStore';
 import useAuthStore from '../../store/authStore';
 import { formatCurrency } from '../../lib/utils';
 import { toast } from 'sonner';
 import PhoneCollectModal from '../../components/shared/PhoneCollectModal';
+
+const validPhone = (p) => /^[6-9]\d{9}$/.test(String(p || '').replace(/\D/g, '')) ? String(p).replace(/\D/g, '') : '';
 
 export default function TablePortal({ embedded = false }) {
   const navigate = useNavigate();
@@ -64,11 +66,21 @@ export default function TablePortal({ embedded = false }) {
   
   const [orderType, setOrderType] = useState('pickup');
   const [customer, setCustomer] = useState({ name: '', phone: '', address: '', lat: '', lng: '' });
+  const [specialInstructions, setSpecialInstructions] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('razorpay');
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [selectedTable, setSelectedTable] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(false);
+
+  // Coupon state
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null); // { couponId, code, discountAmount }
+  const [couponError, setCouponError] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [showAvailableCoupons, setShowAvailableCoupons] = useState(false);
+  const [availableCoupons, setAvailableCoupons] = useState([]);
+  const [foodCouponsLoading, setFoodCouponsLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -110,12 +122,78 @@ export default function TablePortal({ embedded = false }) {
 
   const menuItems = menuData?.items || [];
 
-  const { data: ordersData } = useQuery({ 
-    queryKey: ['my-orders'], 
+  const { data: ordersData } = useQuery({
+    queryKey: ['my-orders'],
     queryFn: () => api.get('/orders/my-orders').then(r => r.data),
     enabled: ordersOpen,
-    refetchInterval: ordersOpen ? 5000 : false,
+    refetchInterval: ordersOpen ? 10000 : false,
   });
+
+  // Join per-order socket rooms for real-time prep-time + status pushes
+  useEffect(() => {
+    if (!ordersOpen || !ordersData?.orders?.length) return;
+    let socket;
+    import('../../lib/socket').then(({ default: s }) => {
+      socket = s;
+      const active = ordersData.orders.filter(o => !['cancelled', 'delivered'].includes(o.status));
+      active.forEach(o => socket.emit('join-order', o._id));
+
+      const handleOrderUpdated = ({ orderId, estimatedPrepMinutes, estimatedReadyAt }) => {
+        qc.setQueryData(['my-orders'], (old) => {
+          if (!old?.orders) return old;
+          return {
+            ...old,
+            orders: old.orders.map(o =>
+              o._id === orderId
+                ? { ...o, estimatedPrepMinutes, estimatedReadyAt }
+                : o
+            ),
+          };
+        });
+      };
+
+      const handleStatusChange = ({ orderId, status }) => {
+        qc.setQueryData(['my-orders'], (old) => {
+          if (!old?.orders) return old;
+          return {
+            ...old,
+            orders: old.orders.map(o =>
+              o._id === orderId ? { ...o, status } : o
+            ),
+          };
+        });
+      };
+
+      socket.on('restaurant:orderUpdated', handleOrderUpdated);
+      socket.on('order:status', handleStatusChange);
+
+      return () => {
+        socket.off('restaurant:orderUpdated', handleOrderUpdated);
+        socket.off('order:status', handleStatusChange);
+        active.forEach(o => socket.emit('leave-order', o._id));
+      };
+    });
+  }, [ordersOpen, ordersData?.orders?.length, qc]);
+
+  const { data: deliverySettings } = useQuery({
+    queryKey: ['delivery-settings-public'],
+    queryFn: () => api.get('/kitchen/delivery-settings').then(r => r.data),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Compute delivery charge reactively from cart subtotal
+  const cartSubtotal = getSubtotal();
+  const deliveryCharge = (() => {
+    if (orderType !== 'delivery') return 0;
+    if (!deliverySettings?.deliveryChargeEnabled) return 0;
+    return cartSubtotal < (deliverySettings.freeDeliveryMinAmount || 0)
+      ? (deliverySettings.deliveryChargeBelowMin || 0)
+      : 0;
+  })();
+  const couponDiscount = appliedCoupon?.discountAmount || 0;
+  const cartTotal = Math.max(0, cartSubtotal + deliveryCharge - couponDiscount);
+  const freeDeliveryMin = deliverySettings?.freeDeliveryMinAmount || 0;
+  const showDeliveryBanner = deliverySettings?.deliveryChargeEnabled && freeDeliveryMin > 0;
 
 
 
@@ -223,122 +301,158 @@ export default function TablePortal({ embedded = false }) {
     }, 1200);
   };
 
+  const buildOrderItems = () => items.map(item => ({
+    menuItemId: item.menuItemId,
+    name: item.name,
+    size: item.size,
+    quantity: item.quantity,
+    price: item.price,
+    kitchenNote: item.kitchenNote,
+  }));
+
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setCouponLoading(true);
+    setCouponError('');
+    try {
+      const { data } = await api.post('/coupons/validate', {
+        code: couponInput.trim(),
+        targetType: 'food',
+        orderAmount: cartSubtotal,
+        userId: user?.id,
+      });
+      if (data.valid) {
+        setAppliedCoupon({ couponId: data.couponId, code: data.code, discountAmount: data.discountAmount });
+        setCouponError('');
+      } else {
+        setCouponError(data.message || 'Invalid coupon.');
+        setAppliedCoupon(null);
+      }
+    } catch (err) {
+      setCouponError(err.response?.data?.message || 'Failed to validate coupon.');
+      setAppliedCoupon(null);
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput('');
+    setCouponError('');
+  };
+
+  const fetchFoodCoupons = async () => {
+    setFoodCouponsLoading(true);
+    try {
+      const { data } = await api.get('/coupons/public', { params: { targetType: 'food' } });
+      setAvailableCoupons(data.coupons || []);
+    } catch { /* silent */ } finally { setFoodCouponsLoading(false); }
+  };
+
+  const handleSelectFoodCoupon = async (code) => {
+    setCouponInput(code);
+    setShowAvailableCoupons(false);
+    setCouponLoading(true);
+    setCouponError('');
+    try {
+      const { data } = await api.post('/coupons/validate', { code, targetType: 'food', orderAmount: cartSubtotal });
+      if (data.valid) {
+        setAppliedCoupon({ couponId: data.couponId, code: data.code, discountAmount: data.discountAmount });
+      } else { setCouponError(data.message || 'Coupon not applicable.'); }
+    } catch { setCouponError('Failed to apply coupon.'); } finally { setCouponLoading(false); }
+  };
+
   const handleSubmitOrder = async () => {
-    if (items.length === 0) {
-      toast.error('Cart is empty.');
-      return;
-    }
-    if (isAuthenticated && !user?.phone) {
-      setShowPhoneModal(true);
-      return;
-    }
+    if (items.length === 0) { toast.error('Cart is empty.'); return; }
+    if (isAuthenticated && !user?.phone) { setShowPhoneModal(true); return; }
 
     if (paymentMethod === 'razorpay') {
       if (!scriptLoaded || !window.Razorpay) {
         toast.error('Razorpay SDK failed to load. Please refresh.');
         return;
       }
-      
       try {
-        // 1. Create order on backend to get razorpayOrderId
+        // Send items + orderType + coupon so backend can calculate authoritative total
         const orderRes = await api.post('/orders/create-razorpay-order', {
-          amount: getSubtotal(),
+          items: buildOrderItems(),
+          orderType,
+          couponCode: appliedCoupon?.code,
         });
-        
-        const { orderId, amount, currency } = orderRes.data;
+        const { orderId, amount, currency, couponApplied: serverCoupon } = orderRes.data;
 
-        // 2. Open Razorpay Modal
         const options = {
           key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-          amount: amount,
-          currency: currency,
+          amount,
+          currency,
           name: 'Red Ball Sports Club',
           description: 'Food Order Payment',
           order_id: orderId,
           handler: async (response) => {
-            // Payment successful! Now send the actual order!
             try {
               const res = await api.post('/orders/direct', {
-                items: items.map(item => ({
-                  menuItemId: item.menuItemId,
-                  name: item.name,
-                  size: item.size,
-                  quantity: item.quantity,
-                  price: item.price,
-                  kitchenNote: item.kitchenNote,
-                })),
+                items: buildOrderItems(),
                 customerName: customer.name || 'Guest',
                 customerPhone: customer.phone,
                 orderType,
+                specialInstructions: specialInstructions.trim() || undefined,
                 deliveryAddress: orderType === 'delivery' ? customer.address : undefined,
                 deliveryLocation: orderType === 'delivery' && customer.lat ? { lat: Number(customer.lat), lng: Number(customer.lng) } : undefined,
                 paymentMethod,
-                paymentStatus: 'paid', // Mark as paid!
+                paymentStatus: 'paid',
                 tableId: orderType === 'table' ? selectedTable : undefined,
                 customerId: user?.id,
                 razorpayPaymentId: response.razorpay_payment_id,
                 razorpayOrderId: response.razorpay_order_id,
                 razorpaySignature: response.razorpay_signature,
+                couponCode: appliedCoupon?.code,
+                couponId: appliedCoupon?.couponId,
               });
-              
               clearCart();
+              setSpecialInstructions('');
+              handleRemoveCoupon();
               toast.success(`${res.data.order.orderNumber} sent to restaurant.`);
-              if (orderType === 'table' && selectedTable) {
-                navigate(`/table/${selectedTable}`);
-              }
+              if (orderType === 'table' && selectedTable) navigate(`/table/${selectedTable}`);
             } catch (error) {
-              console.error('Order record error:', error.response?.data || error.message, error);
+              console.error('Order record error:', error.response?.data || error.message);
               toast.error(error.response?.data?.message || 'Failed to record order after payment. Please contact support.');
             }
           },
-          prefill: {
-            name: customer.name || 'Guest',
-            contact: customer.phone || '',
-          },
-          theme: {
-            color: '#C8102E',
-          },
+          prefill: { name: customer.name || 'Guest', contact: validPhone(customer.phone) },
+          theme: { color: '#C8102E' },
         };
-        
+
         const rzp = new window.Razorpay(options);
-        rzp.on('payment.failed', function (response) {
-          toast.error('Payment failed. Try again or pay using cash.');
-        });
+        rzp.on('payment.failed', () => toast.error('Payment failed. Try again.'));
         rzp.open();
-        
       } catch (error) {
         toast.error(error.response?.data?.message || 'Failed to initialize payment');
       }
-      return; // Stop here for razorpay!
+      return;
     }
-    
-    // Fallback for Cash/UPI
+
+    // Cash/UPI
     try {
       const res = await api.post('/orders/direct', {
-        items: items.map(item => ({
-          menuItemId: item.menuItemId,
-          name: item.name,
-          size: item.size,
-          quantity: item.quantity,
-          price: item.price,
-          kitchenNote: item.kitchenNote,
-        })),
+        items: buildOrderItems(),
         customerName: customer.name || 'Guest',
         customerPhone: customer.phone,
         orderType,
+        specialInstructions: specialInstructions.trim() || undefined,
         deliveryAddress: orderType === 'delivery' ? customer.address : undefined,
         deliveryLocation: orderType === 'delivery' && customer.lat ? { lat: Number(customer.lat), lng: Number(customer.lng) } : undefined,
         paymentMethod,
         paymentStatus: 'pending',
         tableId: orderType === 'table' ? selectedTable : undefined,
         customerId: user?.id,
+        couponCode: appliedCoupon?.code,
+        couponId: appliedCoupon?.couponId,
       });
-      
       clearCart();
+      setSpecialInstructions('');
+      handleRemoveCoupon();
       toast.success(`${res.data.order.orderNumber} sent to restaurant.`);
-      if (orderType === 'table' && selectedTable) {
-        navigate(`/table/${selectedTable}`);
-      }
+      if (orderType === 'table' && selectedTable) navigate(`/table/${selectedTable}`);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not place order');
     }
@@ -406,6 +520,12 @@ export default function TablePortal({ embedded = false }) {
         
         {/* Hero Section */}
         <div className="mb-8">
+          {/* Free delivery banner */}
+          {showDeliveryBanner && (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-green-900/40 border border-green-500/30 text-green-400 text-xs font-bold mb-3">
+              <Truck size={13} /> Free delivery on orders above ₹{freeDeliveryMin.toLocaleString('en-IN')}
+            </div>
+          )}
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#F5A623]/10 border border-[#F5A623]/20 text-[#F5A623] text-xs font-bold uppercase tracking-wider mb-3">
             <Sparkles size={14} /> Premium Athlete Hub
           </div>
@@ -629,7 +749,7 @@ export default function TablePortal({ embedded = false }) {
           {items.length > 0 && (
             <>
               {/* Order Type Tabs */}
-              <div className="grid grid-cols-3 gap-2 mb-5">
+              <div className="grid grid-cols-3 gap-2 mb-3">
                 {[
                   { value: 'pickup', label: 'Pickup' },
                   { value: 'delivery', label: 'Delivery' },
@@ -641,6 +761,14 @@ export default function TablePortal({ embedded = false }) {
                   </button>
                 ))}
               </div>
+
+              {/* Free delivery info — always visible so customers know before selecting delivery */}
+              {showDeliveryBanner && (
+                <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-green-900/20 border border-green-500/20 text-green-400 text-xs font-semibold mb-4">
+                  <Truck size={12} className="shrink-0" />
+                  Free delivery on orders above ₹{freeDeliveryMin.toLocaleString('en-IN')}
+                </div>
+              )}
 
               {/* Form Fields */}
               <div className="space-y-3">
@@ -697,16 +825,144 @@ export default function TablePortal({ embedded = false }) {
                 <select className="w-full bg-white/10 border border-[#F5A623]/40 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[#F5A623] shadow-[0_0_15px_rgba(245,166,35,0.15)] transition-all" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
                   <option value="razorpay" className="bg-[#161616]">Pay Online (Razorpay)</option>
                 </select>
+
+                {/* Kitchen remarks */}
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs text-white/50 mb-1.5 font-medium">
+                    <FileText size={12} /> Order remarks <span className="text-white/30">(optional)</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    maxLength={500}
+                    placeholder="Less spicy, no onion, allergy notes…"
+                    value={specialInstructions}
+                    onChange={e => setSpecialInstructions(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 focus:border-[#C8102E] outline-none resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Free delivery banner inside cart for delivery orders */}
+              {orderType === 'delivery' && showDeliveryBanner && deliveryCharge === 0 && cartSubtotal > 0 && (
+                <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-green-900/30 border border-green-500/20 text-green-400 text-xs font-bold mb-3">
+                  <Truck size={12} /> Free delivery applied!
+                </div>
+              )}
+              {orderType === 'delivery' && showDeliveryBanner && deliveryCharge > 0 && (
+                <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-900/20 border border-amber-500/20 text-amber-400 text-xs mb-3">
+                  <Truck size={12} /> Add ₹{Math.max(0, freeDeliveryMin - cartSubtotal).toLocaleString('en-IN')} more for free delivery
+                </div>
+              )}
+
+              {/* Coupon Input */}
+              <div className="rounded-xl bg-black/30 border border-white/10 p-3 mb-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Ticket size={12} className="text-[#F5A623]" />
+                  <p className="text-xs text-white/60 font-semibold">Coupon Code</p>
+                </div>
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between rounded-xl px-3 py-2 bg-green-900/20 border border-green-500/30">
+                    <div className="flex items-center gap-2">
+                      <Check size={12} className="text-green-400" />
+                      <span className="text-green-300 text-xs font-bold">{appliedCoupon.code}</span>
+                      <span className="text-green-400/70 text-xs">— ₹{appliedCoupon.discountAmount} off!</span>
+                    </div>
+                    <button onClick={handleRemoveCoupon} className="text-white/30 hover:text-white/60">
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Enter coupon code"
+                      value={couponInput}
+                      onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(''); }}
+                      onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                      className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-white/30 focus:border-[#F5A623] outline-none uppercase"
+                    />
+                    <button
+                      onClick={handleApplyCoupon}
+                      disabled={couponLoading || !couponInput.trim()}
+                      className="px-3 py-2 rounded-xl text-xs font-bold text-white bg-[#C8102E] hover:bg-[#A60D25] disabled:opacity-50 transition-colors"
+                    >
+                      {couponLoading ? <Loader2 size={12} className="animate-spin" /> : 'Apply'}
+                    </button>
+                  </div>
+                )}
+                {couponError && (
+                  <p className="text-red-400 text-[11px] mt-1.5">{couponError}</p>
+                )}
+                {!appliedCoupon && (
+                  <button
+                    type="button"
+                    onClick={() => { setShowAvailableCoupons(v => !v); if (!availableCoupons.length) fetchFoodCoupons(); }}
+                    className="text-[11px] text-[#F5A623]/70 hover:text-[#F5A623] flex items-center gap-1 mt-1.5 transition-colors"
+                  >
+                    <Tag size={10} /> View available coupons
+                  </button>
+                )}
+                {showAvailableCoupons && !appliedCoupon && (
+                  <div className="mt-2 rounded-xl overflow-hidden border border-white/10 bg-black/60">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
+                      <span className="text-white/50 text-[11px] font-semibold">Available Coupons</span>
+                      <button onClick={() => setShowAvailableCoupons(false)} className="text-white/30 hover:text-white/60"><X size={11} /></button>
+                    </div>
+                    {foodCouponsLoading ? (
+                      <div className="flex justify-center py-3"><Loader2 size={14} className="animate-spin text-white/30" /></div>
+                    ) : availableCoupons.length === 0 ? (
+                      <p className="text-white/30 text-[11px] text-center py-3">No coupons available</p>
+                    ) : (
+                      <div className="divide-y divide-white/5 max-h-44 overflow-y-auto">
+                        {availableCoupons.map((c) => (
+                          <button
+                            key={c._id}
+                            type="button"
+                            onClick={() => handleSelectFoodCoupon(c.code)}
+                            className="w-full text-left px-3 py-2.5 hover:bg-white/5 transition-colors flex items-center justify-between gap-3"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-white font-mono font-bold text-[11px] tracking-wider bg-white/8 px-2 py-0.5 rounded">{c.code}</span>
+                                {c.title && <span className="text-white/40 text-[11px] truncate">{c.title}</span>}
+                              </div>
+                              {c.description && <p className="text-white/30 text-[10px] mt-0.5 truncate">{c.description}</p>}
+                            </div>
+                            <span className="text-green-400 text-[11px] font-bold shrink-0">
+                              {c.discountType === 'percentage' ? `${c.discountValue}% off` : `₹${c.discountValue} off`}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Totals */}
-              <div className="rounded-xl bg-black/40 border border-white/10 p-4 my-5 space-y-2 text-sm">
-                <div className="flex justify-between font-bold text-[#F5A623]"><span>Total Amount</span><span>{formatCurrency(getSubtotal())}</span></div>
+              <div className="rounded-xl bg-black/40 border border-white/10 p-4 my-3 space-y-2 text-sm">
+                <div className="flex justify-between text-white/60"><span>Subtotal</span><span>{formatCurrency(cartSubtotal)}</span></div>
+                {orderType === 'delivery' && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-white/60 flex items-center gap-1"><Truck size={12} /> Delivery charge</span>
+                    {deliveryCharge === 0
+                      ? <span className="text-green-400 font-bold">Free</span>
+                      : <span className="text-white">+{formatCurrency(deliveryCharge)}</span>
+                    }
+                  </div>
+                )}
+                {appliedCoupon && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-green-400 flex items-center gap-1"><Ticket size={11} /> {appliedCoupon.code}</span>
+                    <span className="text-green-400">-{formatCurrency(appliedCoupon.discountAmount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-[#F5A623] border-t border-white/10 pt-2"><span>Total</span><span>{formatCurrency(cartTotal)}</span></div>
               </div>
 
               {/* Submit Button */}
               <button onClick={handleSubmitOrder} className="w-full bg-[#C8102E] hover:bg-[#A60D25] text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled={items.length === 0 || !customer.name || !customer.phone || (orderType === 'table' && !selectedTable)}>
-                Send Order
+                {paymentMethod === 'razorpay' ? `Pay ${formatCurrency(cartTotal)}` : 'Send Order'}
               </button>
             </>
           )}
@@ -768,7 +1024,7 @@ export default function TablePortal({ embedded = false }) {
                           </span>
                         </div>
 
-                        {order.estimatedReadyAt && order.status === 'preparing' && (() => {
+                        {order.estimatedReadyAt && ['new', 'preparing'].includes(order.status) && (() => {
                           const minsLeft = Math.max(0, Math.round((new Date(order.estimatedReadyAt) - Date.now()) / 60000));
                           return (
                             <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-400 bg-amber-950/40 border border-amber-500/20 rounded-lg px-3 py-1.5">

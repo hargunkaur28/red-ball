@@ -84,6 +84,10 @@ const orderSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  deliveryCharge: {
+    type: Number,
+    default: 0,
+  },
   totalAmount: {
     type: Number,
     required: true,
@@ -107,9 +111,30 @@ const orderSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  razorpayOrderId: { type: String },
+  razorpayPaymentId: { type: String },
   paymentId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Payment',
+  },
+
+  // Coupon snapshot
+  couponId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Coupon',
+  },
+  couponCode: {
+    type: String,
+  },
+  couponDiscountAmount: {
+    type: Number,
+    default: 0,
+  },
+  originalAmount: {
+    type: Number,
+  },
+  finalAmount: {
+    type: Number,
   },
   cancelledBy: {
     type: String,

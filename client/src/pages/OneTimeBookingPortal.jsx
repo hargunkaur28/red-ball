@@ -9,6 +9,8 @@ import { formatCurrency } from '../lib/utils';
 import useAuthStore from '../store/authStore';
 import PhoneCollectModal from '../components/shared/PhoneCollectModal';
 
+const validPhone = (p) => /^[6-9]\d{9}$/.test(String(p || '').replace(/\D/g, '')) ? String(p).replace(/\D/g, '') : '';
+
 export default function OneTimeBookingPortal({ embedded = false }) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -170,7 +172,7 @@ export default function OneTimeBookingPortal({ embedded = false }) {
         prefill: {
           name: details.name,
           email: details.email,
-          contact: details.phone,
+          contact: validPhone(details.phone),
         },
         handler: async (response) => {
           setSubmitting(true);

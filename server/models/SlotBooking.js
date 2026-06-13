@@ -35,9 +35,21 @@ const slotBookingSchema = new mongoose.Schema({
   },
   bookingType: {
     type: String,
-    enum: ['one-time-play', 'coaching-batch', 'club-booking', 'slot-booking'],
+    enum: ['one-time-play', 'coaching-batch', 'club-booking', 'slot-booking', 'membership-slot'],
     default: 'one-time-play',
   },
+
+  // Membership slot booking fields
+  membershipId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Membership',
+  },
+  isMembershipBooking: {
+    type: Boolean,
+    default: false,
+  },
+  cancelledAt: Date,
+  cancelledBy: { type: String }, // 'user' | 'admin'
   playerName: {
     type: String,
     required: true,
@@ -135,6 +147,22 @@ const slotBookingSchema = new mongoose.Schema({
     default: 0,
   },
   originalAmount: {
+    type: Number,
+  },
+
+  // Coupon snapshot at time of booking
+  couponId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Coupon',
+  },
+  couponCode: {
+    type: String,
+  },
+  couponDiscountAmount: {
+    type: Number,
+    default: 0,
+  },
+  finalAmount: {
     type: Number,
   },
 

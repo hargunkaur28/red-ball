@@ -11,7 +11,7 @@ import api from '../../lib/axios';
 import socket from '../../lib/socket';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const todayStr = () => new Date().toISOString().split('T')[0];
+const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const addDays = (dateStr, n) => { const d = new Date(dateStr); d.setDate(d.getDate() + n); return d.toISOString().split('T')[0]; };
 
 const DAYS = [
@@ -34,7 +34,7 @@ const slotLabel = (s) => {
 };
 
 // ── Court Detail Panel (floating right-side sheet) ────────────────────────────
-function CourtDetailPanel({ group, sport, date, onClose, onManualPayment, onToggleCourt, onDeleteCourt, onDeleteSlot, onSaved }) {
+function CourtDetailPanel({ group, sport, date, onClose, onManualPayment, onToggleCourt, onDeleteCourt, onDeleteSlot, onSaved, onOpenBulk }) {
   const { court, slots } = group;
   const [editingSlotId, setEditingSlotId] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -144,9 +144,14 @@ function CourtDetailPanel({ group, sport, date, onClose, onManualPayment, onTogg
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <button onClick={() => { setShowCreateSlot((v) => !v); setEditingSlotId(null); }}
-                title="Create slot"
+                title="Create single slot"
                 className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-colors ${showCreateSlot ? 'bg-[#C8102E] border-[#C8102E] text-white' : 'border-[#EAEAEA] text-[#555] hover:bg-[#F5F5F5]'}`}>
                 <Plus size={14} />
+              </button>
+              <button onClick={() => onOpenBulk?.(court._id)}
+                title="Bulk create slots"
+                className="w-8 h-8 rounded-lg flex items-center justify-center border border-[#EAEAEA] text-[#555] hover:bg-[#F5F5F5] transition-colors">
+                <Layers size={14} />
               </button>
               <button onClick={() => onToggleCourt(court)} title={court.isOpen ? 'Close court' : 'Open court'}
                 className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-colors ${court.isOpen ? 'border-red-200 text-red-500 hover:bg-red-50' : 'border-green-200 text-green-600 hover:bg-green-50'}`}>
@@ -171,6 +176,10 @@ function CourtDetailPanel({ group, sport, date, onClose, onManualPayment, onTogg
               >
                 <div className="px-5 py-4 bg-[#FAFAFA] space-y-3">
                   <p className="text-xs font-bold text-[#333]">Create new slot for this date</p>
+                  <div className="flex items-start gap-1.5 px-2.5 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-[11px]">
+                    <span className="shrink-0 mt-0.5">⚠️</span>
+                    <span>This creates a slot for <strong>this date only</strong>. Use the <strong>Bulk Create</strong> (<span className="font-mono">⧉</span>) button for daily/weekly recurring slots.</span>
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="text-[10px] text-[#999] block mb-0.5">Start time</label>
@@ -211,10 +220,17 @@ function CourtDetailPanel({ group, sport, date, onClose, onManualPayment, onTogg
               <div className="text-center py-12 text-sm text-[#999]">
                 <Clock size={28} className="mx-auto mb-2 text-[#DDD]" />
                 No slots for this date.
-                <button onClick={() => setShowCreateSlot(true)}
-                  className="mt-3 flex items-center gap-1.5 mx-auto text-[#C8102E] text-xs font-semibold hover:underline">
-                  <Plus size={12} /> Create first slot
-                </button>
+                <div className="mt-3 flex items-center gap-3 justify-center">
+                  <button onClick={() => setShowCreateSlot(true)}
+                    className="flex items-center gap-1.5 text-[#C8102E] text-xs font-semibold hover:underline">
+                    <Plus size={12} /> Create first slot
+                  </button>
+                  <span className="text-[#DDD]">·</span>
+                  <button onClick={() => onOpenBulk?.(court._id)}
+                    className="flex items-center gap-1.5 text-[#555] text-xs font-semibold hover:text-[#C8102E] hover:underline">
+                    <Layers size={12} /> Bulk Create
+                  </button>
+                </div>
               </div>
             ) : (
               slots.map((s) => (
@@ -388,21 +404,25 @@ function AddCourtModal({ sport, onClose, onSuccess }) {
 }
 
 // ── Bulk Slot Modal ────────────────────────────────────────────────────────────
-function BulkSlotModal({ sport, courts, onClose, onSuccess }) {
+function BulkSlotModal({ sport, courts, onClose, onSuccess, initialCourtIds }) {
   const [form, setForm] = useState({
-    courtIds: courts.filter((c) => c.isOpen).map((c) => c._id),
+    courtIds: initialCourtIds ?? courts.filter((c) => c.isOpen).map((c) => c._id),
     weekdays: [0, 1, 2, 3, 4, 5, 6],
-    slotStartTime: '06:00',
-    slotEndTime: '22:00',
+    slotStartTime: sport?.dayStartTime || '06:00',
+    slotEndTime: sport?.nightEndTime || '22:00',
     slotDurationMin: 60,
     gapBetweenMin: 0,
     priceMode: sport?.slotPricingMode === 'dayNight' ? 'dayNight' : 'flat',
     flatPrice: String(sport?.hourlyPrice || sport?.daySlotPrice || ''),
     dayPrice: String(sport?.daySlotPrice || sport?.hourlyPrice || ''),
     nightPrice: String(sport?.nightSlotPrice || sport?.hourlyPrice || ''),
-    nightCutoffTime: sport?.nightStartTime || '18:00',
+    dayStartTime: sport?.dayStartTime || '06:00',
+    dayEndTime: sport?.nightStartTime || '18:00',
+    nightStartTime: sport?.nightStartTime || '18:00',
+    nightEndTime: sport?.nightEndTime || '22:00',
   });
   const [saving, setSaving] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [result, setResult] = useState(null);
   const [submitMeta, setSubmitMeta] = useState({ slotsPerDay: 0, courts: 0 });
   const [customSlots, setCustomSlots] = useState([]); // [{ startTime, endTime, price }]
@@ -425,6 +445,7 @@ function BulkSlotModal({ sport, courts, onClose, onSuccess }) {
 
   // Slots per day estimate (single day)
   const slotsPerDay = (() => {
+    if (form.priceMode === 'dayNight') return 2; // always 1 day + 1 night slot
     try {
       const [sh, sm] = form.slotStartTime.split(':').map(Number);
       const [eh, em] = form.slotEndTime.split(':').map(Number);
@@ -436,12 +457,29 @@ function BulkSlotModal({ sport, courts, onClose, onSuccess }) {
     } catch { return 0; }
   })();
 
+  const handleClearSlots = async () => {
+    if (!form.courtIds.length) return toast.error('Select at least one court.');
+    if (!window.confirm(`Delete ALL slots for the selected courts across all future dates? This cannot be undone.`)) return;
+    setClearing(true);
+    try {
+      const startDateStr = todayStr();
+      const endDateStr = addDays(startDateStr, 364);
+      const { data } = await api.delete('/slots/admin/bulk', {
+        data: { sportId: sport._id, courtIds: form.courtIds, startDateStr, endDateStr },
+      });
+      toast.success(`Cleared ${data.deletedCount} slot(s).`);
+      onSuccess();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Clear failed.');
+    } finally { setClearing(false); }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.courtIds.length) return toast.error('Select at least one court.');
     if (!form.weekdays.length) return toast.error('Select at least one day.');
-    const dur = Number(form.slotDurationMin);
-    if (!dur || dur <= 0) return toast.error('Duration must be > 0.');
+    const dur = form.priceMode === 'dayNight' ? 0 : Number(form.slotDurationMin);
+    if (form.priceMode !== 'dayNight' && (!dur || dur <= 0)) return toast.error('Duration must be > 0.');
     setSaving(true);
     try {
       // Create for next 365 days — slots are always present until deleted
@@ -453,14 +491,15 @@ function BulkSlotModal({ sport, courts, onClose, onSuccess }) {
         startDateStr,
         endDateStr,
         weekdays: form.weekdays,
-        slotStartTime: form.slotStartTime,
-        slotEndTime: form.slotEndTime,
+        slotStartTime: form.priceMode === 'dayNight' ? form.dayStartTime : form.slotStartTime,
+        slotEndTime: form.priceMode === 'dayNight' ? form.nightEndTime : form.slotEndTime,
+        ...(form.priceMode === 'dayNight' ? { nightStartTime: form.nightStartTime } : {}),
         slotDurationMin: dur,
         gapBetweenMin: Number(form.gapBetweenMin) || 0,
         priceMode: form.priceMode,
         ...(form.priceMode === 'flat'
           ? { flatPrice: parseFloat(form.flatPrice) || 0 }
-          : { dayPrice: parseFloat(form.dayPrice) || 0, nightPrice: parseFloat(form.nightPrice) || 0, nightCutoffTime: form.nightCutoffTime }),
+          : { dayPrice: parseFloat(form.dayPrice) || 0, nightPrice: parseFloat(form.nightPrice) || 0, nightCutoffTime: form.dayEndTime, nightStartTime: form.nightStartTime }),
         customSlots: customSlots.filter((cs) => cs.startTime && cs.endTime && customSlotDuration(cs) > 0).map((cs) => ({
           startTime: cs.startTime,
           endTime: cs.endTime,
@@ -557,7 +596,8 @@ function BulkSlotModal({ sport, courts, onClose, onSuccess }) {
               </div>
             </div>
 
-            {/* Time window */}
+            {/* Time window — only shown for flat mode; dayNight has its own time fields below */}
+            {form.priceMode !== 'dayNight' && (
             <div>
               <label className="text-xs font-bold text-[#333] flex items-center gap-1.5 mb-2">Time Window & Slot Duration</label>
               <div className="grid grid-cols-2 gap-3 mb-3">
@@ -601,6 +641,7 @@ function BulkSlotModal({ sport, courts, onClose, onSuccess }) {
                 </select>
               </div>
             </div>
+            )}
 
             {/* Pricing */}
             <div>
@@ -624,21 +665,42 @@ function BulkSlotModal({ sport, courts, onClose, onSuccess }) {
                     className="w-full border border-[#EAEAEA] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20" />
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-[11px] text-[#999] mb-1 flex items-center gap-1"><Sun size={11} /> Day (₹)</label>
-                    <input type="number" min={0} value={form.dayPrice} onChange={(e) => set('dayPrice', e.target.value)} placeholder="250"
-                      className="w-full border border-[#EAEAEA] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20" />
+                <div className="space-y-2">
+                  {/* Day row */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[11px] text-[#999] mb-1 flex items-center gap-1"><Sun size={11} /> Day (₹)</label>
+                      <input type="number" min={0} value={form.dayPrice} onChange={(e) => set('dayPrice', e.target.value)} placeholder="e.g. 500"
+                        className="w-full border border-[#EAEAEA] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-[#999] mb-1 block">Start time</label>
+                      <input type="time" value={form.dayStartTime} onChange={(e) => set('dayStartTime', e.target.value)}
+                        className="w-full border border-[#EAEAEA] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-[#999] mb-1 block">End time</label>
+                      <input type="time" value={form.dayEndTime} onChange={(e) => set('dayEndTime', e.target.value)}
+                        className="w-full border border-[#EAEAEA] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20" />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-[11px] text-[#999] mb-1 flex items-center gap-1"><Moon size={11} /> Night (₹)</label>
-                    <input type="number" min={0} value={form.nightPrice} onChange={(e) => set('nightPrice', e.target.value)} placeholder="350"
-                      className="w-full border border-[#EAEAEA] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20" />
-                  </div>
-                  <div>
-                    <label className="text-[11px] text-[#999] mb-1 block">Night from</label>
-                    <input type="time" value={form.nightCutoffTime} onChange={(e) => set('nightCutoffTime', e.target.value)}
-                      className="w-full border border-[#EAEAEA] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20" />
+                  {/* Night row */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[11px] text-[#999] mb-1 flex items-center gap-1"><Moon size={11} /> Night (₹)</label>
+                      <input type="number" min={0} value={form.nightPrice} onChange={(e) => set('nightPrice', e.target.value)} placeholder="e.g. 700"
+                        className="w-full border border-[#EAEAEA] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-[#999] mb-1 block">Start time</label>
+                      <input type="time" value={form.nightStartTime} onChange={(e) => set('nightStartTime', e.target.value)}
+                        className="w-full border border-[#EAEAEA] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-[#999] mb-1 block">End time</label>
+                      <input type="time" value={form.nightEndTime} onChange={(e) => set('nightEndTime', e.target.value)}
+                        className="w-full border border-[#EAEAEA] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20" />
+                    </div>
                   </div>
                 </div>
               )}
@@ -703,8 +765,13 @@ function BulkSlotModal({ sport, courts, onClose, onSuccess }) {
             )}
 
             <div className="flex gap-3 pt-1">
+              <button type="button" onClick={handleClearSlots} disabled={clearing || saving}
+                className="py-2.5 px-4 rounded-xl border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 disabled:opacity-50 flex items-center gap-2 shrink-0">
+                {clearing ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                {clearing ? 'Clearing…' : 'Clear All'}
+              </button>
               <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[#EAEAEA] text-sm font-medium text-[#666] hover:bg-[#F5F5F5]">Cancel</button>
-              <button type="submit" disabled={saving || !form.courtIds.length || !form.weekdays.length}
+              <button type="submit" disabled={saving || clearing || !form.courtIds.length || !form.weekdays.length}
                 className="flex-1 py-2.5 rounded-xl bg-[#C8102E] text-white text-sm font-semibold hover:bg-[#a50d27] disabled:opacity-60 flex items-center justify-center gap-2">
                 {saving ? <Loader2 size={15} className="animate-spin" /> : <Zap size={15} />}
                 {saving ? 'Creating…' : 'Create Slots'}
@@ -985,6 +1052,7 @@ export default function LiveSports() {
   const [openCourtGroup, setOpenCourtGroup] = useState(null); // court detail panel
   const [manualPaymentSlot, setManualPaymentSlot] = useState(null);
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkCourtPreselect, setBulkCourtPreselect] = useState(null);
   const [showAddCourt, setShowAddCourt] = useState(false);
 
   const { data: overviewData, isLoading: overviewLoading, refetch: refetchOverview } = useQuery({
@@ -1144,7 +1212,7 @@ export default function LiveSports() {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#EAEAEA] text-xs font-semibold text-[#555] hover:bg-[#F5F5F5] hover:border-[#C8102E]/30">
                   <Building2 size={13} /> Add Court
                 </button>
-                <button onClick={() => setShowBulkModal(true)}
+                <button onClick={() => { setBulkCourtPreselect(null); setShowBulkModal(true); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#C8102E] text-white text-xs font-semibold hover:bg-[#a50d27]">
                   <Zap size={13} /> Bulk Create Slots
                 </button>
@@ -1165,7 +1233,7 @@ export default function LiveSports() {
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#EAEAEA] text-xs font-semibold text-[#555] hover:bg-[#F5F5F5]">
                     <Plus size={13} /> Add Court
                   </button>
-                  <button onClick={() => { if (courts.length) setShowBulkModal(true); else toast.info('Add a court first.'); }}
+                  <button onClick={() => { if (courts.length) { setBulkCourtPreselect(null); setShowBulkModal(true); } else toast.info('Add a court first.'); }}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#C8102E] text-white text-xs font-semibold hover:bg-[#a50d27]">
                     <Zap size={13} /> Bulk Create Slots
                   </button>
@@ -1196,6 +1264,7 @@ export default function LiveSports() {
             onDeleteCourt={handleDeleteCourt}
             onDeleteSlot={handleDeleteSlot}
             onSaved={invalidateAll}
+            onOpenBulk={(courtId) => { setBulkCourtPreselect(courtId ? [courtId] : null); setShowBulkModal(true); }}
           />
         )}
       </AnimatePresence>
@@ -1207,6 +1276,7 @@ export default function LiveSports() {
         )}
         {showBulkModal && selectedSport && (
           <BulkSlotModal sport={selectedSport} courts={courts}
+            initialCourtIds={bulkCourtPreselect}
             onClose={() => setShowBulkModal(false)}
             onSuccess={() => { invalidateAll(); setShowBulkModal(false); }} />
         )}

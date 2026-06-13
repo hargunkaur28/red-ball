@@ -391,7 +391,7 @@ exports.checkInMembership = async (req, res) => {
 
 exports.publicPurchaseOrder = async (req, res) => {
   try {
-    const { planId, withTraining } = req.body;
+    const { planId, withTraining, sportId } = req.body;
     const plan = await MembershipPlan.findById(planId);
 
     if (!plan || !plan.isActive) {
@@ -399,7 +399,23 @@ exports.publicPurchaseOrder = async (req, res) => {
     }
 
     const trainingAddon = withTraining && plan.trainingAvailable ? (plan.trainingPrice || 0) : 0;
-    const totalAmount = plan.price + trainingAddon;
+
+    // Kids Academy: check if admission fee is due for this user
+    let admissionFeeAmount = 0;
+    let admissionSportId = null;
+    if (plan.isKidsAcademy && plan.admissionFeeRequired && plan.admissionFeeAmount > 0 && sportId) {
+      const userId = req.user?.userId;
+      if (userId) {
+        const AcademyAdmission = require('../models/AcademyAdmission');
+        const existing = await AcademyAdmission.findOne({ userId, sportId });
+        if (!existing || !existing.admissionPaid) {
+          admissionFeeAmount = plan.admissionFeeAmount;
+          admissionSportId = sportId;
+        }
+      }
+    }
+
+    const totalAmount = plan.price + trainingAddon + admissionFeeAmount;
 
     // Create pending Payment BEFORE Razorpay order — snapshot binds verify to plan/training choice
     const pendingPayment = await Payment.create({
@@ -416,6 +432,8 @@ exports.publicPurchaseOrder = async (req, res) => {
       withTraining: !!trainingAddon,
       trainingAmount: trainingAddon,
       basePlanAmount: plan.price,
+      admissionFeeAmount,
+      admissionSportId: admissionSportId || undefined,
     });
 
     const rzpOrder = await createRazorpayOrder({
@@ -441,6 +459,7 @@ exports.publicPurchaseOrder = async (req, res) => {
       withTraining: !!trainingAddon,
       trainingAmount: trainingAddon,
       basePlanAmount: plan.price,
+      admissionFeeAmount,
       totalAmount,
     });
   } catch (error) {
@@ -587,6 +606,21 @@ exports.publicVerifyPayment = async (req, res) => {
 
       return { payment: pendingPayment, membership: membershipRec };
     });
+
+    // Mark admission as paid if this payment included an admission fee
+    if (pendingPayment.admissionFeeAmount > 0 && pendingPayment.admissionSportId) {
+      const AcademyAdmission = require('../models/AcademyAdmission');
+      await AcademyAdmission.findOneAndUpdate(
+        { userId: targetUserId, sportId: pendingPayment.admissionSportId },
+        {
+          admissionPaid: true,
+          paidAt: new Date(),
+          paymentId: pendingPayment._id,
+          amount: pendingPayment.admissionFeeAmount,
+        },
+        { upsert: true, new: true }
+      );
+    }
 
     let token = null;
     if (!req.user) {

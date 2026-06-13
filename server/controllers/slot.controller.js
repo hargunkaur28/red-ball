@@ -6,6 +6,8 @@ const Sport = require('../models/Sport');
 const SportDiscount = require('../models/SportDiscount');
 const User = require('../models/User');
 const ReferencePrice = require('../models/ReferencePrice');
+const Coupon = require('../models/Coupon');
+const CouponUsage = require('../models/CouponUsage');
 const { calculateGST } = require('../utils/gstCalculator');
 const { createRazorpayOrder, verifyPaymentSignature, fetchPaymentDetails } = require('../config/razorpay');
 
@@ -152,6 +154,44 @@ exports.deleteSlot = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// BULK SLOT DELETION (Superadmin)
+// DELETE /api/slots/admin/bulk
+// ─────────────────────────────────────────────────────────────────────────────
+exports.bulkDeleteSlots = async (req, res) => {
+  try {
+    const { sportId, courtIds, startDateStr, endDateStr } = req.body;
+    if (!sportId || !startDateStr || !endDateStr) {
+      return res.status(400).json({ message: 'sportId, startDateStr, endDateStr are required.' });
+    }
+    const sport = await Sport.findById(sportId);
+    if (!sport) return res.status(404).json({ message: 'Sport not found.' });
+
+    let targetCourtIds;
+    if (courtIds && courtIds.length > 0) {
+      targetCourtIds = courtIds;
+    } else {
+      const courts = await Court.find({ sportId, isOpen: true });
+      targetCourtIds = courts.map((c) => c._id);
+    }
+
+    const rangeStart = new Date(startDateStr); rangeStart.setHours(0, 0, 0, 0);
+    const rangeEnd = new Date(endDateStr); rangeEnd.setHours(23, 59, 59, 999);
+
+    const result = await Slot.deleteMany({
+      courtId: { $in: targetCourtIds },
+      date: { $gte: rangeStart, $lte: rangeEnd },
+    });
+
+    const io = req.app.get('io');
+    if (io) io.emit('slots:bulk-created', { sportId });
+
+    res.json({ message: `Deleted ${result.deletedCount} slot(s).`, deletedCount: result.deletedCount });
+  } catch (error) {
+    console.error('bulkDeleteSlots error:', error);
+    res.status(500).json({ message: 'Bulk delete failed.', error: error.message });
+  }
+};
+
 // BULK SLOT CREATION (Superadmin)
 // POST /api/slots/admin/bulk
 // ─────────────────────────────────────────────────────────────────────────────
@@ -165,18 +205,20 @@ exports.bulkCreateSlots = async (req, res) => {
       weekdays,         // [0,1,2,3,4,5,6] — 0=Sun ... 6=Sat; empty = all days
       slotStartTime,    // "06:00"
       slotEndTime,      // "22:00"
-      slotDurationMin,  // 60
+      slotDurationMin,  // 60 (ignored when priceMode=dayNight)
       gapBetweenMin,    // 0
       priceMode,        // "flat" | "dayNight"
       flatPrice,
       dayPrice,
       nightPrice,
-      nightCutoffTime,  // "18:00"  defaults to sport nightStartTime
+      nightCutoffTime,  // day slot end time (= night boundary) for dayNight mode
+      nightStartTime,   // night slot start time (independent) for dayNight mode
       customSlots,      // [{ startTime, endTime, price? }] — override specific windows
     } = req.body;
 
-    if (!sportId || !startDateStr || !endDateStr || !slotStartTime || !slotEndTime || !slotDurationMin) {
-      return res.status(400).json({ message: 'sportId, startDate, endDate, slotStartTime, slotEndTime, slotDurationMin are required.' });
+    const isDayNight = priceMode === 'dayNight';
+    if (!sportId || !startDateStr || !endDateStr || !slotStartTime || !slotEndTime || (!isDayNight && !slotDurationMin)) {
+      return res.status(400).json({ message: 'sportId, startDate, endDate, slotStartTime, slotEndTime are required.' });
     }
 
     const sport = await Sport.findById(sportId);
@@ -211,100 +253,102 @@ exports.bulkCreateSlots = async (req, res) => {
     }
 
     // Build time slots
-    const duration = parseInt(slotDurationMin);
-    const gap = parseInt(gapBetweenMin) || 0;
-    const nightCutoff = timeToMinutes(nightCutoffTime || sport.nightStartTime || '18:00');
     const dayPriceVal = parseFloat(dayPrice) || parseFloat(flatPrice) || sport.daySlotPrice || sport.hourlyPrice;
     const nightPriceVal = parseFloat(nightPrice) || sport.nightSlotPrice || sport.hourlyPrice;
 
-    // Parse custom slot overrides (specific time windows with their own duration/price)
-    const customRanges = (customSlots || [])
-      .filter((cs) => cs.startTime && cs.endTime)
-      .map((cs) => ({
-        start: timeToMinutes(cs.startTime),
-        end: timeToMinutes(cs.endTime),
-        startTime: cs.startTime,
-        endTime: cs.endTime,
-        price: cs.price != null && cs.price !== '' ? parseFloat(cs.price) : null,
-      }))
-      .filter((cr) => cr.end > cr.start);
-
     const timeSlots = []; // { startTime, endTime, duration, price, priceLabel, pricingType }
-    let cursor2 = timeToMinutes(slotStartTime);
-    const endMinutes = timeToMinutes(slotEndTime);
 
-    while (cursor2 + duration <= endMinutes) {
-      const st = `${String(Math.floor(cursor2 / 60)).padStart(2, '0')}:${String(cursor2 % 60).padStart(2, '0')}`;
-      const etMin = cursor2 + duration;
-      const et = `${String(Math.floor(etMin / 60)).padStart(2, '0')}:${String(etMin % 60).padStart(2, '0')}`;
-
-      // Skip auto-generated slots that overlap with any custom range
-      const overlaps = customRanges.some((cr) => cursor2 < cr.end && etMin > cr.start);
-      if (!overlaps) {
-        const isNight = priceMode === 'dayNight' && cursor2 >= nightCutoff;
-        const price = isNight ? nightPriceVal : dayPriceVal;
-        const priceLabel = priceMode === 'dayNight' ? (isNight ? 'night' : 'day') : '';
-        timeSlots.push({ startTime: st, endTime: et, duration, price, priceLabel, pricingType: priceMode === 'dayNight' ? 'day-night' : 'flat' });
+    if (isDayNight) {
+      // Create exactly 2 big slots: one day slot and one night slot
+      const dayEnd = nightCutoffTime || sport.nightStartTime || '18:00';
+      const nightStart = nightStartTime || nightCutoffTime || sport.nightStartTime || '18:00';
+      const dayDur = timeToMinutes(dayEnd) - timeToMinutes(slotStartTime);
+      const nightDur = timeToMinutes(slotEndTime) - timeToMinutes(nightStart);
+      if (dayDur > 0) {
+        timeSlots.push({ startTime: slotStartTime, endTime: dayEnd, duration: dayDur, price: dayPriceVal, priceLabel: 'day', pricingType: 'day-night' });
       }
-      cursor2 += duration + gap;
+      if (nightDur > 0) {
+        timeSlots.push({ startTime: nightStart, endTime: slotEndTime, duration: nightDur, price: nightPriceVal, priceLabel: 'night', pricingType: 'day-night' });
+      }
+    } else {
+      const duration = parseInt(slotDurationMin);
+      const gap = parseInt(gapBetweenMin) || 0;
+
+      // Parse custom slot overrides
+      const customRanges = (customSlots || [])
+        .filter((cs) => cs.startTime && cs.endTime)
+        .map((cs) => ({
+          start: timeToMinutes(cs.startTime),
+          end: timeToMinutes(cs.endTime),
+          startTime: cs.startTime,
+          endTime: cs.endTime,
+          price: cs.price != null && cs.price !== '' ? parseFloat(cs.price) : null,
+        }))
+        .filter((cr) => cr.end > cr.start);
+
+      let cursor2 = timeToMinutes(slotStartTime);
+      const endMinutes = timeToMinutes(slotEndTime);
+
+      while (cursor2 + duration <= endMinutes) {
+        const st = `${String(Math.floor(cursor2 / 60)).padStart(2, '0')}:${String(cursor2 % 60).padStart(2, '0')}`;
+        const etMin = cursor2 + duration;
+        const et = `${String(Math.floor(etMin / 60)).padStart(2, '0')}:${String(etMin % 60).padStart(2, '0')}`;
+        const overlaps = customRanges.some((cr) => cursor2 < cr.end && etMin > cr.start);
+        if (!overlaps) {
+          timeSlots.push({ startTime: st, endTime: et, duration, price: parseFloat(flatPrice) || 0, priceLabel: '', pricingType: 'flat' });
+        }
+        cursor2 += duration + gap;
+      }
+
+      // Append custom override slots
+      for (const cr of customRanges) {
+        const dur = cr.end - cr.start;
+        const price = cr.price != null ? cr.price : (parseFloat(flatPrice) || 0);
+        timeSlots.push({ startTime: cr.startTime, endTime: cr.endTime, duration: dur, price, priceLabel: '', pricingType: 'flat' });
+      }
     }
 
-    // Append custom override slots
-    for (const cr of customRanges) {
-      const dur = cr.end - cr.start;
-      const isNight = priceMode === 'dayNight' && cr.start >= nightCutoff;
-      const autoPrice = isNight ? nightPriceVal : dayPriceVal;
-      const price = cr.price != null ? cr.price : autoPrice;
-      const priceLabel = priceMode === 'dayNight' ? (isNight ? 'night' : 'day') : '';
-      timeSlots.push({
-        startTime: cr.startTime,
-        endTime: cr.endTime,
-        duration: dur,
-        price,
-        priceLabel,
-        pricingType: priceMode === 'dayNight' ? 'day-night' : 'flat',
-      });
-    }
+    // Delete existing slots for these courts within the date range before creating new ones
+    const openCourtObjectIds = courts.filter((c) => c.isOpen).map((c) => c._id);
+    const rangeStart = new Date(start); rangeStart.setHours(0, 0, 0, 0);
+    const rangeEnd = new Date(end); rangeEnd.setHours(23, 59, 59, 999);
+    await Slot.deleteMany({
+      courtId: { $in: openCourtObjectIds },
+      date: { $gte: rangeStart, $lte: rangeEnd },
+    });
 
-    let createdCount = 0;
-    let skippedDuplicates = 0;
-    const errors = [];
-
+    // Build all documents in memory, then insertMany in one DB round-trip
+    const docs = [];
     for (const court of courts.filter((c) => c.isOpen)) {
       for (const date of dates) {
+        const slotDate = new Date(date);
+        slotDate.setHours(12, 0, 0, 0);
         for (const ts of timeSlots) {
-          const slotDate = new Date(date);
-          slotDate.setHours(12, 0, 0, 0); // noon UTC-safe anchor
-
-          try {
-            await Slot.create({
-              name: `${court.name} • ${ts.startTime}–${ts.endTime}`,
-              sport: sport.slug,
-              sportId: sport._id,
-              sportSlug: sport.slug,
-              courtId: court._id,
-              courtNameSnapshot: court.name,
-              capacity: 1,
-              startTime: ts.startTime,
-              endTime: ts.endTime,
-              duration: ts.duration,
-              date: slotDate,
-              pricePerSlot: ts.price,
-              pricingType: ts.pricingType,
-              priceLabel: ts.priceLabel,
-              isBookable: true,
-            });
-            createdCount++;
-          } catch (e) {
-            if (e.code === 11000) {
-              skippedDuplicates++;
-            } else {
-              errors.push(`${court.name} ${slotDate.toDateString()} ${ts.startTime}: ${e.message}`);
-            }
-          }
+          docs.push({
+            name: `${court.name} • ${ts.startTime}–${ts.endTime}`,
+            sport: sport.slug,
+            sportId: sport._id,
+            sportSlug: sport.slug,
+            courtId: court._id,
+            courtNameSnapshot: court.name,
+            capacity: 1,
+            startTime: ts.startTime,
+            endTime: ts.endTime,
+            duration: ts.duration,
+            date: slotDate,
+            pricePerSlot: ts.price,
+            pricingType: ts.pricingType,
+            priceLabel: ts.priceLabel,
+            isBookable: true,
+          });
         }
       }
     }
+
+    const inserted = await Slot.insertMany(docs, { ordered: false });
+    const createdCount = inserted.length;
+    const skippedDuplicates = docs.length - createdCount;
+    const errors = [];
 
     const io = req.app.get('io');
     if (io) io.emit('slots:bulk-created', { sportId, createdCount });
@@ -545,7 +589,7 @@ exports.getPublicAvailableSlots = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.createSlotOrder = async (req, res) => {
   try {
-    const { slotId } = req.body;
+    const { slotId, couponId, couponCode } = req.body;
     if (!slotId) return res.status(400).json({ message: 'slotId is required.' });
 
     const slot = await Slot.findById(slotId);
@@ -598,6 +642,41 @@ exports.createSlotOrder = async (req, res) => {
       }
     }
 
+    // Apply coupon if provided — re-validate server-side
+    let couponDiscountAmt = 0;
+    let validatedCouponId = null;
+    let validatedCouponCode = null;
+    if (couponId && couponCode) {
+      try {
+        const coupon = await Coupon.findById(couponId);
+        if (
+          coupon &&
+          coupon.isActive &&
+          !coupon.archivedAt &&
+          coupon.code === couponCode.toUpperCase().trim() &&
+          (coupon.targetType === 'sports' || coupon.targetType === 'both')
+        ) {
+          const now = new Date();
+          const notExpired = (!coupon.startsAt || now >= coupon.startsAt) && (!coupon.endsAt || now <= coupon.endsAt);
+          const withinLimit = coupon.usageLimitTotal == null || coupon.usedCount < coupon.usageLimitTotal;
+          if (notExpired && withinLimit) {
+            let calcDiscount;
+            if (coupon.discountType === 'percentage') {
+              const pct = (coupon.discountValue / 100) * finalPrice;
+              const cap = coupon.maxDiscountAmount != null ? coupon.maxDiscountAmount : Infinity;
+              calcDiscount = Math.min(pct, cap);
+            } else {
+              calcDiscount = Math.min(coupon.discountValue, finalPrice);
+            }
+            couponDiscountAmt = Math.max(0, Math.round(calcDiscount * 100) / 100);
+            finalPrice = Math.max(0, finalPrice - couponDiscountAmt);
+            validatedCouponId = coupon._id;
+            validatedCouponCode = coupon.code;
+          }
+        }
+      } catch (_) { /* ignore coupon errors — proceed without discount */ }
+    }
+
     // Create pending Payment BEFORE Razorpay order — snapshot binds verify to this slot/amount
     const pendingPayment = await Payment.create({
       type: 'slot-booking',
@@ -618,6 +697,12 @@ exports.createSlotOrder = async (req, res) => {
       discountId: discountDoc?._id || null,
       discountPercent: discountPct,
       discountAmount: discountAmt,
+      // Coupon fields stored on payment for reference
+      ...(validatedCouponId && {
+        couponId: validatedCouponId,
+        couponCode: validatedCouponCode,
+        couponDiscountAmount: couponDiscountAmt,
+      }),
     });
 
     const order = await createRazorpayOrder({
@@ -636,6 +721,7 @@ exports.createSlotOrder = async (req, res) => {
       razorpayOrder: { id: order.id, amount: order.amount, currency: order.currency },
       amount: finalPrice,
       originalAmount: originalPrice,
+      couponApplied: validatedCouponId ? { couponId: validatedCouponId, couponCode: validatedCouponCode, discountAmount: couponDiscountAmt } : null,
       discount: discountDoc ? { discountPercent: discountDoc.discountPercent } : null,
       slot: {
         _id: slot._id,
@@ -666,6 +752,8 @@ exports.verifySlotPayment = async (req, res) => {
       playerName,
       playerPhone,
       playerEmail,
+      couponId,
+      couponCode,
     } = req.body;
 
     if (!paymentId || !razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
@@ -756,6 +844,12 @@ exports.verifySlotPayment = async (req, res) => {
     try {
       // All amounts come from the payment snapshot — not from re-calculating
       const bookingUserId = paymentRecord.studentId || req.user?.userId || null;
+
+      // Resolve coupon from payment snapshot (don't trust client-supplied values)
+      const snapshotCouponId = paymentRecord.couponId || null;
+      const snapshotCouponCode = paymentRecord.couponCode || null;
+      const snapshotCouponDiscount = paymentRecord.couponDiscountAmount || 0;
+
       const booking = await SlotBooking.create({
         slotId: claimedSlot._id,
         slotName: claimedSlot.name,
@@ -788,6 +882,13 @@ exports.verifySlotPayment = async (req, res) => {
         discountPercent: paymentRecord.discountPercent || 0,
         discountAmount: paymentRecord.discountAmount || 0,
         paymentId: paymentRecord._id,
+        // Coupon snapshot
+        ...(snapshotCouponId && {
+          couponId: snapshotCouponId,
+          couponCode: snapshotCouponCode,
+          couponDiscountAmount: snapshotCouponDiscount,
+          finalAmount: paymentRecord.totalAmount,
+        }),
       });
 
       // Mark payment paid and link to booking
@@ -801,6 +902,23 @@ exports.verifySlotPayment = async (req, res) => {
       paymentRecord.referenceId = booking._id;
       paymentRecord.customerName = playerName;
       await paymentRecord.save();
+
+      // Record coupon usage
+      if (snapshotCouponId && bookingUserId) {
+        try {
+          await Coupon.findByIdAndUpdate(snapshotCouponId, { $inc: { usedCount: 1 } });
+          await CouponUsage.create({
+            couponId: snapshotCouponId,
+            userId: bookingUserId,
+            orderType: 'sports',
+            referenceId: booking._id,
+            discountAmount: snapshotCouponDiscount,
+            usedAt: new Date(),
+          });
+        } catch (couponErr) {
+          console.error('Coupon usage record error (non-fatal):', couponErr.message);
+        }
+      }
 
       await Slot.findByIdAndUpdate(slotId, { $push: { bookings: booking._id } });
 
@@ -1294,5 +1412,306 @@ exports.createPublicBooking = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Booking failed.', error: error.message });
+  }
+};
+
+// =============================================================================
+// MEMBERSHIP SLOT BOOKING
+// =============================================================================
+
+const Membership = require('../models/Membership');
+const MembershipPlan = require('../models/MembershipPlan');
+const { isAllServicesKey } = require('../utils/entitlementEngine');
+
+// Helper: check if a membership plan grants access to a given sport
+const membershipCoversSpot = (plan, sport) => {
+  if (!plan) return false;
+  if (plan.isAllServices) return true;
+  const keys = (plan.sportsIncluded || []).map((k) => (k || '').trim().toLowerCase());
+  return keys.some((k) => isAllServicesKey(k) || k === sport.slug || k === (sport.name || '').toLowerCase());
+};
+
+// ── GET /api/slots/membership/available ──────────────────────────────────────
+// Returns available slots for a sport+date for a membership holder.
+// Query: sportSlug, date, membershipId
+exports.getMembershipAvailableSlots = async (req, res) => {
+  try {
+    const { sportSlug, date, membershipId } = req.query;
+    if (!sportSlug || !date || !membershipId) {
+      return res.status(400).json({ message: 'sportSlug, date and membershipId are required.' });
+    }
+
+    // Validate membership
+    const membership = await Membership.findOne({ _id: membershipId, studentId: req.user.userId })
+      .populate('planId');
+    if (!membership) return res.status(404).json({ message: 'Membership not found.' });
+    if (membership.status !== 'active') return res.status(403).json({ message: 'Membership is not active.' });
+    if (new Date(membership.endDate) < new Date()) return res.status(403).json({ message: 'Membership has expired.' });
+
+    const sport = await Sport.findOne({ slug: sportSlug, active: true, deletedAt: null });
+    if (!sport) return res.status(404).json({ message: 'Sport not found.' });
+
+    // Check sport access
+    if (!membershipCoversSpot(membership.planId, sport)) {
+      return res.status(403).json({ message: 'Your membership does not cover this sport.' });
+    }
+
+    const startOfDay = new Date(date); startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date); endOfDay.setHours(23, 59, 59, 999);
+
+    const slots = await Slot.find({
+      sportId: sport._id,
+      date: { $gte: startOfDay, $lte: endOfDay },
+      isBookable: true,
+      status: { $ne: 'maintenance' },
+    }).sort({ startTime: 1 });
+
+    const courts = await Court.find({ sportId: sport._id }).sort({ sortOrder: 1, name: 1 });
+    const closedCourtIds = new Set(courts.filter((c) => !c.isOpen && !c.deletedAt).map((c) => c._id.toString()));
+
+    // Check if user already has a membership booking for this sport on this date
+    const existingBookings = await SlotBooking.find({
+      userId: req.user.userId,
+      sportId: sport._id,
+      isMembershipBooking: true,
+      status: { $in: ['confirmed', 'checked-in'] },
+    }).populate({ path: 'slotId', select: 'date' }).lean();
+
+    const bookedSlotIds = new Set(
+      existingBookings
+        .filter((b) => {
+          const d = b.slotId?.date;
+          return d && new Date(d) >= startOfDay && new Date(d) <= endOfDay;
+        })
+        .map((b) => b.slotId?._id?.toString())
+    );
+
+    const publicSlots = slots.map((s) => {
+      const courtClosed = s.courtId && closedCourtIds.has(s.courtId.toString());
+      const isAvailable = !courtClosed && s.currentBookings < s.capacity;
+      return {
+        _id: s._id,
+        name: s.name,
+        courtId: s.courtId,
+        courtNameSnapshot: s.courtNameSnapshot,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        duration: s.duration,
+        pricePerSlot: 0, // free for membership
+        status: s.status,
+        isAvailable,
+        currentBookings: s.currentBookings,
+        capacity: s.capacity,
+        alreadyBooked: bookedSlotIds.has(s._id.toString()),
+      };
+    });
+
+    res.json({ sport, slots: publicSlots, courts });
+  } catch (error) {
+    console.error('getMembershipAvailableSlots error:', error);
+    res.status(500).json({ message: 'Server error.', error: error.message });
+  }
+};
+
+// ── POST /api/slots/membership/book ──────────────────────────────────────────
+// Book a slot using membership (free, instantly confirmed).
+// Body: { membershipId, slotId, sportId }
+exports.bookMembershipSlot = async (req, res) => {
+  const { membershipId, slotId, sportId } = req.body;
+  if (!membershipId || !slotId || !sportId) {
+    return res.status(400).json({ message: 'membershipId, slotId and sportId are required.' });
+  }
+
+  try {
+    // Validate membership
+    const membership = await Membership.findOne({ _id: membershipId, studentId: req.user.userId })
+      .populate('planId');
+    if (!membership) return res.status(404).json({ message: 'Membership not found.' });
+    if (membership.status !== 'active') return res.status(403).json({ message: 'Membership is not active.' });
+    if (new Date(membership.endDate) < new Date()) return res.status(403).json({ message: 'Membership has expired.' });
+
+    const sport = await Sport.findById(sportId);
+    if (!sport || sport.deletedAt) return res.status(404).json({ message: 'Sport not found.' });
+
+    if (!membershipCoversSpot(membership.planId, sport)) {
+      return res.status(403).json({ message: 'Your membership does not cover this sport.' });
+    }
+
+    const slot = await Slot.findById(slotId);
+    if (!slot) return res.status(404).json({ message: 'Slot not found.' });
+    if (!slot.isBookable || slot.status === 'maintenance') {
+      return res.status(409).json({ message: 'This slot is not available for booking.' });
+    }
+
+    // Ensure slot belongs to the sport
+    if (slot.sportId?.toString() !== sport._id.toString()) {
+      return res.status(400).json({ message: 'Slot does not belong to this sport.' });
+    }
+
+    // Ensure slot is not in the past
+    const slotDateTime = new Date(slot.date);
+    const [sh, sm] = slot.startTime.split(':').map(Number);
+    slotDateTime.setHours(sh, sm, 0, 0);
+    if (slotDateTime < new Date()) {
+      return res.status(409).json({ message: 'Cannot book a slot in the past.' });
+    }
+
+    // Check court is open
+    if (slot.courtId) {
+      const court = await Court.findById(slot.courtId);
+      if (court && !court.isOpen) return res.status(409).json({ message: 'This court is currently closed.' });
+    }
+
+    // Check user doesn't already have an active membership booking for this slot
+    const duplicate = await SlotBooking.findOne({
+      userId: req.user.userId,
+      slotId: slot._id,
+      isMembershipBooking: true,
+      status: { $in: ['confirmed', 'checked-in'] },
+    });
+    if (duplicate) return res.status(409).json({ message: 'You have already booked this slot.' });
+
+    // Check for overlapping confirmed membership booking same day + sport
+    const startOfDay = new Date(slot.date); startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(slot.date); endOfDay.setHours(23, 59, 59, 999);
+    const overlap = await SlotBooking.findOne({
+      userId: req.user.userId,
+      sportId: sport._id,
+      isMembershipBooking: true,
+      status: { $in: ['confirmed', 'checked-in'] },
+    }).populate({ path: 'slotId', select: 'date' });
+    if (overlap) {
+      const od = overlap.slotId?.date;
+      if (od && new Date(od) >= startOfDay && new Date(od) <= endOfDay) {
+        return res.status(409).json({ message: `You already have a ${sport.name} slot booked for this day.` });
+      }
+    }
+
+    // Atomically claim capacity
+    const updatedSlot = await Slot.findOneAndUpdate(
+      {
+        _id: slotId,
+        isBookable: true,
+        status: { $ne: 'maintenance' },
+        $expr: { $lt: ['$currentBookings', '$capacity'] },
+      },
+      { $inc: { currentBookings: 1 } },
+      { new: true }
+    );
+    if (!updatedSlot) return res.status(409).json({ message: 'Slot is fully booked. Please choose another.' });
+
+    const user = await User.findById(req.user.userId).select('name email phone').lean();
+
+    const booking = await SlotBooking.create({
+      slotId: slot._id,
+      slotName: slot.name,
+      sportId: sport._id,
+      sportSlug: sport.slug,
+      sportNameSnapshot: sport.name,
+      courtId: slot.courtId,
+      courtNameSnapshot: slot.courtNameSnapshot,
+      userId: req.user.userId,
+      membershipId: membership._id,
+      isMembershipBooking: true,
+      bookingType: 'membership-slot',
+      playerName: user?.name || '',
+      playerPhone: user?.phone || '',
+      playerEmail: user?.email || '',
+      numberOfPlayers: 1,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      duration: slot.duration,
+      price: 0,
+      gstAmount: 0,
+      totalAmount: 0,
+      amountPaid: 0,
+      status: 'confirmed',
+      paymentStatus: 'paid',
+    });
+
+    // Add booking ref to slot
+    await Slot.findByIdAndUpdate(slot._id, { $push: { bookings: booking._id } });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('slot:updated', updatedSlot);
+      io.emit('booking:created', { booking });
+      io.emit('dashboard:refresh');
+    }
+
+    res.status(201).json({ success: true, booking, message: 'Slot booked successfully!' });
+  } catch (error) {
+    console.error('bookMembershipSlot error:', error);
+    res.status(500).json({ message: 'Booking failed.', error: error.message });
+  }
+};
+
+// ── GET /api/slots/membership/my-bookings ────────────────────────────────────
+exports.getMyMembershipBookings = async (req, res) => {
+  try {
+    const bookings = await SlotBooking.find({
+      userId: req.user.userId,
+      isMembershipBooking: true,
+    })
+      .populate({ path: 'slotId', select: 'date startTime endTime' })
+      .populate({ path: 'membershipId', select: 'planId', populate: { path: 'planId', select: 'name' } })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    res.json({ bookings });
+  } catch (error) {
+    console.error('getMyMembershipBookings error:', error);
+    res.status(500).json({ message: 'Server error.', error: error.message });
+  }
+};
+
+// ── DELETE /api/slots/membership/bookings/:id/cancel ─────────────────────────
+exports.cancelMembershipBooking = async (req, res) => {
+  try {
+    const booking = await SlotBooking.findOne({
+      _id: req.params.id,
+      userId: req.user.userId,
+      isMembershipBooking: true,
+    }).populate({ path: 'slotId', select: 'date' });
+
+    if (!booking) return res.status(404).json({ message: 'Booking not found.' });
+    if (booking.status === 'cancelled') return res.status(409).json({ message: 'Booking is already cancelled.' });
+    if (booking.status === 'checked-in' || booking.status === 'completed') {
+      return res.status(409).json({ message: 'Cannot cancel a session that has already started.' });
+    }
+
+    // Block cancellation after slot start time
+    const slotDate = booking.slotId?.date || new Date();
+    const [sh, sm] = booking.startTime.split(':').map(Number);
+    const slotStart = new Date(slotDate);
+    slotStart.setHours(sh, sm, 0, 0);
+    if (new Date() >= slotStart) {
+      return res.status(409).json({ message: 'You cannot cancel after the slot has started.' });
+    }
+
+    booking.status = 'cancelled';
+    booking.cancelledAt = new Date();
+    booking.cancelledBy = 'user';
+    booking.cancellationTime = new Date();
+    booking.cancellationReason = 'Cancelled by user';
+    await booking.save();
+
+    // Safely decrement slot capacity
+    await Slot.findByIdAndUpdate(booking.slotId, {
+      $inc: { currentBookings: -1 },
+      $pull: { bookings: booking._id },
+    });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('slot:updated', { slotId: booking.slotId });
+      io.emit('dashboard:refresh');
+    }
+
+    res.json({ success: true, message: 'Booking cancelled successfully.' });
+  } catch (error) {
+    console.error('cancelMembershipBooking error:', error);
+    res.status(500).json({ message: 'Cancellation failed.', error: error.message });
   }
 };

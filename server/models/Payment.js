@@ -108,6 +108,16 @@ const paymentSchema = new mongoose.Schema({
     type: Number,
   },
 
+  // Kids Academy admission fee snapshot
+  admissionFeeAmount: {
+    type: Number,
+    default: 0,
+  },
+  admissionSportId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Sport',
+  },
+
   // Slot booking snapshot fields — immutable once written, used to bind verify to order
   slotId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -125,6 +135,19 @@ const paymentSchema = new mongoose.Schema({
     default: 0,
   },
   discountAmount: {
+    type: Number,
+    default: 0,
+  },
+
+  // Coupon snapshot
+  couponId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Coupon',
+  },
+  couponCode: {
+    type: String,
+  },
+  couponDiscountAmount: {
     type: Number,
     default: 0,
   },

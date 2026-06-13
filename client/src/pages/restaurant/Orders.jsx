@@ -48,11 +48,16 @@ export default function RestaurantOrders() {
   const qc = useQueryClient();
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [viewMode, setViewMode] = useState('card');
-  const [prepInputs, setPrepInputs] = useState({});   // orderId → open state
-  const [prepValues, setPrepValues] = useState({});   // orderId → minutes value
-  const [prepCustom, setPrepCustom] = useState({});   // orderId → custom string input
-  const [cancelDialog, setCancelDialog] = useState(null); // { orderId, itemId, itemName }
+  const [prepInputs, setPrepInputs] = useState({});
+  const [prepValues, setPrepValues] = useState({});
+  const [prepCustom, setPrepCustom] = useState({});
+  const [cancelDialog, setCancelDialog] = useState(null);
   const [cancelRemark, setCancelRemark] = useState('');
+
+  // Drag-and-drop state
+  const [draggedOrderId, setDraggedOrderId] = useState(null);
+  const [draggedFromStatus, setDraggedFromStatus] = useState(null);
+  const [dragOverColumn, setDragOverColumn] = useState(null);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(Date.now()), 30000);
@@ -108,6 +113,8 @@ export default function RestaurantOrders() {
     };
   }, [qc]);
 
+  const statusMoveLabels = { preparing: 'Order moved to Preparing', ready: 'Order marked Ready', delivered: 'Order Delivered' };
+
   const updateMutation = useMutation({
     mutationFn: ({ id, status, paymentStatus }) => api.put(`/orders/${id}/status`, { status, paymentStatus }),
     onMutate: async ({ id, status, paymentStatus }) => {
@@ -129,6 +136,9 @@ export default function RestaurantOrders() {
     onError: (_err, _vars, context) => {
       qc.setQueryData(['restaurant-orders'], context.previous);
       toast.error('Failed to update order. Please try again.');
+    },
+    onSuccess: (_, { status }) => {
+      if (status && statusMoveLabels[status]) toast.success(statusMoveLabels[status]);
     },
     onSettled: () => { qc.invalidateQueries({ queryKey: ['restaurant-orders'] }); },
   });
@@ -193,6 +203,8 @@ export default function RestaurantOrders() {
     const hasCancelledItems = order.items?.some(i => i.status === 'cancelled' || i.status === 'refunded');
     const isPrepOpen = prepInputs[order._id];
 
+    const isDraggable = status !== 'cancelled' && status !== 'delivered';
+
     return (
       <motion.div
         key={order._id}
@@ -200,11 +212,22 @@ export default function RestaurantOrders() {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9 }}
         transition={{ duration: 0.2, delay: index * 0.04 }}
-        className={`bg-white rounded-2xl p-4 border shadow-md flex flex-col gap-3 transition-all ${
+        draggable={isDraggable}
+        onDragStart={(e) => {
+          // Don't start drag if the user clicked a button or link
+          if (e.target.closest('button, a, input, select, textarea')) { e.preventDefault(); return; }
+          setDraggedOrderId(order._id);
+          setDraggedFromStatus(status);
+          e.dataTransfer.effectAllowed = 'move';
+        }}
+        onDragEnd={() => { setDraggedOrderId(null); setDraggedFromStatus(null); setDragOverColumn(null); }}
+        className={`bg-white rounded-2xl p-4 border shadow-md flex flex-col gap-3 transition-all select-none ${
+          isDraggable ? 'cursor-grab active:cursor-grabbing' : ''
+        } ${
           status === 'new' ? 'border-l-8 border-l-blue-600' :
           status === 'preparing' ? 'border-l-8 border-l-amber-500' :
           status === 'ready' ? 'border-l-8 border-l-green-600' : ''
-        }`}
+        } ${draggedOrderId === order._id ? 'opacity-50 scale-95' : ''}`}
       >
         {/* Header row */}
         <div className="flex items-center justify-between border-b border-gray-100 pb-2">
@@ -223,10 +246,12 @@ export default function RestaurantOrders() {
             <span className="text-xs text-gray-500 font-semibold">{order.orderType || order.tableId?.section || 'Indoor'}</span>
           </div>
           {(order.customerName || order.customerId?.name) && (
-            <p className="text-xs text-gray-600 flex items-center gap-1 font-medium">
-              <User size={12} />
-              {order.customerName || order.customerId?.name}
-              {order.customerPhone && <span className="text-gray-400">({order.customerPhone})</span>}
+            <p className="text-xs text-gray-600 flex items-center gap-1 font-medium min-w-0">
+              <User size={12} className="shrink-0" />
+              <span className="truncate">
+                {order.customerName || order.customerId?.name}
+                {order.customerPhone && <span className="text-gray-400"> ({order.customerPhone})</span>}
+              </span>
             </p>
           )}
 
@@ -471,20 +496,61 @@ export default function RestaurantOrders() {
 
       {viewMode === 'card' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
-          {kanbanColumns.map(status => {
-            const config = statusConfig[status];
-            const columnOrders = orders.filter(o => o.status === status);
+          {kanbanColumns.map(colStatus => {
+            const config = statusConfig[colStatus];
+            const columnOrders = orders.filter(o => o.status === colStatus);
+
+            // A drop is valid if the dragged card's next step === this column
+            const validDrop = draggedFromStatus && nextStatus[draggedFromStatus] === colStatus;
+            const isOver = dragOverColumn === colStatus;
+
             return (
-              <div key={status} className={`rounded-3xl border-2 ${config.color} shadow-sm overflow-hidden flex flex-col h-[calc(100vh-200px)] min-h-[500px]`}>
+              <div
+                key={colStatus}
+                onDragOver={(e) => {
+                  if (!validDrop) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  setDragOverColumn(colStatus);
+                }}
+                onDragLeave={(e) => {
+                  // Only clear if leaving the column entirely (not entering a child)
+                  if (!e.currentTarget.contains(e.relatedTarget)) setDragOverColumn(null);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOverColumn(null);
+                  if (!validDrop || !draggedOrderId) return;
+                  updateMutation.mutate({ id: draggedOrderId, status: colStatus });
+                  setDraggedOrderId(null);
+                  setDraggedFromStatus(null);
+                }}
+                className={`rounded-3xl border-2 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-200px)] min-h-[500px] transition-all duration-150 ${
+                  isOver && validDrop
+                    ? 'border-[#C8102E] ring-2 ring-[#C8102E]/40 scale-[1.01]'
+                    : draggedOrderId && !validDrop && colStatus !== draggedFromStatus
+                    ? 'opacity-40 cursor-not-allowed'
+                    : config.color
+                }`}
+              >
                 <div className={`p-4 ${config.headerBg} flex items-center justify-between shadow-md shrink-0`}>
                   <div className="flex items-center gap-2 font-black tracking-wide uppercase text-sm">
                     {config.icon}<span>{config.label}</span>
                   </div>
-                  <span className="text-xs font-black px-3 py-1 bg-black/30 rounded-full text-white">{columnOrders.length}</span>
+                  <div className="flex items-center gap-2">
+                    {draggedOrderId && validDrop && (
+                      <span className="text-[10px] font-black bg-white/20 px-2 py-0.5 rounded-full animate-pulse">
+                        Drop here
+                      </span>
+                    )}
+                    <span className="text-xs font-black px-3 py-1 bg-black/30 rounded-full text-white">{columnOrders.length}</span>
+                  </div>
                 </div>
                 <div className="p-4 flex-1 space-y-4 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300">
                   {columnOrders.length === 0 && (
-                    <div className="text-center py-16 text-gray-400 font-medium text-xs">No active orders</div>
+                    <div className={`text-center py-16 font-medium text-xs transition-colors ${isOver && validDrop ? 'text-[#C8102E]' : 'text-gray-400'}`}>
+                      {isOver && validDrop ? '↓ Drop to move here' : 'No active orders'}
+                    </div>
                   )}
                   <AnimatePresence>
                     {columnOrders.map((order, index) => renderOrderCard(order, index))}

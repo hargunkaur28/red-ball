@@ -96,13 +96,6 @@ async function seedSports() {
     }
   }
   
-  // Clean up any sports that are not in the seeder list
-  const activeSlugs = sportsData.map(s => s.slug);
-  const deleteResult = await Sport.deleteMany({ slug: { $nin: activeSlugs } });
-  if (deleteResult.deletedCount > 0) {
-    console.log(`🧹 Cleaned up ${deleteResult.deletedCount} retired sport(s) from database.`);
-  }
-  
   console.log('🌱 Sports seeding completed!');
 }
 

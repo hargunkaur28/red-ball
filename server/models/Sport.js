@@ -15,7 +15,6 @@ const sportSchema = new mongoose.Schema({
   },
   hourlyPrice: {
     type: Number,
-    required: [true, 'Hourly price is required'],
   },
   dayPrice: {
     type: Number,
@@ -100,9 +99,17 @@ const sportSchema = new mongoose.Schema({
   nightSlotPrice: {
     type: Number,
   },
+  dayStartTime: {
+    type: String, // e.g. "06:00"
+    default: '06:00',
+  },
   nightStartTime: {
-    type: String, // e.g. "18:00"
+    type: String, // e.g. "18:00" — also acts as day end
     default: '18:00',
+  },
+  nightEndTime: {
+    type: String, // e.g. "22:00"
+    default: '22:00',
   },
 
   // Training add-on for memberships

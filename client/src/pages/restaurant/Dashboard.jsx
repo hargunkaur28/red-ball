@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../lib/axios';
 import socket, { connectSocket } from '../../lib/socket';
 import StatCard from '../../components/shared/StatCard';
-import { ClipboardList, IndianRupee, AlertTriangle, Timer, ShoppingBag, DollarSign, ChefHat } from 'lucide-react';
+import { ClipboardList, IndianRupee, AlertTriangle, Timer, ShoppingBag, ChefHat } from 'lucide-react';
 import PageHeader from '../../components/shared/PageHeader';
 import { formatCurrency } from '../../lib/utils';
 import { toast } from 'sonner';
@@ -74,7 +74,6 @@ export default function RestaurantDashboard() {
   const validOrders = (orders?.orders || []).filter(o => ['cash', 'upi', 'online'].includes(o.paymentMethod) || o.paymentStatus === 'paid');
   const todaysValidOrders = validOrders.filter(o => isToday(o.createdAt));
   const activeOrders = validOrders.filter(o => ['new', 'preparing'].includes(o.status));
-  const manualPaymentsPending = validOrders.filter(o => ['cash', 'upi'].includes(o.paymentMethod) && o.paymentStatus === 'pending');
   const todaySales = todaysValidOrders.filter(o => o.status === 'delivered').reduce((s, o) => s + o.totalAmount, 0);
   const outOfStockCount = (menuData?.items || []).filter(item => !item.isAvailable).length;
 
@@ -113,40 +112,23 @@ export default function RestaurantDashboard() {
       </div>
 
       {/* Active Alerts Section */}
-      {(manualPaymentsPending.length > 0 || activeOrders.length > 0) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {manualPaymentsPending.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between shadow-sm animate-pulse">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600">
-                  <DollarSign size={20} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-red-900 text-sm">Action Required</h4>
-                  <p className="text-xs text-red-700 font-medium">{manualPaymentsPending.length} order(s) pending manual cash collection!</p>
-                </div>
+      {activeOrders.length > 0 && (
+        <div className="mb-6">
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                <ChefHat size={20} />
               </div>
-              <span className="px-3 py-1 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-full">Urgent</span>
-            </div>
-          )}
-
-          {activeOrders.length > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                  <ChefHat size={20} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-blue-900 text-sm">Kitchen Active</h4>
-                  <p className="text-xs text-blue-700 font-medium">{activeOrders.length} order(s) currently being prepared.</p>
-                </div>
+              <div>
+                <h4 className="font-bold text-blue-900 text-sm">Kitchen Active</h4>
+                <p className="text-xs text-blue-700 font-medium">{activeOrders.length} order(s) currently being prepared.</p>
               </div>
-              <span className="flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-blue-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
-              </span>
             </div>
-          )}
+            <span className="flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-blue-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+            </span>
+          </div>
         </div>
       )}
 

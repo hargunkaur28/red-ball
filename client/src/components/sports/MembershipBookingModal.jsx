@@ -3,16 +3,19 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, CreditCard, CheckCircle2, Loader2, User, Mail, Phone,
-  Sparkles, ShieldCheck, Check, Zap, Crown, Dumbbell, Plus
+  Sparkles, ShieldCheck, Check, Zap, Crown, Dumbbell, Plus, GraduationCap
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/axios';
 import { formatCurrency } from '../../lib/utils';
 import useAuthStore from '../../store/authStore';
 import PhoneCollectModal from '../shared/PhoneCollectModal';
 
-export default function MembershipBookingModal({ plan, isOpen, onClose }) {
+const validPhone = (p) => /^[6-9]\d{9}$/.test(String(p || '').replace(/\D/g, '')) ? String(p).replace(/\D/g, '') : '';
+
+export default function MembershipBookingModal({ plan, sport, isOpen, onClose }) {
   const navigate = useNavigate();
   const { user, isAuthenticated, checkAuth, googleAuth } = useAuthStore();
 
@@ -26,7 +29,19 @@ export default function MembershipBookingModal({ plan, isOpen, onClose }) {
   const trainingAvailable = plan?.trainingAvailable && plan?.trainingPrice > 0;
   const basePrice = plan?.price || 0;
   const trainingPrice = plan?.trainingPrice || 0;
-  const totalPrice = basePrice + (withTraining ? trainingPrice : 0);
+
+  // Kids Academy admission fee check
+  const isKidsAcademy = !!plan?.isKidsAcademy;
+  const { data: admissionData } = useQuery({
+    queryKey: ['academy-admission-status', sport?._id],
+    queryFn: () => api.get('/academy/admission-status', { params: { sportId: sport._id } }).then((r) => r.data),
+    enabled: isKidsAcademy && isAuthenticated && !!sport?._id && isOpen,
+    staleTime: 60_000,
+  });
+  const admissionAlreadyPaid = admissionData?.admissionPaid === true;
+  const admissionFee = isKidsAcademy && !admissionAlreadyPaid ? (plan?.admissionFeeAmount || 0) : 0;
+
+  const totalPrice = basePrice + (withTraining ? trainingPrice : 0) + admissionFee;
 
   // Reset training option when modal opens/plan changes
   useEffect(() => {
@@ -111,6 +126,7 @@ export default function MembershipBookingModal({ plan, isOpen, onClose }) {
       const { data: orderRes } = await api.post('/memberships/public-purchase', {
         planId: plan._id,
         withTraining: trainingAvailable && withTraining,
+        ...(isKidsAcademy && sport?._id ? { sportId: sport._id } : {}),
       });
 
       if (!orderRes.success) throw new Error(orderRes.message);
@@ -126,7 +142,7 @@ export default function MembershipBookingModal({ plan, isOpen, onClose }) {
         prefill: {
           name: isAuthenticated ? user.name : details.name,
           email: isAuthenticated ? user.email : details.email,
-          contact: isAuthenticated ? user.phone : details.phone,
+          contact: validPhone(isAuthenticated ? user.phone : details.phone),
         },
         handler: async (response) => {
           setSubmitting(true);
@@ -284,6 +300,24 @@ export default function MembershipBookingModal({ plan, isOpen, onClose }) {
                         <span className="text-white/50">{plan?.duration} Pass</span>
                         <span className="text-white font-semibold">{formatCurrency(basePrice)}</span>
                       </div>
+                      {admissionFee > 0 && (
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-white/50 flex items-center gap-1.5">
+                            <GraduationCap size={12} className="text-violet-400" />
+                            Admission Fee <span className="text-white/30 text-[10px]">(one-time)</span>
+                          </span>
+                          <span className="text-white font-semibold">+{formatCurrency(admissionFee)}</span>
+                        </div>
+                      )}
+                      {admissionAlreadyPaid && isKidsAcademy && (
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-white/50 flex items-center gap-1.5">
+                            <Check size={12} className="text-green-400" />
+                            Admission Fee
+                          </span>
+                          <span className="text-green-400 font-semibold text-xs">Already paid</span>
+                        </div>
+                      )}
                       {withTraining && trainingAvailable && (
                         <div className="flex justify-between items-center text-sm">
                           <span className="text-white/50 flex items-center gap-1.5"><Dumbbell size={12} className="text-[#df1526]" /> Training Add-on</span>

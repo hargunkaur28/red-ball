@@ -20,6 +20,10 @@ import {
   Dumbbell,
   Trash2,
   Check,
+  Ticket,
+  ToggleLeft,
+  ToggleRight,
+  GraduationCap,
 } from 'lucide-react';
 import api from '../../lib/axios';
 import { formatCurrency } from '../../lib/utils';
@@ -35,6 +39,8 @@ const FILTER_TABS = [
   { key: 'all', label: 'All' },
   { key: 'hero', label: 'Hero Icons' },
   { key: 'discounts', label: 'Discounts' },
+  { key: 'coupons', label: 'Coupons' },
+  { key: 'kids-academy', label: 'Kids Academy' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -223,8 +229,7 @@ export default function Sports() {
 
     const base = {
       name: fd.get('name'),
-      hourlyPrice: Number(fd.get('hourlyPrice')),
-      dayPrice: fd.get('dayPrice') ? Number(fd.get('dayPrice')) : null,
+      hourlyPrice: fd.get('hourlyPrice') ? Number(fd.get('hourlyPrice')) : null,
       oneMonthPrice: fd.get('price1Month') ? Number(fd.get('price1Month')) : null,
       threeMonthPrice: fd.get('price3Month') ? Number(fd.get('price3Month')) : null,
       sixMonthPrice: fd.get('price6Month') ? Number(fd.get('price6Month')) : null,
@@ -235,6 +240,8 @@ export default function Sports() {
       tagline: fd.get('tagline') || '',
       rentalEquipment: fd.get('rentalEquipment') || '',
       heroIcon: fd.get('heroIcon') || '',
+      // Slot pricing mode
+      slotPricingMode: fd.get('slotPricingMode') || 'flat',
       // Training add-on
       trainingAvailable: fd.get('trainingAvailable') === 'on',
       trainingPrice: fd.get('trainingPrice') ? Number(fd.get('trainingPrice')) : 1000,
@@ -298,16 +305,22 @@ export default function Sports() {
       {/* Discounts */}
       {filter === 'discounts' && <DiscountsPanel />}
 
+      {/* Coupons */}
+      {filter === 'coupons' && <CouponsPanel />}
+
+      {/* Kids Academy */}
+      {filter === 'kids-academy' && <KidsAcademyPanel sports={sports} />}
+
       {/* Content */}
-      {filter !== 'hero' && filter !== 'discounts' && isLoading ? (
+      {filter !== 'hero' && filter !== 'discounts' && filter !== 'coupons' && filter !== 'kids-academy' && isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3].map((i) => (
             <SkeletonCard key={i} />
           ))}
         </div>
-      ) : filter !== 'hero' && filter !== 'discounts' && sports.length === 0 ? (
+      ) : filter !== 'hero' && filter !== 'discounts' && filter !== 'coupons' && filter !== 'kids-academy' && sports.length === 0 ? (
         <EmptyState filter={filter} onCreateClick={openCreate} />
-      ) : filter !== 'hero' && filter !== 'discounts' ? (
+      ) : filter !== 'hero' && filter !== 'discounts' && filter !== 'coupons' && filter !== 'kids-academy' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <AnimatePresence mode="popLayout">
             {sports.map((sport) => (
@@ -797,8 +810,54 @@ function EmptyState({ filter, onCreateClick }) {
 // Slide-in Drawer
 // ===========================================================================
 function SportDrawer({ sport, onClose, onSubmit, isPending }) {
+  const qc = useQueryClient();
   const [previewUrl, setPreviewUrl] = useState(sport?.thumbnail || '');
   const [imageFile, setImageFile] = useState(null);
+  const [pricingMode, setPricingMode] = useState(sport?.slotPricingMode || 'flat');
+
+  // Kids Academy state (only for badminton/cricket)
+  const isKidsEligible = sport && (sport.slug === 'badminton' || sport.slug === 'cricket' || sport.slug === 'box-cricket');
+  const [kidsEnabled, setKidsEnabled] = useState(false);
+  const [kidsAdmissionFee, setKidsAdmissionFee] = useState('');
+  const [kidsMonthlyPrice, setKidsMonthlyPrice] = useState('');
+  const [kidsActive, setKidsActive] = useState(true);
+  const [kidsSaving, setKidsSaving] = useState(false);
+
+  // Load existing kids academy plan if editing a kids-eligible sport
+  useEffect(() => {
+    if (!sport?._id || !isKidsEligible) return;
+    api.get('/plans')
+      .then(r => {
+        const allPlans = r.data.plans || [];
+        const kidsPlan = allPlans.find(p => p.isKidsAcademy && (p.sportsIncluded || []).includes(sport.slug));
+        if (kidsPlan) {
+          setKidsEnabled(kidsPlan.isActive !== false);
+          setKidsAdmissionFee(kidsPlan.admissionFeeAmount?.toString() || '');
+          setKidsMonthlyPrice(kidsPlan.price?.toString() || '');
+          setKidsActive(kidsPlan.isActive !== false);
+        }
+      })
+      .catch(() => {});
+  }, [sport?._id, sport?.slug, isKidsEligible]);
+
+  const handleSaveKidsAcademy = async () => {
+    if (!sport?._id) return;
+    setKidsSaving(true);
+    try {
+      await api.post(`/sports/${sport._id}/kids-academy`, {
+        enabled: kidsEnabled,
+        admissionFeeAmount: Number(kidsAdmissionFee) || 0,
+        price: Number(kidsMonthlyPrice) || 0,
+        active: kidsActive,
+      });
+      qc.invalidateQueries({ queryKey: ['membership-plans'] });
+      toast.success('Kids Academy plan saved.');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save Kids Academy plan.');
+    } finally {
+      setKidsSaving(false);
+    }
+  };
 
   // Close on Escape
   useEffect(() => {
@@ -943,32 +1002,35 @@ function SportDrawer({ sport, onClose, onSubmit, isPending }) {
             {/* Hourly price */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Hourly Price <span className="text-red-500">*</span>
+                Hourly Price
               </label>
               <input
                 name="hourlyPrice"
                 type="number"
                 min="0"
-                required
-                defaultValue={sport?.hourlyPrice}
-                className="input-field"
-                placeholder="₹"
-              />
-            </div>
-
-            {/* Day price */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Day Price
-              </label>
-              <input
-                name="dayPrice"
-                type="number"
-                min="0"
-                defaultValue={sport?.dayPrice ?? ''}
+                defaultValue={sport?.hourlyPrice || ''}
                 className="input-field"
                 placeholder="₹ (optional)"
               />
+            </div>
+
+            {/* Slot pricing mode */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Slot Pricing Mode</label>
+              <select
+                name="slotPricingMode"
+                value={pricingMode}
+                onChange={e => setPricingMode(e.target.value)}
+                className="input-field"
+              >
+                <option value="flat">Flat — single price for all slots</option>
+                <option value="dayNight">Day / Night — different price after a cutoff time</option>
+              </select>
+              {pricingMode === 'dayNight' && (
+                <p className="mt-2 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  Slot prices and timings are managed in <strong>Live Sports</strong> → Bulk Create Slots.
+                </p>
+              )}
             </div>
 
             {/* Monthly pricing grid */}
@@ -1056,6 +1118,80 @@ function SportDrawer({ sport, onClose, onSubmit, isPending }) {
               </div>
               <p className="text-[11px] text-gray-400">If enabled, membership users can choose "With Training" for +₹ this amount.</p>
             </div>
+
+            {/* Kids Academy subsection — only for badminton/cricket */}
+            {isEdit && isKidsEligible && (
+              <div className="border border-violet-200 rounded-xl p-4 space-y-3 bg-violet-50/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap size={14} className="text-violet-600" />
+                    <p className="text-sm font-semibold text-gray-800">Kids Academy</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={kidsEnabled}
+                      onChange={e => setKidsEnabled(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-600" />
+                  </label>
+                </div>
+                {kidsEnabled && (
+                  <>
+                    <div className="flex items-center gap-2 text-xs text-violet-600 bg-violet-100 border border-violet-200 rounded-lg px-3 py-2">
+                      <Check size={11} /> Coach Included (always enabled for Kids Academy)
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Admission Fee (₹)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={kidsAdmissionFee}
+                          onChange={e => setKidsAdmissionFee(e.target.value)}
+                          className="input-field"
+                          placeholder="e.g., 1500"
+                        />
+                        <p className="text-[10px] text-gray-400 mt-0.5">Charged only once per student</p>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Monthly Price (₹)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={kidsMonthlyPrice}
+                          onChange={e => setKidsMonthlyPrice(e.target.value)}
+                          className="input-field"
+                          placeholder="e.g., 2000"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-gray-600">Plan Active</p>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={kidsActive}
+                          onChange={e => setKidsActive(e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-600" />
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSaveKidsAcademy}
+                      disabled={kidsSaving}
+                      className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold text-white bg-violet-600 hover:bg-violet-700 transition-colors disabled:opacity-50"
+                    >
+                      {kidsSaving ? <Loader2 size={12} className="animate-spin" /> : null}
+                      Save Kids Academy Plan
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Active toggle */}
             <div className="flex items-center justify-between py-3 border-t border-b border-gray-100">
@@ -1572,5 +1708,899 @@ function SessionConfigModal({ sport, onClose }) {
         </motion.div>
       </motion.div>
     </>
+  );
+}
+
+// ===========================================================================
+// Coupons Panel
+// ===========================================================================
+function CouponsPanel() {
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState(null); // coupon object or null
+
+  const { data: sports = [] } = useQuery({
+    queryKey: ['sports', 'active'],
+    queryFn: async () => {
+      const res = await api.get('/sports');
+      return (res.data.sports ?? res.data).filter((s) => !s.deletedAt && s.active);
+    },
+  });
+
+  const { data: coupons = [], isLoading } = useQuery({
+    queryKey: ['coupons-admin'],
+    queryFn: async () => {
+      const { data } = await api.get('/coupons/admin');
+      return data.coupons;
+    },
+  });
+
+  const createMut = useMutation({
+    mutationFn: (payload) => api.post('/coupons/admin', payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['coupons-admin'] });
+      toast.success('Coupon created');
+      setShowForm(false);
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Failed to create coupon'),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, payload }) => api.put(`/coupons/admin/${id}`, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['coupons-admin'] });
+      toast.success('Coupon updated');
+      setEditingCoupon(null);
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Failed to update coupon'),
+  });
+
+  const toggleMut = useMutation({
+    mutationFn: (id) => api.patch(`/coupons/admin/${id}/toggle`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['coupons-admin'] });
+      toast.success('Coupon status updated');
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id) => api.delete(`/coupons/admin/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['coupons-admin'] });
+      toast.success('Coupon archived');
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+  });
+
+  const now = new Date();
+  const getCouponStatus = (c) => {
+    if (c.archivedAt) return { label: 'Archived', cls: 'bg-gray-100 text-gray-500' };
+    if (!c.isActive) return { label: 'Inactive', cls: 'bg-gray-100 text-gray-500' };
+    if (c.endsAt && new Date(c.endsAt) < now) return { label: 'Expired', cls: 'bg-red-100 text-red-600' };
+    if (c.startsAt && new Date(c.startsAt) > now) return { label: 'Scheduled', cls: 'bg-blue-100 text-blue-600' };
+    return { label: 'Active', cls: 'bg-green-100 text-green-700' };
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-500">Create and manage coupon codes for sports and food orders.</p>
+        {!showForm && !editingCoupon && (
+          <button
+            onClick={() => { setShowForm(true); setEditingCoupon(null); }}
+            className="btn-primary gap-1 h-9 text-sm"
+          >
+            <Plus size={15} /> New Coupon
+          </button>
+        )}
+      </div>
+
+      {/* Create form */}
+      {showForm && (
+        <CouponFormModal
+          sports={sports}
+          onSave={(payload) => createMut.mutate(payload)}
+          onCancel={() => setShowForm(false)}
+          isPending={createMut.isPending}
+        />
+      )}
+
+      {/* Edit form */}
+      {editingCoupon && (
+        <CouponFormModal
+          initial={editingCoupon}
+          sports={sports}
+          onSave={(payload) => updateMut.mutate({ id: editingCoupon._id, payload })}
+          onCancel={() => setEditingCoupon(null)}
+          isPending={updateMut.isPending}
+        />
+      )}
+
+      {/* Table */}
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-14 rounded-xl bg-gray-100 animate-pulse" />
+          ))}
+        </div>
+      ) : coupons.length === 0 ? (
+        <div className="card py-10 text-center text-sm text-gray-400">
+          <Ticket size={28} className="mx-auto mb-2 text-gray-300" />
+          No coupons created yet.
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-gray-200">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Code</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Title</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Target</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Discount</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Validity</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Usage</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Status</th>
+                <th className="text-right px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {coupons.map((c) => {
+                const status = getCouponStatus(c);
+                const isArchived = !!c.archivedAt;
+                return (
+                  <tr key={c._id} className={`hover:bg-gray-50 transition-colors ${isArchived ? 'opacity-50' : ''}`}>
+                    <td className="px-4 py-3">
+                      <span className="font-mono font-bold text-gray-900 bg-gray-100 px-2 py-0.5 rounded text-xs">
+                        {c.code}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-700">{c.title || <span className="text-gray-300">—</span>}</td>
+                    <td className="px-4 py-3">
+                      <span className="capitalize text-gray-600">{c.targetType}</span>
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-gray-900">
+                      {c.discountType === 'percentage'
+                        ? `${c.discountValue}%${c.maxDiscountAmount ? ` (max ₹${c.maxDiscountAmount})` : ''}`
+                        : `₹${c.discountValue}`}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500">
+                      {c.startsAt || c.endsAt ? (
+                        <span>
+                          {c.startsAt ? new Date(c.startsAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—'}
+                          {' → '}
+                          {c.endsAt ? new Date(c.endsAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '∞'}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300">No limit</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500">
+                      {c.usedCount ?? 0}
+                      {c.usageLimitTotal != null ? ` / ${c.usageLimitTotal}` : ''}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${status.cls}`}>
+                        {status.label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {!isArchived && (
+                          <>
+                            <button
+                              onClick={() => setEditingCoupon(c)}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600"
+                              title="Edit"
+                            >
+                              <Pencil size={13} />
+                            </button>
+                            <button
+                              onClick={() => toggleMut.mutate(c._id)}
+                              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                                c.isActive
+                                  ? 'bg-green-50 hover:bg-green-100 text-green-600'
+                                  : 'bg-gray-100 hover:bg-gray-200 text-gray-400'
+                              }`}
+                              title={c.isActive ? 'Deactivate' : 'Activate'}
+                            >
+                              {c.isActive ? <ToggleRight size={15} /> : <ToggleLeft size={15} />}
+                            </button>
+                            <button
+                              onClick={() => { if (window.confirm('Archive this coupon?')) deleteMut.mutate(c._id); }}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-500"
+                              title="Archive"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===========================================================================
+// Coupon Form (create / edit)
+// ===========================================================================
+function CouponFormModal({ initial, sports, onSave, onCancel, isPending }) {
+  const [discountType, setDiscountType] = useState(initial?.discountType || 'percentage');
+  const [targetType, setTargetType] = useState(initial?.targetType || 'sports');
+  const [appliesToAllSports, setAppliesToAllSports] = useState(initial?.appliesToAllSports ?? true);
+  const [selectedSportIds, setSelectedSportIds] = useState(
+    (initial?.sportIds || []).map((s) => (s._id || s).toString())
+  );
+  const [visibility, setVisibility] = useState(initial?.visibility || 'all');
+  const [eligibleUsers, setEligibleUsers] = useState(
+    (initial?.eligibleUserIds || []).map((u) => ({
+      _id: (u._id || u).toString(),
+      name: u.name || '',
+      email: u.email || '',
+      phone: u.phone || '',
+    }))
+  );
+
+  // User search state
+  const [userQuery, setUserQuery] = useState('');
+  const [userResults, setUserResults] = useState([]);
+  const [userSearching, setUserSearching] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+
+  // Debounced user search
+  useEffect(() => {
+    if (userQuery.length < 2) { setUserResults([]); setShowUserDropdown(false); return; }
+    const t = setTimeout(async () => {
+      setUserSearching(true);
+      try {
+        const { data } = await api.get('/super-admin/user-search', { params: { q: userQuery } });
+        setUserResults(data.users || []);
+        setShowUserDropdown(true);
+      } catch { /* silent */ } finally { setUserSearching(false); }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [userQuery]);
+
+  const selectUser = (u) => {
+    if (!eligibleUsers.find((x) => x._id === u._id)) {
+      setEligibleUsers((prev) => [...prev, { _id: u._id, name: u.name, email: u.email, phone: u.phone }]);
+    }
+    setUserQuery('');
+    setUserResults([]);
+    setShowUserDropdown(false);
+  };
+
+  const removeUser = (id) => setEligibleUsers((prev) => prev.filter((u) => u._id !== id));
+
+  const toggleSportId = (id) => {
+    setSelectedSportIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+
+    const code = fd.get('code');
+    const discountValue = Number(fd.get('discountValue'));
+
+    if (!code) { toast.error('Coupon code is required.'); return; }
+    if (!discountValue || discountValue <= 0) { toast.error('Discount value must be greater than 0.'); return; }
+
+    const payload = {
+      code: code.toUpperCase(),
+      title: fd.get('title') || '',
+      description: fd.get('description') || '',
+      discountType,
+      discountValue,
+      maxDiscountAmount: discountType === 'percentage' && fd.get('maxDiscountAmount') ? Number(fd.get('maxDiscountAmount')) : null,
+      minOrderAmount: fd.get('minOrderAmount') ? Number(fd.get('minOrderAmount')) : 0,
+      targetType,
+      appliesToAllSports: targetType === 'food' ? false : appliesToAllSports,
+      sportIds: appliesToAllSports || targetType === 'food' ? [] : selectedSportIds,
+      visibility,
+      eligibleUserIds: visibility === 'specific-users' ? eligibleUsers.map((u) => u._id) : [],
+      startsAt: fd.get('startsAt') ? new Date(fd.get('startsAt')).toISOString() : undefined,
+      endsAt: fd.get('endsAt') ? new Date(fd.get('endsAt')).toISOString() : undefined,
+      usageLimitTotal: fd.get('usageLimitTotal') ? Number(fd.get('usageLimitTotal')) : undefined,
+      usageLimitPerUser: fd.get('usageLimitPerUser') ? Number(fd.get('usageLimitPerUser')) : undefined,
+      isActive: fd.get('isActive') === 'on',
+    };
+
+    onSave(payload);
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="bg-gray-50 rounded-xl p-5 space-y-4 border border-gray-200"
+    >
+      <div className="grid grid-cols-2 gap-4">
+        {/* Code */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Code <span className="text-red-500">*</span>
+          </label>
+          <input
+            name="code"
+            required
+            defaultValue={initial?.code || ''}
+            onChange={(e) => { e.target.value = e.target.value.toUpperCase(); }}
+            className="input-field text-sm font-mono uppercase"
+            placeholder="e.g. SUMMER20"
+          />
+        </div>
+
+        {/* Title */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Title</label>
+          <input name="title" defaultValue={initial?.title || ''} className="input-field text-sm" placeholder="e.g. Summer Offer" />
+        </div>
+      </div>
+
+      {/* Description */}
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">Description</label>
+        <textarea name="description" rows={2} defaultValue={initial?.description || ''} className="input-field text-sm resize-none" placeholder="Optional description shown to users" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        {/* Discount Type */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Discount Type</label>
+          <select value={discountType} onChange={(e) => setDiscountType(e.target.value)} className="input-field text-sm">
+            <option value="percentage">Percentage (%)</option>
+            <option value="fixed">Fixed Amount (₹)</option>
+          </select>
+        </div>
+
+        {/* Discount Value */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Discount Value <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <span className="absolute left-3 top-2.5 text-gray-400 text-xs font-medium">
+              {discountType === 'percentage' ? '%' : '₹'}
+            </span>
+            <input name="discountValue" type="number" min="0" required defaultValue={initial?.discountValue || ''} className="input-field text-sm pl-7" placeholder="0" />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        {/* Max Discount (percentage only) */}
+        {discountType === 'percentage' && (
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Max Discount (₹)</label>
+            <input name="maxDiscountAmount" type="number" min="0" defaultValue={initial?.maxDiscountAmount ?? ''} className="input-field text-sm" placeholder="Optional cap" />
+          </div>
+        )}
+
+        {/* Min Order Amount */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Min Order Amount (₹)</label>
+          <input name="minOrderAmount" type="number" min="0" defaultValue={initial?.minOrderAmount ?? 0} className="input-field text-sm" placeholder="0" />
+        </div>
+      </div>
+
+      {/* Target Type */}
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-2">Target Type</label>
+        <div className="flex gap-2">
+          {['sports', 'food', 'both'].map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTargetType(t)}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors capitalize ${
+                targetType === t
+                  ? 'bg-[#C8102E] border-[#C8102E] text-white'
+                  : 'border-gray-200 text-gray-600 bg-white hover:border-[#C8102E]/40'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Sports selector */}
+      {(targetType === 'sports' || targetType === 'both') && (
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <label className="block text-xs font-medium text-gray-600">Applicable Sports</label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={appliesToAllSports}
+                onChange={(e) => setAppliesToAllSports(e.target.checked)}
+                className="w-3.5 h-3.5 accent-[#C8102E]"
+              />
+              <span className="text-xs text-gray-500">All Sports</span>
+            </label>
+          </div>
+          {!appliesToAllSports && (
+            <div className="flex flex-wrap gap-2">
+              {sports.map((s) => {
+                const selected = selectedSportIds.includes(s._id);
+                return (
+                  <button
+                    key={s._id}
+                    type="button"
+                    onClick={() => toggleSportId(s._id)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                      selected
+                        ? 'bg-[#C8102E] border-[#C8102E] text-white'
+                        : 'border-gray-200 text-gray-600 bg-white hover:border-[#C8102E]/40'
+                    }`}
+                  >
+                    {s.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
+        {/* Start date */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Start Date/Time</label>
+          <input
+            name="startsAt"
+            type="datetime-local"
+            defaultValue={initial?.startsAt ? new Date(initial.startsAt).toISOString().slice(0, 16) : ''}
+            className="input-field text-sm"
+          />
+        </div>
+        {/* End date */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">End Date/Time</label>
+          <input
+            name="endsAt"
+            type="datetime-local"
+            defaultValue={initial?.endsAt ? new Date(initial.endsAt).toISOString().slice(0, 16) : ''}
+            className="input-field text-sm"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        {/* Usage Limit Total */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Total Usage Limit</label>
+          <input name="usageLimitTotal" type="number" min="1" defaultValue={initial?.usageLimitTotal ?? ''} className="input-field text-sm" placeholder="Unlimited" />
+        </div>
+        {/* Usage Limit Per User */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Per User Limit</label>
+          <input name="usageLimitPerUser" type="number" min="1" defaultValue={initial?.usageLimitPerUser ?? ''} className="input-field text-sm" placeholder="Unlimited" />
+        </div>
+      </div>
+
+      {/* Visibility */}
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-2">Visibility</label>
+        <div className="flex gap-2">
+          {[
+            { val: 'all', label: 'All Users' },
+            { val: 'specific-users', label: 'Specific Users' },
+          ].map(({ val, label }) => (
+            <button
+              key={val}
+              type="button"
+              onClick={() => setVisibility(val)}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                visibility === val
+                  ? 'bg-[#C8102E] border-[#C8102E] text-white'
+                  : 'border-gray-200 text-gray-600 bg-white hover:border-[#C8102E]/40'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Eligible users (specific-users only) */}
+      {visibility === 'specific-users' && (
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-2">Eligible Users</label>
+
+          {/* Selected user chips */}
+          {eligibleUsers.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {eligibleUsers.map((u) => (
+                <div key={u._id} className="flex items-center gap-1.5 bg-green-50 border border-green-200 rounded-full px-3 py-1">
+                  <span className="text-xs font-semibold text-green-800">{u.name}</span>
+                  <span className="text-[10px] text-green-600">{u.email}</span>
+                  <button type="button" onClick={() => removeUser(u._id)} className="text-green-400 hover:text-red-500 ml-1">
+                    <X size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Search */}
+          <div className="relative">
+            <Loader2 size={14} className={`absolute left-3 top-2.5 ${userSearching ? 'animate-spin text-gray-400' : 'text-transparent'}`} />
+            <input
+              type="text"
+              value={userQuery}
+              onChange={(e) => setUserQuery(e.target.value)}
+              onFocus={() => userResults.length > 0 && setShowUserDropdown(true)}
+              placeholder="Search users by name, email or phone..."
+              className="w-full border border-gray-200 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20"
+            />
+            {showUserDropdown && userResults.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                {userResults.map((u) => (
+                  <button
+                    key={u._id}
+                    type="button"
+                    onClick={() => selectUser(u)}
+                    className="w-full px-3 py-2.5 text-left hover:bg-gray-50 flex items-center gap-2 border-b border-gray-100 last:border-0"
+                  >
+                    <Users size={13} className="text-gray-400 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{u.name}</p>
+                      <p className="text-[11px] text-gray-500 truncate">{u.email} · {u.phone}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {showUserDropdown && !userSearching && userQuery.length >= 2 && userResults.length === 0 && (
+              <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg px-3 py-2 text-sm text-gray-400">
+                No registered users found
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Active toggle */}
+      <div className="flex items-center gap-2">
+        <input type="checkbox" name="isActive" id="couponIsActive" defaultChecked={initial ? initial.isActive : true} className="w-4 h-4 accent-[#C8102E]" />
+        <label htmlFor="couponIsActive" className="text-sm text-gray-700 cursor-pointer">Active</label>
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2 pt-1">
+        <button type="button" onClick={onCancel} className="flex-1 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-100">
+          Cancel
+        </button>
+        <button type="submit" disabled={isPending} className="flex-1 py-2 rounded-xl bg-[#C8102E] text-white text-sm font-semibold hover:bg-[#a50d27] disabled:opacity-60 flex items-center justify-center gap-1">
+          {isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+          {initial ? 'Save Changes' : 'Create Coupon'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ===========================================================================
+// Kids Academy Panel
+// ===========================================================================
+const DURATION_LABELS = ['1 Month', '3 Months', '6 Months', '1 Year'];
+
+function KidsAcademyPanel({ sports }) {
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [editingSport, setEditingSport] = useState(null); // sport object being edited
+
+  const { data: academyPlans = [], isLoading } = useQuery({
+    queryKey: ['kids-academy-plans'],
+    queryFn: () => api.get('/sports/kids-academy').then((r) => r.data),
+    staleTime: 30_000,
+  });
+
+  // Group plans by sport
+  const bySport = academyPlans.reduce((acc, plan) => {
+    const sid = plan.sport?._id || plan.sport;
+    if (!acc[sid]) acc[sid] = { sport: plan.sport, plans: [] };
+    acc[sid].plans.push(plan);
+    return acc;
+  }, {});
+
+  const handleEdit = (sportObj) => {
+    setEditingSport(sportObj);
+    setShowForm(true);
+  };
+
+  const handleDelete = async (sportId) => {
+    if (!window.confirm('Remove Kids Academy programmes for this sport?')) return;
+    try {
+      await api.delete(`/sports/${sportId}/kids-academy`);
+      qc.invalidateQueries({ queryKey: ['kids-academy-plans'] });
+      toast.success('Kids Academy programmes removed');
+    } catch {
+      toast.error('Failed to remove programmes');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)' }}>
+            <GraduationCap size={20} className="text-white" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Kids Academy</h2>
+            <p className="text-sm text-gray-500">Manage junior training programmes per sport</p>
+          </div>
+        </div>
+        <button
+          onClick={() => { setEditingSport(null); setShowForm(true); }}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all"
+          style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)' }}
+        >
+          <Plus size={16} />
+          Add Programme
+        </button>
+      </div>
+
+      {/* Form modal */}
+      <AnimatePresence>
+        {showForm && (
+          <KidsAcademyFormModal
+            sports={sports}
+            editingSport={editingSport}
+            existingPlans={editingSport ? (bySport[editingSport._id]?.plans || []) : []}
+            onClose={() => { setShowForm(false); setEditingSport(null); }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Cards */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[1, 2].map((i) => <div key={i} className="h-48 rounded-2xl skeleton" />)}
+        </div>
+      ) : Object.keys(bySport).length === 0 ? (
+        <div className="text-center py-16">
+          <GraduationCap size={48} className="mx-auto text-gray-300 mb-3" />
+          <p className="text-gray-500 font-medium">No Kids Academy programmes yet</p>
+          <p className="text-gray-400 text-sm mt-1">Click "Add Programme" to get started</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {Object.values(bySport).map(({ sport, plans }) => (
+            <KidsAcademySportCard
+              key={sport?._id || sport}
+              sport={sport}
+              plans={plans}
+              onEdit={() => handleEdit(sport)}
+              onDelete={() => handleDelete(sport?._id || sport)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KidsAcademySportCard({ sport, plans, onEdit, onDelete }) {
+  const admissionFee = plans[0]?.admissionFeeAmount || 0;
+  const sortOrder = { '1 Month': 0, '3 Months': 1, '6 Months': 2, '1 Year': 3 };
+  const sorted = [...plans].sort((a, b) => (sortOrder[a.duration] ?? 99) - (sortOrder[b.duration] ?? 99));
+
+  return (
+    <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+      {/* Sport header */}
+      <div className="px-5 py-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #0D0A1A 0%, #1A0F2E 100%)' }}>
+        <div className="flex items-center gap-3">
+          {sport?.imageUrl ? (
+            <img src={sport.imageUrl} alt={sport.name} className="w-8 h-8 rounded-lg object-cover" />
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-violet-600/30 flex items-center justify-center">
+              <GraduationCap size={16} className="text-violet-400" />
+            </div>
+          )}
+          <div>
+            <p className="font-bold text-white text-sm">{sport?.name || 'Unknown Sport'}</p>
+            <p className="text-violet-300 text-xs">Admission: {formatCurrency(admissionFee)} (once)</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={onEdit} className="p-1.5 rounded-lg text-violet-300 hover:text-white hover:bg-violet-600/20 transition-colors">
+            <Pencil size={14} />
+          </button>
+          <button onClick={onDelete} className="p-1.5 rounded-lg text-red-400 hover:text-white hover:bg-red-600/20 transition-colors">
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
+
+      {/* Duration tiers */}
+      <div className="p-4 grid grid-cols-2 gap-2">
+        {sorted.map((plan) => (
+          <div
+            key={plan._id}
+            className={`rounded-xl p-3 border ${plan.active !== false ? 'border-violet-100 bg-violet-50' : 'border-gray-100 bg-gray-50 opacity-50'}`}
+          >
+            <p className="text-[10px] font-bold uppercase tracking-wider text-violet-500">{plan.duration}</p>
+            <p className="text-lg font-black text-gray-900 mt-0.5">{formatCurrency(plan.price)}</p>
+            {plan.active === false && <p className="text-[9px] text-gray-400 uppercase mt-0.5">Inactive</p>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function KidsAcademyFormModal({ sports, editingSport, existingPlans, onClose }) {
+  const qc = useQueryClient();
+  const [selectedSportId, setSelectedSportId] = useState(editingSport?._id || '');
+  const [admissionFee, setAdmissionFee] = useState('');
+  const [tiers, setTiers] = useState(() =>
+    DURATION_LABELS.map((dur) => {
+      const existing = existingPlans.find((p) => p.duration === dur);
+      return { duration: dur, price: existing?.price ?? '', active: existing?.active !== false };
+    })
+  );
+
+  // Populate admission fee from existing plans when editing
+  useEffect(() => {
+    if (existingPlans.length > 0) {
+      setAdmissionFee(existingPlans[0]?.admissionFeeAmount ?? '');
+    }
+  }, [existingPlans]);
+
+  const { mutate: save, isPending } = useMutation({
+    mutationFn: (body) => api.post(`/sports/${selectedSportId}/kids-academy`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['kids-academy-plans'] });
+      toast.success(editingSport ? 'Kids Academy updated' : 'Kids Academy programme created');
+      onClose();
+    },
+    onError: (err) => toast.error(err?.response?.data?.message || 'Failed to save'),
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!selectedSportId) return toast.error('Please select a sport');
+    const activeTiers = tiers.filter((t) => t.price !== '' && t.price !== null);
+    if (activeTiers.length === 0) return toast.error('Enter at least one tier price');
+    save({
+      enabled: true,
+      admissionFeeAmount: Number(admissionFee) || 0,
+      plans: tiers.map((t) => ({ duration: t.duration, price: Number(t.price) || 0, active: t.active })),
+    });
+  };
+
+  const updateTier = (idx, field, value) => {
+    setTiers((prev) => prev.map((t, i) => (i === idx ? { ...t, [field]: value } : t)));
+  };
+
+  const activeSports = sports?.filter((s) => !s.isArchived) || [];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.5)' }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+      >
+        {/* Header */}
+        <div className="px-6 py-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)' }}>
+          <div className="flex items-center gap-2">
+            <GraduationCap size={20} className="text-white" />
+            <h3 className="text-white font-bold text-lg">{editingSport ? 'Edit Programme' : 'Add Kids Academy Programme'}</h3>
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white"><X size={20} /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {/* Sport selector */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Sport</label>
+            {editingSport ? (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200">
+                {editingSport.imageUrl && <img src={editingSport.imageUrl} alt={editingSport.name} className="w-6 h-6 rounded object-cover" />}
+                <span className="font-semibold text-gray-800">{editingSport.name}</span>
+              </div>
+            ) : (
+              <select
+                value={selectedSportId}
+                onChange={(e) => setSelectedSportId(e.target.value)}
+                className="input-field text-sm"
+                required
+              >
+                <option value="">Select a sport...</option>
+                {activeSports.map((s) => (
+                  <option key={s._id} value={s._id}>{s.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* Admission fee */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Admission Fee (one-time, ₹)</label>
+            <input
+              type="number"
+              min="0"
+              value={admissionFee}
+              onChange={(e) => setAdmissionFee(e.target.value)}
+              className="input-field text-sm"
+              placeholder="e.g. 500"
+            />
+            <p className="text-[11px] text-gray-400 mt-1">Charged once per student, never again</p>
+          </div>
+
+          {/* Duration tiers */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-2">Membership Tiers</label>
+            <div className="space-y-2">
+              {tiers.map((tier, idx) => (
+                <div key={tier.duration} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                  <div className="w-20 shrink-0">
+                    <p className="text-xs font-bold text-gray-700">{tier.duration}</p>
+                  </div>
+                  <div className="flex-1 relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={tier.price}
+                      onChange={(e) => updateTier(idx, 'price', e.target.value)}
+                      className="w-full pl-7 pr-3 py-1.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      placeholder="Price"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => updateTier(idx, 'active', !tier.active)}
+                    className={`shrink-0 transition-colors ${tier.active ? 'text-violet-600' : 'text-gray-300'}`}
+                    title={tier.active ? 'Active' : 'Inactive'}
+                  >
+                    {tier.active ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1">Toggle to enable/disable individual tiers. Leave price blank to skip a tier.</p>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-100">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isPending}
+              className="flex-1 py-2 rounded-xl text-white text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-1"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)' }}
+            >
+              {isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+              {editingSport ? 'Save Changes' : 'Create Programme'}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
   );
 }

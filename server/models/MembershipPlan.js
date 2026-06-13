@@ -67,6 +67,24 @@ const membershipPlanSchema = new mongoose.Schema({
   basePrice: {
     type: Number,
   },
+
+  // Kids Academy add-on flags
+  isKidsAcademy: {
+    type: Boolean,
+    default: false,
+  },
+  coachIncluded: {
+    type: Boolean,
+    default: false,
+  },
+  admissionFeeRequired: {
+    type: Boolean,
+    default: false,
+  },
+  admissionFeeAmount: {
+    type: Number,
+    default: 0,
+  },
 }, {
   timestamps: true,
 });

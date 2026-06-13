@@ -1,21 +1,29 @@
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Trophy, Clock, AlertTriangle, CheckCircle, Download, RefreshCw, Check,
+  CalendarPlus, CalendarCheck, X, ChevronDown, ChevronUp,
+} from 'lucide-react';
 import api from '../../lib/axios';
 import useAuthStore from '../../store/authStore';
 import { formatCurrency } from '../../lib/utils';
 import { toast } from 'sonner';
-import { Trophy, Clock, AlertTriangle, CheckCircle, Download, RefreshCw, Check } from 'lucide-react';
+import MembershipSlotBookingModal from '../../components/sports/MembershipSlotBookingModal';
 
 const emptyDash = '-';
 
 const formatDateTime = (dateStr) => {
   if (!dateStr) return emptyDash;
   return new Date(dateStr).toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true,
+  });
+};
+
+const fmtSlotDate = (dateStr) => {
+  if (!dateStr) return emptyDash;
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-IN', {
+    weekday: 'short', day: 'numeric', month: 'short',
   });
 };
 
@@ -31,6 +39,13 @@ const sessionStyles = {
   Active: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300',
   Completed: 'border-sky-400/20 bg-sky-500/10 text-sky-300',
   Overtime: 'border-red-400/20 bg-red-500/10 text-red-300',
+};
+
+const bookingStatusStyles = {
+  confirmed: 'text-emerald-300 bg-emerald-500/10 border-emerald-400/20',
+  'checked-in': 'text-sky-300 bg-sky-500/10 border-sky-400/20',
+  completed: 'text-white/40 bg-white/5 border-white/10',
+  cancelled: 'text-red-300 bg-red-500/10 border-red-400/20',
 };
 
 function Surface({ children, className = '' }) {
@@ -50,9 +65,139 @@ function DetailRow({ label, value, valueClass = 'text-white' }) {
   );
 }
 
+// ─── Upcoming Membership Bookings ───────────────────────────────────────────
+function UpcomingBookings({ membershipId }) {
+  const qc = useQueryClient();
+  const [showPast, setShowPast] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['membership-bookings'],
+    queryFn: () => api.get('/slots/membership/my-bookings').then((r) => r.data),
+    staleTime: 30_000,
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (id) => api.delete(`/slots/membership/bookings/${id}/cancel`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['membership-bookings'] });
+      toast.success('Booking cancelled');
+    },
+    onError: (e) => toast.error(e?.response?.data?.message || 'Cancellation failed'),
+  });
+
+  const allBookings = (data?.bookings || []).filter((b) => b.membershipId?._id === membershipId || b.membershipId === membershipId);
+
+  const now = new Date();
+  const upcoming = allBookings.filter((b) => {
+    if (b.status === 'cancelled') return false;
+    const slotDate = b.slotId?.date;
+    if (!slotDate) return false;
+    const [sh, sm] = (b.startTime || '00:00').split(':').map(Number);
+    const slotStart = new Date(slotDate);
+    slotStart.setHours(sh, sm, 0, 0);
+    return slotStart >= now || b.status === 'checked-in';
+  });
+
+  const past = allBookings.filter((b) => !upcoming.includes(b));
+
+  const canCancel = (b) => {
+    if (b.status !== 'confirmed') return false;
+    const slotDate = b.slotId?.date;
+    if (!slotDate) return false;
+    const [sh, sm] = (b.startTime || '00:00').split(':').map(Number);
+    const slotStart = new Date(slotDate);
+    slotStart.setHours(sh, sm, 0, 0);
+    return now < slotStart;
+  };
+
+  if (isLoading) return (
+    <div className="py-4 text-center text-white/40 text-sm">Loading bookings…</div>
+  );
+
+  return (
+    <div className="space-y-3">
+      {upcoming.length === 0 ? (
+        <div className="rounded-2xl border border-white/6 bg-white/[0.02] p-5 text-center">
+          <CalendarCheck size={28} className="mx-auto mb-2 text-white/20" />
+          <p className="text-white/40 text-sm">No upcoming slot booked</p>
+        </div>
+      ) : (
+        upcoming.map((b) => (
+          <div
+            key={b._id}
+            className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 flex items-start justify-between gap-3"
+          >
+            <div className="space-y-1.5 flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-white font-bold text-sm capitalize">{b.sportNameSnapshot}</p>
+                <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${bookingStatusStyles[b.status] || bookingStatusStyles.confirmed}`}>
+                  {b.status}
+                </span>
+              </div>
+              <p className="text-white/50 text-xs">{b.courtNameSnapshot || 'Court'}</p>
+              <p className="text-white/60 text-xs font-semibold">
+                {fmtSlotDate(b.slotId?.date)} · {b.startTime}–{b.endTime}
+              </p>
+            </div>
+            {canCancel(b) && (
+              <button
+                onClick={() => cancelMutation.mutate(b._id)}
+                disabled={cancelMutation.isPending}
+                className="shrink-0 flex items-center gap-1 text-[11px] font-bold text-red-400 hover:text-red-300 border border-red-400/20 rounded-full px-2.5 py-1 transition-colors disabled:opacity-50"
+              >
+                <X size={11} /> Cancel
+              </button>
+            )}
+          </div>
+        ))
+      )}
+
+      {past.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowPast((v) => !v)}
+            className="flex items-center gap-1 text-white/30 hover:text-white/50 text-xs font-semibold transition-colors"
+          >
+            {showPast ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            {showPast ? 'Hide' : 'Show'} past / cancelled ({past.length})
+          </button>
+          <AnimatePresence>
+            {showPast && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="space-y-2 mt-2">
+                  {past.map((b) => (
+                    <div key={b._id} className="rounded-xl border border-white/6 bg-white/[0.02] p-3 flex items-center justify-between gap-3 opacity-60">
+                      <div>
+                        <p className="text-white text-xs font-bold capitalize">{b.sportNameSnapshot}</p>
+                        <p className="text-white/40 text-[11px]">
+                          {fmtSlotDate(b.slotId?.date)} · {b.startTime}–{b.endTime}
+                        </p>
+                      </div>
+                      <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${bookingStatusStyles[b.status] || bookingStatusStyles.confirmed}`}>
+                        {b.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main component ──────────────────────────────────────────────────────────
 export default function Membership() {
   const { user } = useAuthStore();
   const qc = useQueryClient();
+  const [bookingModal, setBookingModal] = useState(null); // membership object | null
 
   const { data } = useQuery({
     queryKey: ['my-membership'],
@@ -100,6 +245,7 @@ export default function Membership() {
 
           const isExpired = membership?.status === 'expired' || msLeft <= 0;
           const isPending = membership?.status === 'pending';
+          const isActive = membership?.status === 'active' && !isExpired;
 
           let currentStatus = membership?.status;
           if (currentStatus === 'active' && msLeft <= 7 * 24 * 60 * 60 * 1000) {
@@ -157,6 +303,28 @@ export default function Membership() {
                   </div>
                 )}
 
+                {/* Book Slot button */}
+                {isActive && !isPending && (
+                  <div className="mt-5 flex items-center gap-3">
+                    <button
+                      onClick={() => setBookingModal(membership)}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-black uppercase tracking-wider text-white transition-all hover:opacity-90 active:scale-[0.98]"
+                      style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)' }}
+                    >
+                      <CalendarPlus size={15} />
+                      Book Slot
+                    </button>
+                    {payment && (
+                      <button
+                        onClick={() => window.open(`/api/payments/${payment._id}/invoice/print`, '_blank')}
+                        className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-xs font-black text-white transition hover:bg-white/10"
+                      >
+                        <Download size={14} /> Invoice
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {isPending && (
                   <div className="mt-5 flex gap-2 rounded-2xl border border-amber-300/15 bg-black/16 p-4 text-sm font-semibold text-amber-200">
                     <Check size={16} className="mt-0.5 shrink-0" />
@@ -191,7 +359,7 @@ export default function Membership() {
                     )) : <p className="text-sm text-white/45">No sports assigned</p>}
                   </div>
 
-                  {payment && (
+                  {payment && !isActive && (
                     <div className="border-t border-white/10 pt-5">
                       <h4 className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-white/34">Last Payment</h4>
                       <div className="flex items-center justify-between gap-4">
@@ -210,6 +378,14 @@ export default function Membership() {
                   )}
                 </Surface>
               </div>
+
+              {/* Upcoming Slot Bookings */}
+              {isActive && (
+                <Surface className="p-6">
+                  <h3 className="mb-4 text-sm font-black uppercase tracking-[0.18em] text-white/42">Upcoming Slot Bookings</h3>
+                  <UpcomingBookings membershipId={membership._id} />
+                </Surface>
+              )}
 
               {membership.renewalHistory?.length > 0 && (
                 <Surface className="p-6">
@@ -322,7 +498,6 @@ export default function Membership() {
                         {record.sessionStatus || 'Completed'}
                       </span>
                     </div>
-                    
                     <div className="flex flex-col gap-1.5 text-xs text-white/55">
                       <div className="flex justify-between">
                         <span>Check-In:</span>
@@ -350,6 +525,13 @@ export default function Membership() {
           </>
         )}
       </Surface>
+
+      {/* Membership Slot Booking Modal */}
+      <MembershipSlotBookingModal
+        membership={bookingModal}
+        isOpen={!!bookingModal}
+        onClose={() => setBookingModal(null)}
+      />
     </div>
   );
 }

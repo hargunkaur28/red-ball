@@ -11,6 +11,20 @@ const restaurantSettingsSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   },
+  deliveryChargeEnabled: {
+    type: Boolean,
+    default: false,
+  },
+  freeDeliveryMinAmount: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  deliveryChargeBelowMin: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('RestaurantSettings', restaurantSettingsSchema);

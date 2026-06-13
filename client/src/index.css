@@ -231,6 +231,14 @@
     box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
   }
   .input-field::placeholder { color: #888888; }
+
+  /* Remove number input spinners globally — scroll changes values unintentionally */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] { -moz-appearance: textfield; }
   .btn-primary {
     display: inline-flex;
     align-items: center;

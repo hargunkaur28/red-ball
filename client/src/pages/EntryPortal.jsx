@@ -570,6 +570,8 @@ const loadRazorpayScript = () => new Promise((resolve, reject) => {
   document.body.appendChild(script);
 });
 
+const validPhone = (p) => /^[6-9]\d{9}$/.test(String(p || '').replace(/\D/g, '')) ? String(p).replace(/\D/g, '') : '';
+
 export default function EntryPortal() {
   const { qrSlug } = useParams();
   const navigate = useNavigate();
@@ -876,7 +878,7 @@ export default function EntryPortal() {
       prefill: {
         name: details.name || user?.name || '',
         email: details.email || user?.email || '',
-        contact: details.phone || user?.phone || '',
+        contact: validPhone(details.phone || user?.phone),
       },
       theme: { color: '#C8102E' },
       modal: {

@@ -9,7 +9,14 @@ const sc = require('../controllers/slot.controller');
 router.get('/admin/live', auth, authorize('superadmin'), sc.adminLiveOverview);
 router.get('/admin/live/:sportId', auth, authorize('superadmin'), sc.adminLiveSportDetail);
 router.post('/admin/bulk', auth, authorize('superadmin'), sc.bulkCreateSlots);
+router.delete('/admin/bulk', auth, authorize('superadmin'), sc.bulkDeleteSlots);
 router.post('/admin/manual-booking', auth, authorize('superadmin'), sc.adminManualBooking);
+
+// ── Membership slot booking (authenticated) ──────────────────────────────────
+router.get('/membership/available', auth, sc.getMembershipAvailableSlots);
+router.post('/membership/book', auth, sc.bookMembershipSlot);
+router.get('/membership/my-bookings', auth, sc.getMyMembershipBookings);
+router.delete('/membership/bookings/:id/cancel', auth, sc.cancelMembershipBooking);
 
 // ── Public slot booking flow ─────────────────────────────────────────────────
 // optionalAuth: attaches req.user when logged in so reference pricing can kick in

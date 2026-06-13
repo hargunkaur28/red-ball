@@ -10,6 +10,8 @@ import useAuthStore from '../store/authStore';
 import { queryClient } from '../lib/queryClient';
 import PhoneCollectModal from '../components/shared/PhoneCollectModal';
 
+const validPhone = (p) => /^[6-9]\d{9}$/.test(String(p || '').replace(/\D/g, '')) ? String(p).replace(/\D/g, '') : '';
+
 export default function MembershipPortal({ embedded = false }) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -204,7 +206,7 @@ export default function MembershipPortal({ embedded = false }) {
         prefill: {
           name: isAuthenticated ? user.name : details.name,
           email: isAuthenticated ? user.email : details.email,
-          contact: isAuthenticated ? user.phone : details.phone,
+          contact: validPhone(isAuthenticated ? user.phone : details.phone),
         },
         theme: { color: '#df1526' },
         handler: async (response) => {

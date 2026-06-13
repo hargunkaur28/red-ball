@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, CreditCard, CheckCircle2, Loader2, User, Mail, Phone,
   ShieldCheck, Check, Calendar, Building2, Clock, ChevronLeft,
-  Tag, AlertTriangle, Zap,
+  Tag, AlertTriangle, Zap, Ticket,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -27,6 +27,8 @@ const slotColor = (s) => {
   return { bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.3)', text: '#22c55e' };
 };
 
+const validPhone = (p) => /^[6-9]\d{9}$/.test(String(p || '').replace(/\D/g, '')) ? String(p).replace(/\D/g, '') : '';
+
 export default function OneTimeBookingModal({ sport, isOpen, onClose }) {
   const navigate = useNavigate();
   const { user, isAuthenticated, checkAuth, clearPendingEntryIntent, googleAuth } = useAuthStore();
@@ -45,6 +47,15 @@ export default function OneTimeBookingModal({ sport, isOpen, onClose }) {
   const [slotsData, setSlotsData] = useState(null);
   const [slotsLoading, setSlotsLoading] = useState(false);
 
+  // Coupon state
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null); // { couponId, code, discountAmount, finalAmount }
+  const [couponError, setCouponError] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [showAvailableCoupons, setShowAvailableCoupons] = useState(false);
+  const [availableCoupons, setAvailableCoupons] = useState([]);
+  const [couponsLoading, setCouponsLoading] = useState(false);
+
   const fallback = getSportFallback(sport?.slug || sport?.name || '');
   const accentColor = fallback.color || '#C8102E';
 
@@ -56,6 +67,9 @@ export default function OneTimeBookingModal({ sport, isOpen, onClose }) {
       setSelectedCourt(null);
       setSelectedSlot(null);
       setSlotsData(null);
+      setCouponInput('');
+      setAppliedCoupon(null);
+      setCouponError('');
     }
   }, [isOpen]);
 
@@ -137,6 +151,75 @@ export default function OneTimeBookingModal({ sport, isOpen, onClose }) {
     [isAuthenticated, googleAuth]
   );
 
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    if (!selectedSlot) return toast.error('Please select a slot first.');
+    setCouponLoading(true);
+    setCouponError('');
+    try {
+      const { data } = await api.post('/coupons/validate', {
+        code: couponInput.trim(),
+        targetType: 'sports',
+        sportId: sport._id,
+        orderAmount: selectedSlot.pricePerSlot,
+        userId: user?.id,
+      });
+      if (data.valid) {
+        setAppliedCoupon({
+          couponId: data.couponId,
+          code: data.code,
+          discountAmount: data.discountAmount,
+          finalAmount: data.finalAmount,
+        });
+        setCouponError('');
+      } else {
+        setCouponError(data.message || 'Invalid coupon.');
+        setAppliedCoupon(null);
+      }
+    } catch (err) {
+      setCouponError(err.response?.data?.message || 'Failed to validate coupon.');
+      setAppliedCoupon(null);
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput('');
+    setCouponError('');
+  };
+
+  const fetchAvailableCoupons = async () => {
+    setCouponsLoading(true);
+    try {
+      const { data } = await api.get('/coupons/public', { params: { targetType: 'sports' } });
+      setAvailableCoupons(data.coupons || []);
+    } catch { /* silent */ } finally { setCouponsLoading(false); }
+  };
+
+  const handleShowAvailableCoupons = () => {
+    setShowAvailableCoupons(true);
+    if (!availableCoupons.length) fetchAvailableCoupons();
+  };
+
+  const handleSelectCoupon = async (code) => {
+    setCouponInput(code);
+    setShowAvailableCoupons(false);
+    if (!selectedSlot) { toast.info('Select a slot first, then the coupon will auto-apply.'); return; }
+    setCouponLoading(true);
+    setCouponError('');
+    try {
+      const { data } = await api.post('/coupons/validate', {
+        code, targetType: 'sports', sportId: sport._id,
+        orderAmount: selectedSlot.pricePerSlot, userId: user?.id,
+      });
+      if (data.valid) {
+        setAppliedCoupon({ couponId: data.couponId, code: data.code, discountAmount: data.discountAmount, finalAmount: data.finalAmount });
+      } else { setCouponError(data.message || 'Coupon not applicable.'); }
+    } catch { setCouponError('Failed to apply coupon.'); } finally { setCouponLoading(false); }
+  };
+
   const handlePayment = async () => {
     if (!selectedSlot) return toast.error('Please select a slot.');
     if (isAuthenticated && !user?.phone) { setShowPhoneModal(true); return; }
@@ -150,7 +233,12 @@ export default function OneTimeBookingModal({ sport, isOpen, onClose }) {
 
     setSubmitting(true);
     try {
-      const { data: orderRes } = await api.post('/slots/public/slot-order', { slotId: selectedSlot._id });
+      const orderPayload = { slotId: selectedSlot._id };
+      if (appliedCoupon) {
+        orderPayload.couponId = appliedCoupon.couponId;
+        orderPayload.couponCode = appliedCoupon.code;
+      }
+      const { data: orderRes } = await api.post('/slots/public/slot-order', orderPayload);
 
       const playerName = isAuthenticated ? user.name : details.name;
       const playerPhone = isAuthenticated ? user.phone : details.phone;
@@ -164,7 +252,7 @@ export default function OneTimeBookingModal({ sport, isOpen, onClose }) {
         description: `${sport.name} — ${selectedSlot.startTime}–${selectedSlot.endTime}${selectedSlot.courtNameSnapshot ? ' · ' + selectedSlot.courtNameSnapshot : ''}`,
         order_id: orderRes.razorpayOrder.id,
         theme: { color: accentColor },
-        prefill: { name: playerName, email: playerEmail, contact: playerPhone },
+        prefill: { name: playerName, email: playerEmail, contact: validPhone(playerPhone) },
         handler: async (response) => {
           setSubmitting(true);
           try {
@@ -176,6 +264,8 @@ export default function OneTimeBookingModal({ sport, isOpen, onClose }) {
               playerName,
               playerPhone,
               playerEmail,
+              couponId: appliedCoupon?.couponId,
+              couponCode: appliedCoupon?.code,
             });
 
             if (verifyRes.success) {
@@ -486,10 +576,114 @@ export default function OneTimeBookingModal({ sport, isOpen, onClose }) {
                               <span className="text-yellow-400/80">-₹{selectedSlot.discount.discountAmount}</span>
                             </div>
                           )}
+                          {appliedCoupon && (
+                            <div className="flex justify-between text-xs pt-1 border-t border-white/5">
+                              <span className="text-green-400 flex items-center gap-1"><Ticket size={10} /> {appliedCoupon.code}</span>
+                              <span className="text-green-400">-₹{appliedCoupon.discountAmount}</span>
+                            </div>
+                          )}
                           <div className="flex justify-between items-center pt-1 border-t border-white/5">
                             <span className="text-white font-black">Total</span>
-                            <span className="font-black text-lg" style={{ color: selectedSlot?.isReferencePrice ? '#fbbf24' : accentColor }}>₹{selectedSlot?.pricePerSlot}</span>
+                            <span className="font-black text-lg" style={{ color: selectedSlot?.isReferencePrice ? '#fbbf24' : accentColor }}>
+                              ₹{appliedCoupon ? appliedCoupon.finalAmount : selectedSlot?.pricePerSlot}
+                            </span>
                           </div>
+                        </div>
+
+                        {/* Coupon input */}
+                        <div className="rounded-2xl p-4 space-y-2" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <Ticket size={13} className="text-white/40" />
+                            <p className="text-white/60 text-xs font-semibold">Have a coupon?</p>
+                          </div>
+                          {appliedCoupon ? (
+                            <div className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)' }}>
+                              <div className="flex items-center gap-2">
+                                <Check size={13} className="text-green-400" />
+                                <span className="text-green-300 text-xs font-bold">{appliedCoupon.code} applied</span>
+                                <span className="text-green-400/70 text-xs">— ₹{appliedCoupon.discountAmount} off!</span>
+                              </div>
+                              <button onClick={handleRemoveCoupon} className="text-white/30 hover:text-white/60 ml-2">
+                                <X size={13} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="Enter coupon code"
+                                value={couponInput}
+                                onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(''); }}
+                                onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                                className="flex-1 px-3 py-2.5 rounded-xl text-sm text-white placeholder-white/25 outline-none uppercase"
+                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                              />
+                              <button
+                                onClick={handleApplyCoupon}
+                                disabled={couponLoading || !couponInput.trim()}
+                                className="px-4 py-2 rounded-xl text-xs font-bold text-white disabled:opacity-50"
+                                style={{ background: `${accentColor}BB` }}
+                              >
+                                {couponLoading ? <Loader2 size={13} className="animate-spin" /> : 'Apply'}
+                              </button>
+                            </div>
+                          )}
+                          {couponError && (
+                            <p className="text-red-400 text-xs mt-1 flex items-center gap-1">
+                              <AlertTriangle size={11} /> {couponError}
+                            </p>
+                          )}
+                          {!appliedCoupon && (
+                            <button
+                              type="button"
+                              onClick={handleShowAvailableCoupons}
+                              className="text-xs text-white/40 hover:text-white/70 flex items-center gap-1 mt-1 transition-colors"
+                            >
+                              <Tag size={10} /> View available coupons
+                            </button>
+                          )}
+                          <AnimatePresence>
+                            {showAvailableCoupons && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                                className="rounded-xl overflow-hidden mt-1"
+                                style={{ background: 'rgba(15,15,20,0.98)', border: '1px solid rgba(255,255,255,0.1)' }}
+                              >
+                                <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
+                                  <span className="text-white/60 text-xs font-semibold">Available Coupons</span>
+                                  <button onClick={() => setShowAvailableCoupons(false)} className="text-white/30 hover:text-white/60"><X size={12} /></button>
+                                </div>
+                                {couponsLoading ? (
+                                  <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-white/30" /></div>
+                                ) : availableCoupons.length === 0 ? (
+                                  <p className="text-white/30 text-xs text-center py-4">No coupons available right now</p>
+                                ) : (
+                                  <div className="divide-y divide-white/5 max-h-52 overflow-y-auto">
+                                    {availableCoupons.map((c) => (
+                                      <button
+                                        key={c._id}
+                                        type="button"
+                                        onClick={() => handleSelectCoupon(c.code)}
+                                        className="w-full text-left px-3 py-2.5 hover:bg-white/5 transition-colors flex items-center justify-between gap-3"
+                                      >
+                                        <div className="min-w-0">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-white font-mono font-bold text-xs tracking-wider bg-white/8 px-2 py-0.5 rounded-md">{c.code}</span>
+                                            {c.title && <span className="text-white/50 text-xs truncate">{c.title}</span>}
+                                          </div>
+                                          {c.description && <p className="text-white/30 text-[10px] mt-0.5 truncate">{c.description}</p>}
+                                        </div>
+                                        <span className="text-green-400 text-xs font-bold shrink-0">
+                                          {c.discountType === 'percentage' ? `${c.discountValue}% off` : `₹${c.discountValue} off`}
+                                          {c.maxDiscountAmount ? ` (max ₹${c.maxDiscountAmount})` : ''}
+                                        </span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </div>
 
                         {/* Auth / guest details */}
@@ -539,7 +733,7 @@ export default function OneTimeBookingModal({ sport, isOpen, onClose }) {
                             <>
                               <div className="flex items-center gap-2 text-white">
                                 <CreditCard size={15} />
-                                Pay ₹{selectedSlot?.pricePerSlot} via Razorpay
+                                Pay ₹{appliedCoupon ? appliedCoupon.finalAmount : selectedSlot?.pricePerSlot} via Razorpay
                               </div>
                               <span className="text-[10px] text-white/60 font-normal normal-case">Secured by Razorpay</span>
                             </>

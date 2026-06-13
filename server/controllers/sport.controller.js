@@ -215,7 +215,7 @@ exports.createSport = async (req, res) => {
     const {
       name, hourlyPrice, dayPrice, oneMonthPrice, threeMonthPrice, sixMonthPrice, twelveMonthPrice,
       active, thumbnail, description, tagline, rentalEquipment, heroIcon,
-      slotPricingMode, daySlotPrice, nightSlotPrice, nightStartTime,
+      slotPricingMode, daySlotPrice, nightSlotPrice, dayStartTime, nightStartTime, nightEndTime,
       trainingAvailable, trainingPrice,
     } = req.body;
 
@@ -242,7 +242,9 @@ exports.createSport = async (req, res) => {
       slotPricingMode: slotPricingMode || 'flat',
       daySlotPrice: daySlotPrice !== undefined ? parseFloat(daySlotPrice) : undefined,
       nightSlotPrice: nightSlotPrice !== undefined ? parseFloat(nightSlotPrice) : undefined,
+      dayStartTime: dayStartTime || '06:00',
       nightStartTime: nightStartTime || '18:00',
+      nightEndTime: nightEndTime || '22:00',
       trainingAvailable: !!trainingAvailable,
       trainingPrice: trainingAvailable ? (parseFloat(trainingPrice) || 0) : 0,
     };
@@ -272,7 +274,7 @@ exports.updateSport = async (req, res) => {
     const {
       name, hourlyPrice, dayPrice, oneMonthPrice, threeMonthPrice, sixMonthPrice, twelveMonthPrice,
       active, forceDeactivate, thumbnail, description, tagline, rentalEquipment, heroIcon,
-      slotPricingMode, daySlotPrice, nightSlotPrice, nightStartTime,
+      slotPricingMode, daySlotPrice, nightSlotPrice, dayStartTime, nightStartTime, nightEndTime,
       trainingAvailable, trainingPrice,
     } = req.body;
     const sportId = req.params.id;
@@ -324,21 +326,45 @@ exports.updateSport = async (req, res) => {
     if (slotPricingMode !== undefined) sport.slotPricingMode = slotPricingMode;
     if (daySlotPrice !== undefined) sport.daySlotPrice = daySlotPrice;
     if (nightSlotPrice !== undefined) sport.nightSlotPrice = nightSlotPrice;
+    if (dayStartTime !== undefined) sport.dayStartTime = dayStartTime;
     if (nightStartTime !== undefined) sport.nightStartTime = nightStartTime;
+    if (nightEndTime !== undefined) sport.nightEndTime = nightEndTime;
     if (trainingAvailable !== undefined) sport.trainingAvailable = trainingAvailable;
     if (trainingPrice !== undefined) sport.trainingPrice = trainingPrice;
 
     const updatedSport = await runTransaction(async (session) => {
       const opts = session ? { session } : {};
-      
+
       // Save Sport details
       await sport.save(opts);
-      
+
       // Sync Membership Plans
       await syncMembershipPlans(sport, session);
-      
+
       return sport;
     });
+
+    // Sync future unbooked slot prices to match the updated sport price
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    if (sport.slotPricingMode === 'dayNight') {
+      if (daySlotPrice !== undefined) {
+        await Slot.updateMany(
+          { sportId: sport._id, date: { $gte: today }, currentBookings: 0, priceLabel: 'day' },
+          { $set: { pricePerSlot: sport.daySlotPrice } }
+        );
+      }
+      if (nightSlotPrice !== undefined) {
+        await Slot.updateMany(
+          { sportId: sport._id, date: { $gte: today }, currentBookings: 0, priceLabel: 'night' },
+          { $set: { pricePerSlot: sport.nightSlotPrice } }
+        );
+      }
+    } else if (hourlyPrice !== undefined) {
+      await Slot.updateMany(
+        { sportId: sport._id, date: { $gte: today }, currentBookings: 0 },
+        { $set: { pricePerSlot: sport.hourlyPrice } }
+      );
+    }
 
     res.json({ success: true, sport: updatedSport });
   } catch (error) {
@@ -494,7 +520,7 @@ const findValidSlotBooking = async (userId, sportId) => {
     userId,
     sportId,
     status: { $in: ['confirmed', 'checked-in'] },
-  }).populate({ path: 'slotId', select: 'date' }).lean();
+  }).populate({ path: 'slotId', select: 'date' }).select('+isMembershipBooking +membershipId').lean();
 
   for (const b of bookings) {
     const slotDate = b.slotId?.date;
@@ -723,6 +749,31 @@ exports.entryCheckIn = async (req, res) => {
         throw new Error(`You already have an active session for ${sport.name}. Please check out first.`);
       }
 
+      // For all-services memberships: prevent re-check-in to the same sport on the same day
+      if (matchingMembership) {
+        const plan = matchingMembership.planId;
+        const planIsAllServices = plan && (
+          plan.isAllServices ||
+          (plan.sportsIncluded || []).some((k) => isAllServicesKey(k))
+        );
+        if (planIsAllServices) {
+          const startOfDay = new Date();
+          startOfDay.setHours(0, 0, 0, 0);
+          const endOfDay = new Date();
+          endOfDay.setHours(23, 59, 59, 999);
+          const alreadyUsedToday = await Attendance.findOne({
+            userId: req.user.userId,
+            sportId: sport._id,
+            relatedBookingId: matchingMembership._id,
+            createdAt: { $gte: startOfDay, $lte: endOfDay },
+            sessionStatus: { $in: ['Completed', 'Auto Closed', 'Overtime'] },
+          }, null, opts);
+          if (alreadyUsedToday) {
+            throw new Error(`You have already used your ${sport.name} session today.`);
+          }
+        }
+      }
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -734,8 +785,22 @@ exports.entryCheckIn = async (req, res) => {
       let currentSessionConfig = config;
       let entitlementType = entitlement.entitlementType;
 
-      // Slot-booking path: user has a booked slot in the current time window
-      if (validSlotBooking && (!validation.allowed || validation.entitlementSource === 'none')) {
+      // Membership-slot path: user booked a slot via membership — always takes priority over free-roam membership
+      if (validSlotBooking?.isMembershipBooking) {
+        allowedDurationMinutes = validSlotBooking.duration;
+        hourlyRateAtCheckIn = 0;
+        relatedBookingId = validSlotBooking._id;
+        relatedBookingType = 'membership-slot';
+        membershipPlanSnapshot = `${validSlotBooking.sportNameSnapshot || sport.name} Slot ${validSlotBooking.startTime}–${validSlotBooking.endTime} (Membership)`;
+        entitlementType = 'membership-slot';
+        currentSessionConfig = {
+          allowedDurationMinutes: validSlotBooking.duration,
+          overtimeThresholdMinutes: 0,
+          lateFeePerMinute: 0,
+          configVersionSnapshot: 1,
+        };
+      // Paid slot-booking path
+      } else if (validSlotBooking && (!validation.allowed || validation.entitlementSource === 'none')) {
         allowedDurationMinutes = validSlotBooking.duration;
         hourlyRateAtCheckIn = 0;
         relatedBookingId = validSlotBooking._id;
@@ -793,6 +858,15 @@ exports.entryCheckIn = async (req, res) => {
         }, opts);
       }
 
+      // Mark membership slot booking as checked-in
+      if (validSlotBooking?.isMembershipBooking) {
+        const SlotBooking = require('../models/SlotBooking');
+        await SlotBooking.findByIdAndUpdate(validSlotBooking._id, {
+          status: 'checked-in',
+          checkInTime: new Date(),
+        }, opts);
+      }
+
       sport.activeOccupancy = (sport.activeOccupancy || 0) + 1;
       await sport.save(opts);
 
@@ -808,7 +882,8 @@ exports.entryCheckIn = async (req, res) => {
 
     res.json({ success: true, message: 'Checked In Successfully', attendance: result });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    const status = error.message?.startsWith('You have already used') ? 409 : 500;
+    res.status(status).json({ success: false, message: error.message });
   } finally {
     checkInLocks.delete(lockKey);
   }
@@ -1408,5 +1483,109 @@ exports.deleteDiscount = async (req, res) => {
     res.json({ message: 'Discount deleted.' });
   } catch (error) {
     res.status(500).json({ message: 'Server error.' });
+  }
+};
+
+// ── POST/PUT /api/sports/:id/kids-academy ─────────────────────────────────────
+// Creates or updates Kids Academy MembershipPlans (one per duration tier) for a sport.
+// Body: { enabled, admissionFeeAmount, plans: [{ duration, price, active }] }
+exports.upsertKidsAcademy = async (req, res) => {
+  try {
+    const sport = await Sport.findById(req.params.id);
+    if (!sport) return res.status(404).json({ message: 'Sport not found.' });
+
+    const { enabled, admissionFeeAmount, plans } = req.body;
+
+    if (!enabled) {
+      await MembershipPlan.updateMany(
+        { sportsIncluded: sport.slug, isKidsAcademy: true },
+        { isActive: false }
+      );
+      return res.json({ message: 'Kids Academy disabled.' });
+    }
+
+    if (!plans || !plans.length) {
+      return res.status(400).json({ message: 'At least one duration plan is required.' });
+    }
+
+    const DURATION_META = {
+      '1 Month':   { durationValue: 1, durationUnit: 'months', durationDays: 30,  nameSuffix: 'Monthly' },
+      '3 Months':  { durationValue: 3, durationUnit: 'months', durationDays: 90,  nameSuffix: 'Quarterly' },
+      '6 Months':  { durationValue: 6, durationUnit: 'months', durationDays: 180, nameSuffix: 'Half-Yearly' },
+      '1 Year':    { durationValue: 1, durationUnit: 'years',  durationDays: 365, nameSuffix: 'Yearly' },
+    };
+
+    const savedPlans = [];
+    for (const tier of plans) {
+      const meta = DURATION_META[tier.duration];
+      if (!meta) continue;
+      if (!tier.price || Number(tier.price) <= 0) {
+        // Deactivate if price removed
+        await MembershipPlan.updateMany(
+          { sportsIncluded: sport.slug, isKidsAcademy: true, duration: tier.duration },
+          { isActive: false }
+        );
+        continue;
+      }
+      const planData = {
+        name: `${sport.name} Kids Academy ${meta.nameSuffix}`,
+        duration: tier.duration,
+        durationValue: meta.durationValue,
+        durationUnit: meta.durationUnit,
+        durationDays: meta.durationDays,
+        sportsIncluded: [sport.slug],
+        isKidsAcademy: true,
+        coachIncluded: true,
+        admissionFeeRequired: true,
+        admissionFeeAmount: Number(admissionFeeAmount) || 0,
+        price: Number(tier.price),
+        isActive: tier.active !== false,
+        features: ['Coach Included', 'Structured Training', 'Admission Fee Charged Once'],
+        autoSync: false,
+      };
+      let existing = await MembershipPlan.findOne({ sportsIncluded: sport.slug, isKidsAcademy: true, duration: tier.duration });
+      if (existing) {
+        Object.assign(existing, planData);
+        await existing.save();
+        savedPlans.push(existing);
+      } else {
+        savedPlans.push(await MembershipPlan.create({ ...planData, createdBy: req.user?.userId }));
+      }
+    }
+
+    res.json({ message: 'Kids Academy plans saved.', plans: savedPlans });
+  } catch (error) {
+    console.error('upsertKidsAcademy error:', error);
+    res.status(500).json({ message: 'Server error.', error: error.message });
+  }
+};
+
+// ── GET /api/sports/kids-academy ──────────────────────────────────────────────
+// Returns all Kids Academy MembershipPlans with populated sport reference.
+exports.listKidsAcademy = async (req, res) => {
+  try {
+    const plans = await MembershipPlan.find({ isKidsAcademy: true }).lean();
+    const slugs = [...new Set(plans.flatMap((p) => p.sportsIncluded || []))];
+    const sportDocs = await Sport.find({ slug: { $in: slugs } }).lean();
+    const slugMap = Object.fromEntries(sportDocs.map((s) => [s.slug, s]));
+    const withSport = plans.map((p) => ({ ...p, sport: slugMap[p.sportsIncluded?.[0]] || null }));
+    res.json(withSport);
+  } catch (error) {
+    console.error('listKidsAcademy error:', error);
+    res.status(500).json({ message: 'Server error.', error: error.message });
+  }
+};
+
+// ── DELETE /api/sports/:id/kids-academy ──────────────────────────────────────
+// Removes all Kids Academy MembershipPlans for a sport.
+exports.deleteKidsAcademy = async (req, res) => {
+  try {
+    const sport = await Sport.findById(req.params.id);
+    if (!sport) return res.status(404).json({ message: 'Sport not found' });
+    await MembershipPlan.deleteMany({ sportsIncluded: sport.slug, isKidsAcademy: true });
+    res.json({ message: 'Kids Academy programmes removed.' });
+  } catch (error) {
+    console.error('deleteKidsAcademy error:', error);
+    res.status(500).json({ message: 'Server error.', error: error.message });
   }
 };
